@@ -1,8 +1,8 @@
 <?php
 $host = 'localhost';
-$user = 'jewellerPro';
-$password = 'prc@1234';
-$database = 'moti_jewellers';
+$user = 'root';
+$password = '';
+$database = 'moti';
 
 
 
