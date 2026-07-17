@@ -20,7 +20,11 @@ $inv = mysqli_fetch_assoc($inv_res);
 // Fetch invoice items — using actual columns: invoice_id, product_id, quantity, price, total
 $items_res = mysqli_query($conn, "
     SELECT ii.invoice_id, ii.product_id, ii.quantity, ii.price, ii.total,
-           p.name AS product_name, p.serial_no, p.hsn_code
+           ii.making_charge, ii.hallmark, ii.discount,
+           COALESCE(ii.product_name, p.name) AS product_name,
+           COALESCE(ii.serial_no, p.serial_no) AS serial_no,
+           COALESCE(ii.huid_code, p.huid_code) AS huid_code,
+           ii.hsn_code AS hsn_code
     FROM invoice_items ii
     LEFT JOIN products p ON ii.product_id = p.id
     WHERE ii.invoice_id = " . intval($inv['id'])
@@ -30,8 +34,8 @@ if($items_res) {
     while($row = mysqli_fetch_assoc($items_res)) $items[] = $row;
 }
 
-$is_gst   = ($inv['gst_type'] === 'gst');
 $gst_total= floatval($inv['gst_amount'] ?? 0);
+$is_gst   = ($gst_total > 0);
 $cgst     = round($gst_total / 2, 2);
 $sgst     = round($gst_total / 2, 2);
 $subtotal = floatval($inv['subtotal'] ?? 0);
@@ -154,9 +158,9 @@ if(!$logo_found) echo '<div class="mj-circle">MJ</div>';
 
     <?php if($is_gst): ?>
     <div class="gst-strip">
-        <span>GST: <strong>Regular (3%)</strong></span>
-        <span>CGST: <strong>1.5%</strong></span>
-        <span>SGST: <strong>1.5%</strong></span>
+        <span>GST: <strong>Included</strong></span>
+        <span>CGST: <strong>₹<?php echo number_format($cgst, 2); ?></strong></span>
+        <span>SGST: <strong>₹<?php echo number_format($sgst, 2); ?></strong></span>
     </div>
     <?php endif; ?>
 
@@ -176,7 +180,10 @@ if(!$logo_found) echo '<div class="mj-circle">MJ</div>';
                 <strong>Invoice No:</strong> <?php echo htmlspecialchars($invoice_no); ?><br>
                 <strong>Date:</strong> <?php echo $date_fmt; ?><br>
                 <strong>Payment Mode:</strong> <?php echo ucfirst($inv['payment_mode'] ?? 'Cash'); ?><br>
-                <strong>Bill Type:</strong> <?php echo $is_gst ? '📄 GST (3%)' : '📋 Non-GST'; ?>
+                <strong>Bill Type:</strong> <?php echo $is_gst ? '📄 GST (3%)' : '📋 Non-GST'; ?><br>
+                <?php if(!empty($inv['huid_code'])): ?>
+                <strong>HUID Code:</strong> <?php echo htmlspecialchars($inv['huid_code']); ?><br>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -187,7 +194,6 @@ if(!$logo_found) echo '<div class="mj-circle">MJ</div>';
             <tr>
                 <th style="width:28px">#</th>
                 <th>Product</th>
-                <th>S.No</th>
                 <?php if($is_gst): ?><th>HSN</th><?php endif; ?>
                 <th class="r">Qty (gms)</th>
                 <th class="r">Rate (₹)</th>
@@ -196,10 +202,11 @@ if(!$logo_found) echo '<div class="mj-circle">MJ</div>';
         </thead>
         <tbody>
         <?php if(empty($items)): ?>
-            <tr><td colspan="7" style="text-align:center;padding:18px;color:#888;">No items found.</td></tr>
+            <tr><td colspan="<?php echo $is_gst ? 6 : 5; ?>" style="text-align:center;padding:18px;color:#888;">No items found.</td></tr>
         <?php else: foreach($items as $idx => $it):
             $name   = htmlspecialchars($it['product_name'] ?? 'Item');
             $serial = htmlspecialchars($it['serial_no'] ?? '—');
+            $huid_code = htmlspecialchars($it['huid_code'] ?? '');
             $hsn    = htmlspecialchars($it['hsn_code'] ?? '7113');
             $qty    = floatval($it['quantity']);
             $price  = floatval($it['price']);
@@ -207,8 +214,23 @@ if(!$logo_found) echo '<div class="mj-circle">MJ</div>';
         ?>
             <tr>
                 <td><?php echo $idx+1; ?></td>
-                <td><strong><?php echo $name; ?></strong></td>
-                <td style="font-size:10px;color:#777;"><?php echo $serial; ?></td>
+                <td>
+                    <strong><?php echo $name; ?></strong>
+                    <?php if(!empty($serial) && $serial !== '—'): ?>
+                    <br><span style="font-size:10px;color:#555;">Serial: <strong><?php echo $serial; ?></strong></span>
+                    <?php endif; ?>
+                    <?php if(!empty($huid_code)): ?>
+                    <br><strong style="font-size:10px;color:#111;">HUID: <?php echo $huid_code; ?></strong>
+                    <?php endif; ?>
+                    <?php 
+                    $mc = floatval($it['making_charge'] ?? 0);
+                    $hm = floatval($it['hallmark'] ?? 0);
+                    $disc = floatval($it['discount'] ?? 0);
+                    if($mc > 0 || $hm > 0 || $disc > 0): 
+                    ?>
+                    <br><span style="font-size:10px;color:#555;">(Making: ₹<?= $mc ?> | Hallmark: ₹<?= $hm ?> | Discount: ₹<?= $disc ?>)</span>
+                    <?php endif; ?>
+                </td>
                 <?php if($is_gst): ?><td><?php echo $hsn; ?></td><?php endif; ?>
                 <td class="r"><?php echo number_format($qty, 3); ?></td>
                 <td class="r">₹<?php echo number_format($price, 2); ?></td>
@@ -217,11 +239,11 @@ if(!$logo_found) echo '<div class="mj-circle">MJ</div>';
         <?php endforeach; endif; ?>
         </tbody>
         <tfoot>
-            <?php $colspan = $is_gst ? 5 : 4; ?>
+            <?php $colspan = $is_gst ? 4 : 3; ?>
             <tr><td colspan="<?php echo $colspan;?>"></td><td>Subtotal</td><td class="r">₹<?php echo number_format($subtotal,2);?></td></tr>
             <?php if($is_gst && $gst_total>0): ?>
-            <tr><td colspan="<?php echo $colspan;?>"></td><td>CGST (1.5%)</td><td class="r">₹<?php echo number_format($cgst,2);?></td></tr>
-            <tr><td colspan="<?php echo $colspan;?>"></td><td>SGST (1.5%)</td><td class="r">₹<?php echo number_format($sgst,2);?></td></tr>
+            <tr><td colspan="<?php echo $colspan;?>"></td><td>CGST</td><td class="r">₹<?php echo number_format($cgst,2);?></td></tr>
+            <tr><td colspan="<?php echo $colspan;?>"></td><td>SGST</td><td class="r">₹<?php echo number_format($sgst,2);?></td></tr>
             <?php endif; ?>
         </tfoot>
     </table>

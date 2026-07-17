@@ -7,6 +7,256 @@ if(!isset($_SESSION['user_id'])) {
     exit();
 }
 
+// Handle remove data action
+$reset_success = '';
+$reset_error = '';
+if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_delete_invoice'])) {
+    $invoice_no = mysqli_real_escape_string($conn, trim($_POST['invoice_no'] ?? ''));
+    if (empty($invoice_no)) {
+        $reset_error = "Error: Invoice number is missing.";
+    } else {
+        mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 0");
+        $success = false;
+        
+        $chk = mysqli_query($conn, "SELECT id FROM invoices WHERE invoice_no = '$invoice_no'");
+        if ($chk && mysqli_num_rows($chk) > 0) {
+            $invoice = mysqli_fetch_assoc($chk);
+            $invoice_id = $invoice['id'];
+            
+            // Restore product quantities
+            $items_res = mysqli_query($conn, "SELECT product_id, quantity FROM invoice_items WHERE invoice_id = $invoice_id");
+            if ($items_res) {
+                while ($item = mysqli_fetch_assoc($items_res)) {
+                    if (!empty($item['product_id']) && floatval($item['quantity']) > 0) {
+                        mysqli_query($conn, "UPDATE products SET quantity = quantity + " . floatval($item['quantity']) . " WHERE id = " . intval($item['product_id']));
+                    }
+                }
+            }
+            
+            // Delete invoice
+            $q = mysqli_query($conn, "DELETE FROM invoices WHERE id = $invoice_id");
+            if ($q) {
+                $success = true;
+                $reset_success = "Invoice #$invoice_no has been successfully deleted and product stock restored.";
+            } else {
+                $reset_error = "Error deleting invoice: " . mysqli_error($conn);
+            }
+        } else {
+            $reset_error = "Error: Invoice #$invoice_no not found.";
+        }
+        
+        mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 1");
+        
+        if ($success) {
+            header("Location: reports.php?reset_msg=" . urlencode($reset_success));
+            exit();
+        }
+    }
+}
+
+if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_reset_report'])) {
+    $target = $_POST['reset_target'] ?? '';
+    $confirm_text = strtoupper(trim($_POST['confirm_delete_text'] ?? ''));
+    
+    if ($confirm_text !== 'DELETE') {
+        $reset_error = "Error: Please type 'DELETE' to confirm.";
+    } else {
+        mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 0");
+        $success = false;
+        
+        switch($target) {
+            case 'invoices':
+                $q1 = mysqli_query($conn, "TRUNCATE TABLE invoice_items");
+                $q2 = mysqli_query($conn, "TRUNCATE TABLE invoices");
+                if ($q1 && $q2) {
+                    $success = true;
+                    $reset_success = "All Invoices and Billing data have been successfully deleted.";
+                } else {
+                    $reset_error = "Error deleting invoices: " . mysqli_error($conn);
+                }
+                break;
+            case 'specific_invoice':
+                $spec_id = mysqli_real_escape_string($conn, trim($_POST['specific_identifier'] ?? ''));
+                if (empty($spec_id)) {
+                    $reset_error = "Error: Please specify the Invoice Number.";
+                } else {
+                    $chk = mysqli_query($conn, "SELECT id FROM invoices WHERE invoice_no = '$spec_id'");
+                    if ($chk && mysqli_num_rows($chk) > 0) {
+                        $invoice = mysqli_fetch_assoc($chk);
+                        $invoice_id = $invoice['id'];
+                        
+                        // Restore product quantities
+                        $items_res = mysqli_query($conn, "SELECT product_id, quantity FROM invoice_items WHERE invoice_id = $invoice_id");
+                        if ($items_res) {
+                            while ($item = mysqli_fetch_assoc($items_res)) {
+                                if (!empty($item['product_id']) && floatval($item['quantity']) > 0) {
+                                    mysqli_query($conn, "UPDATE products SET quantity = quantity + " . floatval($item['quantity']) . " WHERE id = " . intval($item['product_id']));
+                                }
+                            }
+                        }
+                        
+                        // Delete invoice
+                        $q2 = mysqli_query($conn, "DELETE FROM invoices WHERE id = $invoice_id");
+                        if ($q2) {
+                            $success = true;
+                            $reset_success = "Invoice #$spec_id has been successfully deleted and product stock restored.";
+                        } else {
+                            $reset_error = "Error deleting invoice: " . mysqli_error($conn);
+                        }
+                    } else {
+                        $reset_error = "Error: Invoice #$spec_id not found.";
+                    }
+                }
+                break;
+            case 'stock':
+                $q = mysqli_query($conn, "TRUNCATE TABLE products");
+                if ($q) {
+                    $success = true;
+                    $reset_success = "All Products/Stock data have been successfully deleted.";
+                } else {
+                    $reset_error = "Error deleting products: " . mysqli_error($conn);
+                }
+                break;
+            case 'specific_stock':
+                $spec_id = mysqli_real_escape_string($conn, trim($_POST['specific_identifier'] ?? ''));
+                if (empty($spec_id)) {
+                    $reset_error = "Error: Please specify the Product Serial Number, Name, or ID.";
+                } else {
+                    $chk = mysqli_query($conn, "SELECT id, name FROM products WHERE serial_no = '$spec_id' OR name = '$spec_id' OR id = '$spec_id'");
+                    if ($chk && mysqli_num_rows($chk) > 0) {
+                        $product = mysqli_fetch_assoc($chk);
+                        $p_id = $product['id'];
+                        $p_name = $product['name'];
+                        
+                        $q = mysqli_query($conn, "DELETE FROM products WHERE id = $p_id");
+                        if ($q) {
+                            $success = true;
+                            $reset_success = "Product '$p_name' has been successfully deleted.";
+                        } else {
+                            $reset_error = "Error deleting product: " . mysqli_error($conn);
+                        }
+                    } else {
+                        $reset_error = "Error: Product matching '$spec_id' not found.";
+                    }
+                }
+                break;
+            case 'customers':
+                $q = mysqli_query($conn, "TRUNCATE TABLE customers");
+                if ($q) {
+                    $success = true;
+                    $reset_success = "All Customer profiles have been successfully deleted.";
+                } else {
+                    $reset_error = "Error deleting customers: " . mysqli_error($conn);
+                }
+                break;
+            case 'specific_customer':
+                $spec_id = mysqli_real_escape_string($conn, trim($_POST['specific_identifier'] ?? ''));
+                if (empty($spec_id)) {
+                    $reset_error = "Error: Please specify the Customer Mobile Number, Name, or ID.";
+                } else {
+                    $chk = mysqli_query($conn, "SELECT id, name, mobile FROM customers WHERE mobile = '$spec_id' OR name = '$spec_id' OR id = '$spec_id'");
+                    if ($chk && mysqli_num_rows($chk) > 0) {
+                        $customer = mysqli_fetch_assoc($chk);
+                        $c_id = $customer['id'];
+                        $c_name = $customer['name'];
+                        $c_mobile = $customer['mobile'];
+                        
+                        $q = mysqli_query($conn, "DELETE FROM customers WHERE id = $c_id");
+                        if ($q) {
+                            $success = true;
+                            $reset_success = "Customer '$c_name' ($c_mobile) has been successfully deleted.";
+                        } else {
+                            $reset_error = "Error deleting customer: " . mysqli_error($conn);
+                        }
+                    } else {
+                        $reset_error = "Error: Customer matching '$spec_id' not found.";
+                    }
+                }
+                break;
+            case 'purchases':
+                $q1 = mysqli_query($conn, "TRUNCATE TABLE purchase_entries");
+                $q2 = mysqli_query($conn, "UPDATE stock_metal SET qty_available = 0");
+                if ($q1 && $q2) {
+                    $success = true;
+                    $reset_success = "All Purchase Entries have been successfully deleted and metal stock reset to 0.";
+                } else {
+                    $reset_error = "Error deleting purchases: " . mysqli_error($conn);
+                }
+                break;
+            case 'specific_purchase':
+                $spec_id = mysqli_real_escape_string($conn, trim($_POST['specific_identifier'] ?? ''));
+                if (empty($spec_id)) {
+                    $reset_error = "Error: Please specify the Purchase No or ID.";
+                } else {
+                    $chk = mysqli_query($conn, "SELECT id, purchase_no, material_type, qty FROM purchase_entries WHERE purchase_no = '$spec_id' OR id = '$spec_id'");
+                    if ($chk && mysqli_num_rows($chk) > 0) {
+                        $purchase = mysqli_fetch_assoc($chk);
+                        $p_id = $purchase['id'];
+                        $p_no = $purchase['purchase_no'];
+                        $mat = $purchase['material_type'];
+                        $qty = floatval($purchase['qty']);
+                        
+                        // Deduct stock from stock_metal
+                        mysqli_query($conn, "UPDATE stock_metal SET qty_available = qty_available - $qty WHERE material_type = '$mat'");
+                        
+                        $q = mysqli_query($conn, "DELETE FROM purchase_entries WHERE id = $p_id");
+                        if ($q) {
+                            $success = true;
+                            $reset_success = "Purchase Entry '$p_no' has been successfully deleted, and stock adjusted.";
+                        } else {
+                            $reset_error = "Error deleting purchase entry: " . mysqli_error($conn);
+                        }
+                    } else {
+                        $reset_error = "Error: Purchase Entry matching '$spec_id' not found.";
+                    }
+                }
+                break;
+            case 'sanchay':
+                $q1 = mysqli_query($conn, "TRUNCATE TABLE sanchari_payments");
+                $q2 = mysqli_query($conn, "TRUNCATE TABLE sanchari_redemptions");
+                $q3 = mysqli_query($conn, "TRUNCATE TABLE sanchari_customers");
+                if ($q1 && $q2 && $q3) {
+                    $success = true;
+                    $reset_success = "All Sanchay Book (scheme, payments, redemptions) data have been successfully deleted.";
+                } else {
+                    $reset_error = "Error deleting Sanchay Book data: " . mysqli_error($conn);
+                }
+                break;
+            case 'income_expense':
+                $chk1 = mysqli_query($conn, "SHOW TABLES LIKE 'income'");
+                $chk2 = mysqli_query($conn, "SHOW TABLES LIKE 'expenses'");
+                $q1 = true; $q2 = true;
+                if ($chk1 && mysqli_num_rows($chk1) > 0) {
+                    $q1 = mysqli_query($conn, "TRUNCATE TABLE income");
+                }
+                if ($chk2 && mysqli_num_rows($chk2) > 0) {
+                    $q2 = mysqli_query($conn, "TRUNCATE TABLE expenses");
+                }
+                if ($q1 && $q2) {
+                    $success = true;
+                    $reset_success = "All Income and Expense records have been successfully deleted.";
+                } else {
+                    $reset_error = "Error deleting income/expenses: " . mysqli_error($conn);
+                }
+                break;
+            default:
+                $reset_error = "Error: Invalid selection.";
+        }
+        mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 1");
+        
+        // If successful, reload to refresh stats/reports
+        if ($success) {
+            header("Location: reports.php?reset_msg=" . urlencode($reset_success));
+            exit();
+        }
+    }
+}
+
+// Check for redirection message
+if (isset($_GET['reset_msg'])) {
+    $reset_success = $_GET['reset_msg'];
+}
+
 // Get daily sales for last 7 days
 $daily_sales = [];
 for($i = 6; $i >= 0; $i--) {
@@ -110,10 +360,10 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
             display: flex; flex-direction: column;
             box-shadow: 4px 0 24px rgba(0,0,0,0.25);
             transition: transform 0.35s cubic-bezier(.4,0,.2,1);
-            overflow-y: auto; overflow-x: hidden;
+            overflow: hidden;
         }
-        .sidebar::-webkit-scrollbar { width: 4px; }
-        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        .sidebar-nav::-webkit-scrollbar { width: 4px; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
 
         .sidebar-logo {
             padding: 22px 18px 16px;
@@ -124,8 +374,8 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         .sidebar-logo-text h2 { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; font-family: 'Playfair Display', serif; letter-spacing: 0.5px; }
         .sidebar-logo-text p  { color: rgba(255,255,255,0.65); font-size: 10px; margin-top: 1px; }
 
-        .sidebar-nav { flex: 1; padding: 10px 0; }
-        .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+        .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; overflow-x: hidden; }
+        .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; position: sticky; top: 0; background: rgba(122, 78, 10, 0.95); z-index: 10; }
 
         .sidebar-nav a {
             display: flex; align-items: center; gap: 12px;
@@ -325,12 +575,24 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
     }
 
     window.addEventListener('load', function() {
-        createJewelSparkles();
-        setTimeout(typeEffect, 600);
-        setTimeout(function() {
+        const isReload = performance.getEntriesByType("navigation")[0]?.type === "reload";
+        const hasVisited = sessionStorage.getItem('visited');
+
+        if (!hasVisited || isReload) {
+            sessionStorage.setItem('visited', 'true');
+            createJewelSparkles();
+            setTimeout(typeEffect, 600);
+            setTimeout(function() {
+                const ov = document.getElementById('loadingOverlay');
+                if(ov) { ov.style.opacity = '0'; ov.style.visibility = 'hidden'; setTimeout(()=>ov.style.display='none', 500); }
+            }, 2000);
+        } else {
             const ov = document.getElementById('loadingOverlay');
-            if(ov) { ov.style.opacity = '0'; ov.style.visibility = 'hidden'; setTimeout(()=>ov.style.display='none', 500); }
-        }, 2000);
+            if(ov) { ov.style.display = 'none'; }
+            // Animate the content wrapper, NOT body (body transform breaks position:fixed sidebar)
+            const pw = document.querySelector('.page-wrapper');
+            if(pw) { pw.style.animation = 'slideInFromRightGlobal 0.3s ease-out forwards'; }
+        }
     });
 </script>
 
@@ -462,6 +724,18 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
     </div>
 
     <div class="container mx-auto px-4 sm:px-6 py-6">
+
+        <!-- Reset Status Banner -->
+        <?php if($reset_success): ?>
+            <div class="mb-6 p-4 rounded-xl text-sm font-semibold" style="background:#d1fae5; border:1px solid #6ee7b7; color:#065f46;">
+                <i class="fas fa-check-circle mr-2"></i> <?php echo htmlspecialchars($reset_success); ?>
+            </div>
+        <?php endif; ?>
+        <?php if($reset_error): ?>
+            <div class="mb-6 p-4 rounded-xl text-sm font-semibold" style="background:#fee2e2; border:1px solid #fca5a5; color:#7f1d1d;">
+                <i class="fas fa-exclamation-circle mr-2"></i> <?php echo htmlspecialchars($reset_error); ?>
+            </div>
+        <?php endif; ?>
 
         <!-- ── CHARTS ROW ── -->
         <div class="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -848,10 +1122,16 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
                         <td class="text-center"><?php echo $status_badge; ?></td>
                         <td class="text-center text-xs" style="color:#6b7280;white-space:nowrap;"><?php echo date('d M Y', strtotime($bill['created_at'])); ?></td>
                         <td class="text-center">
-                            <a href="view_pdf.php?invoice_no=<?php echo urlencode($bill['invoice_no']); ?>" target="_blank"
-                               class="btn-jewel" style="padding:3px 10px;font-size:10px;border-radius:20px;">
-                               🖨️ Print
-                            </a>
+                            <div class="flex justify-center gap-1.5">
+                                <a href="view_pdf.php?invoice_no=<?php echo urlencode($bill['invoice_no']); ?>" target="_blank"
+                                   class="btn-jewel" style="padding:3px 10px;font-size:10px;border-radius:20px;white-space:nowrap;">
+                                   🖨️ Print
+                                </a>
+                                <button onclick="confirmDeleteInvoice('<?php echo htmlspecialchars($bill['invoice_no']); ?>')"
+                                        class="btn-jewel" style="background:linear-gradient(135deg,#7f1d1d,#ef4444);padding:3px 10px;font-size:10px;border-radius:20px;white-space:nowrap;">
+                                   🗑️ Delete
+                                </button>
+                            </div>
                         </td>
                     </tr>
                     <?php endforeach; endif; ?>
@@ -859,6 +1139,8 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
                 </table>
             </div>
         </div>
+
+
     </div>
 
     <footer>
@@ -947,35 +1229,38 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
     /* ── Chart ── */
     const labels    = <?php echo json_encode(array_column($daily_sales,'date')); ?>;
     const salesData = <?php echo json_encode(array_column($daily_sales,'total')); ?>;
-    new Chart(document.getElementById('salesChart').getContext('2d'), {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [{
-                label: 'Sales (₹)', data: salesData,
-                borderColor: '#d68b16', backgroundColor: 'rgba(214,139,22,0.1)',
-                borderWidth: 3, tension: 0.4, fill: true,
-                pointRadius: 5, pointHoverRadius: 8,
-                pointBackgroundColor: '#d68b16', pointBorderColor: '#800020',
-                pointBorderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: true,
-            plugins: {
-                legend: { labels: { font: { size: 12, weight: 'bold' }, color: '#800020' } },
-                tooltip: { backgroundColor: '#fdf6e3', titleColor: '#800020', bodyColor: '#7a4e0a', borderColor: '#d68b16', borderWidth: 1,
-                    callbacks: { label: ctx => '💰 ₹ ' + ctx.raw.toLocaleString('en-IN') }
-                }
+    const chartEl = document.getElementById('salesChart');
+    if (chartEl) {
+        new Chart(chartEl.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Sales (₹)', data: salesData,
+                    borderColor: '#d68b16', backgroundColor: 'rgba(214,139,22,0.1)',
+                    borderWidth: 3, tension: 0.4, fill: true,
+                    pointRadius: 5, pointHoverRadius: 8,
+                    pointBackgroundColor: '#d68b16', pointBorderColor: '#800020',
+                    pointBorderWidth: 2
+                }]
             },
-            scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(181,115,14,0.1)' },
-                    ticks: { callback: v => '₹' + v.toLocaleString('en-IN'), color:'#7a4e0a', font:{size:11} } },
-                x: { grid: { color: 'rgba(181,115,14,0.1)' },
-                    ticks: { color:'#7a4e0a', font:{size:11} } }
+            options: {
+                responsive: true, maintainAspectRatio: true,
+                plugins: {
+                    legend: { labels: { font: { size: 12, weight: 'bold' }, color: '#800020' } },
+                    tooltip: { backgroundColor: '#fdf6e3', titleColor: '#800020', bodyColor: '#7a4e0a', borderColor: '#d68b16', borderWidth: 1,
+                        callbacks: { label: ctx => '💰 ₹ ' + ctx.raw.toLocaleString('en-IN') }
+                    }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(181,115,14,0.1)' },
+                        ticks: { callback: v => '₹' + v.toLocaleString('en-IN'), color:'#7a4e0a', font:{size:11} } },
+                    x: { grid: { color: 'rgba(181,115,14,0.1)' },
+                        ticks: { color:'#7a4e0a', font:{size:11} } }
+                }
             }
-        }
-    });
+        });
+    }
 
     /* ── Excel Export ── */
     const billsData = <?php echo json_encode($bills_rows); ?>;
@@ -1071,6 +1356,31 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         XLSX.utils.book_append_sheet(wb, ws3, 'Pending Payments');
 
         XLSX.writeFile(wb, `MotiJewellers_Report_${todayFile}.xlsx`);
+    }
+
+    function confirmDeleteInvoice(invoiceNo) {
+        if (confirm("⚠️ WARNING: Are you sure you want to delete Invoice #" + invoiceNo + "?\nThis will restore the product stock quantities.")) {
+            if (confirm("🚨 FINAL WARNING: This action is permanent and CANNOT be undone. Proceed with deleting Invoice #" + invoiceNo + "?")) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = 'reports.php';
+                
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action_delete_invoice';
+                actionInput.value = '1';
+                form.appendChild(actionInput);
+                
+                const invoiceInput = document.createElement('input');
+                invoiceInput.type = 'hidden';
+                invoiceInput.name = 'invoice_no';
+                invoiceInput.value = invoiceNo;
+                form.appendChild(invoiceInput);
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
     }
 </script>
 </body>

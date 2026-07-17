@@ -222,14 +222,14 @@ $unit_defaults = ['Gold'=>'gm','Silver'=>'gm','Diamond'=>'ct','Platinum'=>'gm'];
 h1,h2,h3,.gold-font{font-family:'Playfair Display',serif;}
 
 /* ── Sidebar (same as all pages) ── */
-.sidebar{position:fixed;top:0;left:0;width:240px;height:100vh;background:linear-gradient(180deg,#7a4e0a 0%,#b5730e 40%,#d68b16 100%);z-index:1000;display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,0.25);transition:transform .35s cubic-bezier(.4,0,.2,1);overflow-y:auto;overflow-x:hidden;}
-.sidebar::-webkit-scrollbar{width:4px;}.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:4px;}
+.sidebar{position:fixed;top:0;left:0;width:240px;height:100vh;background:linear-gradient(180deg,#7a4e0a 0%,#b5730e 40%,#d68b16 100%);z-index:1000;display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,0.25);transition:transform .35s cubic-bezier(.4,0,.2,1);overflow:hidden;}
+.sidebar-nav::-webkit-scrollbar{width:4px;}.sidebar-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.2);border-radius:4px;}
 .sidebar-logo{padding:22px 18px 16px;border-bottom:1px solid rgba(255,255,255,0.18);display:flex;align-items:center;gap:12px;flex-shrink:0;}
 .sidebar-logo img{width:44px;height:44px;object-fit:contain;border-radius:50%;background:rgba(255,255,255,0.1);padding:3px;flex-shrink:0;}
 .sidebar-logo-text h2{color:#fff;font-size:13px;font-weight:700;font-family:'Playfair Display',serif;letter-spacing:.5px;}
 .sidebar-logo-text p{color:rgba(255,255,255,0.65);font-size:10px;margin-top:1px;}
-.sidebar-nav{flex:1;padding:10px 0;}
-.sidebar-section-label{padding:10px 20px 4px;color:rgba(255,255,255,0.45);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+.sidebar-nav{flex:1;padding:10px 0;overflow-y:auto;overflow-x:hidden;}
+.sidebar-section-label{padding:10px 20px 4px;color:rgba(255,255,255,0.45);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;position:sticky;top:0;background:rgba(122,78,10,0.95);z-index:10;}
 .sidebar-nav a{display:flex;align-items:center;gap:12px;padding:11px 20px;color:rgba(255,255,255,0.85);text-decoration:none;font-size:13px;font-weight:500;transition:all .2s;border-left:3px solid transparent;position:relative;}
 .sidebar-nav a:hover{background:rgba(255,255,255,0.13);color:#fff;border-left-color:rgba(255,255,255,0.8);padding-left:26px;}
 .sidebar-nav a.active{background:rgba(255,255,255,0.22);color:#fff;border-left-color:#fff;font-weight:700;}

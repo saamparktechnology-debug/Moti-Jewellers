@@ -243,7 +243,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
 
 // Fetch products from DB
 $all_products = [];
-$products_result = mysqli_query($conn, "SELECT id, name, item_name, serial_no, category, price, quantity FROM products ORDER BY category, item_name, name");
+$products_result = mysqli_query($conn, "SELECT id, name, item_name, serial_no, category, price, quantity, huid_code FROM products ORDER BY category, item_name, name");
 if($products_result) {
     while($p = mysqli_fetch_assoc($products_result)) {
         $all_products[] = $p;
@@ -339,7 +339,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
     $customer_mobile  = mysqli_real_escape_string($conn, $_POST['customer_mobile']);
     $customer_address = mysqli_real_escape_string($conn, $_POST['customer_address'] ?? '');
     $customer_email   = mysqli_real_escape_string($conn, $_POST['customer_email'] ?? '');
-    $gst_type         = mysqli_real_escape_string($conn, $_POST['gst_type']);
+    $gst_type         = mysqli_real_escape_string($conn, $_POST['gst_type'] ?? 'mixed');
     $subtotal         = floatval($_POST['subtotal']);
     $making_charge    = floatval($_POST['making_charge'] ?? 0);
     $hallmark         = floatval($_POST['hallmark'] ?? 0);
@@ -373,20 +373,11 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
     }
 
     $making_charge_amount = $making_charge;
-    if ($gst_type === 'gst_3') {
-        $cgst_rate = 1.5;
-        $sgst_rate = 1.5;
-    } elseif ($gst_type === 'gst_18') {
-        $cgst_rate = 9;
-        $sgst_rate = 9;
-    } else {
-        $cgst_rate = 0;
-        $sgst_rate = 0;
-    }
-    $cgst_amount = ($subtotal * $cgst_rate) / 100;
-    $sgst_amount = ($subtotal * $sgst_rate) / 100;
-    $gst_amount  = $cgst_amount + $sgst_amount;
-    $subtotal_before_tax = $subtotal + $making_charge_amount + $hallmark + $pola - $discount;
+    $gst_amount = floatval($_POST['gst_amount'] ?? 0);
+    
+    // The $subtotal from JS already includes all per-item making charges, hallmarks, and discounts.
+    // So we don't add them again here.
+    $subtotal_before_tax = $subtotal + $pola;
     $total_before_round  = $subtotal_before_tax + $gst_amount;
     $total_amount  = round($total_before_round);
     $round_off     = $total_amount - $total_before_round;
@@ -411,6 +402,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         $invoice_no = 'INV-' . date('Ymd') . '-' . rand(1000, 9999);
     }
     $customer_gstin = mysqli_real_escape_string($conn, $_POST['customer_gstin'] ?? '');
+    $huid_code = mysqli_real_escape_string($conn, trim($_POST['huid_code'] ?? ''));
     $created_by = $_SESSION['user_id'];
 
     $chk1 = mysqli_query($conn, "SHOW COLUMNS FROM invoices LIKE 'paid_amount'");
@@ -431,8 +423,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         $balance_amount = 0;
     }
 
-    $invoice_query = "INSERT INTO invoices (invoice_no, customer_name, customer_mobile, customer_address, customer_gstin, gst_type, subtotal, gst_amount, total_amount, payment_status, payment_method, paid_amount, balance_amount, cash_paid, upi_paid, account_paid, due_date, created_by)
-              VALUES ('$invoice_no', '$customer_name', '$customer_mobile', '$customer_address', '$customer_gstin', '$gst_type', $subtotal, $gst_amount, $total_amount, '$payment_status', '$payment_method', $paid_amount, $balance_amount, $cash_paid, $upi_paid, $account_paid, $due_date, $created_by)";
+    $invoice_query = "INSERT INTO invoices (invoice_no, customer_name, customer_mobile, customer_address, customer_gstin, gst_type, subtotal, gst_amount, total_amount, payment_status, payment_method, paid_amount, balance_amount, cash_paid, upi_paid, account_paid, due_date, created_by, huid_code)
+              VALUES ('$invoice_no', '$customer_name', '$customer_mobile', '$customer_address', '$customer_gstin', '$gst_type', $subtotal, $gst_amount, $total_amount, '$payment_status', '$payment_method', $paid_amount, $balance_amount, $cash_paid, $upi_paid, $account_paid, $due_date, $created_by, '$huid_code')";
     if(mysqli_query($conn, $invoice_query)) {
         $invoice_id = mysqli_insert_id($conn);
         $items = json_decode($_POST['items'], true);
@@ -440,6 +432,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         if(!$col_prod_name) mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN product_name VARCHAR(200) NULL");
         $col_serial = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'serial_no'")) > 0;
         if(!$col_serial) mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN serial_no VARCHAR(100) NULL");
+        $col_huid = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'huid_code'")) > 0;
+        if(!$col_huid) mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN huid_code VARCHAR(100) NULL");
         $col_hsn = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'hsn_code'")) > 0;
         if(!$col_hsn) mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN hsn_code VARCHAR(50) NULL");
         $col_qty_decimal = false;
@@ -469,16 +463,17 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
                 $item_discount      = floatval($item['discount'] ?? 0);
                 $manual_name = mysqli_real_escape_string($conn, trim($item['name'] ?? $item['product'] ?? ''));
                 $manual_serial = mysqli_real_escape_string($conn, trim($item['serial'] ?? $item['serial_no'] ?? ''));
+                $manual_huid = mysqli_real_escape_string($conn, trim($item['huid_code'] ?? $item['huid'] ?? ''));
                 $manual_hsn = mysqli_real_escape_string($conn, trim($item['hsn'] ?? $item['hsn_code'] ?? ''));
 
                 if($product_id === 'other' || !is_numeric($product_id)) {
-                    $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, hsn_code, quantity, price, total, making_charge, hallmark, discount) VALUES ($invoice_id, NULL, '".$manual_name."', '".$manual_serial."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_hallmark, $item_discount)";
+                    $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, hallmark, discount) VALUES ($invoice_id, NULL, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_hallmark, $item_discount)";
                     mysqli_query($conn, $item_query);
                     continue;
                 }
                 $pid = intval($product_id);
-                $item_query = "INSERT INTO invoice_items (invoice_id, product_id, quantity, price, total, making_charge, hallmark, discount)
-                               VALUES ($invoice_id, $pid, $quantity, $price, $total, $item_making_charge, $item_hallmark, $item_discount)";
+                $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, hallmark, discount)
+                               VALUES ($invoice_id, $pid, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_hallmark, $item_discount)";
                 mysqli_query($conn, $item_query);
                 mysqli_query($conn, "UPDATE products SET quantity = quantity - $quantity WHERE id = $pid");
             }
@@ -500,10 +495,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         $last_items            = is_array($items) ? $items : [];
         $last_subtotal         = $subtotal;
         $last_gst_amount       = $gst_amount;
-        $last_cgst_amount      = $cgst_amount;
-        $last_sgst_amount      = $sgst_amount;
-        $last_cgst_rate        = $cgst_rate;
-        $last_sgst_rate        = $sgst_rate;
+        $last_cgst_amount      = $gst_amount / 2;
+        $last_sgst_amount      = $gst_amount / 2;
+        $last_cgst_rate        = 0;
+        $last_sgst_rate        = 0;
         $last_round_off        = $round_off;
         $last_total            = $total_amount;
         $last_total_quantity   = $total_qty;
@@ -541,10 +536,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
             z-index: 1000; display: flex; flex-direction: column;
             box-shadow: 4px 0 24px rgba(0,0,0,0.25);
             transition: transform 0.35s cubic-bezier(.4,0,.2,1);
-            overflow-y: auto; overflow-x: hidden;
+            overflow: hidden;
         }
-        .sidebar::-webkit-scrollbar { width: 4px; }
-        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        .sidebar-nav::-webkit-scrollbar { width: 4px; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
         .sidebar-logo {
             padding: 22px 18px 16px; border-bottom: 1px solid rgba(255,255,255,0.18);
             display: flex; align-items: center; gap: 12px; flex-shrink: 0;
@@ -552,8 +547,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         .sidebar-logo img { width: 44px; height: 44px; object-fit: contain; border-radius: 50%; background: rgba(255,255,255,0.1); padding: 3px; }
         .sidebar-logo-text h2 { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; font-family: 'Playfair Display', serif; }
         .sidebar-logo-text p { color: rgba(255,255,255,0.65); font-size: 10px; margin-top: 1px; }
-        .sidebar-nav { flex: 1; padding: 10px 0; }
-        .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+        .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; overflow-x: hidden; }
+        .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; position: sticky; top: 0; background: rgba(122, 78, 10, 0.95); z-index: 10; }
         .sidebar-nav a { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13px; font-weight: 500; transition: all 0.2s ease; border-left: 3px solid transparent; position: relative; }
         .sidebar-nav a:hover { background: rgba(255,255,255,0.13); color: #fff; border-left-color: rgba(255,255,255,0.8); padding-left: 26px; }
         .sidebar-nav a.active { background: rgba(255,255,255,0.22); color: #fff; border-left-color: #fff; font-weight: 700; }
@@ -699,11 +694,23 @@ function createJewelSparkles() {
     }
 }
 window.addEventListener('load', function() {
-    createJewelSparkles();
-    setTimeout(function() {
+    const isReload = performance.getEntriesByType("navigation")[0]?.type === "reload";
+    const hasVisited = sessionStorage.getItem('visited');
+
+    if (!hasVisited || isReload) {
+        sessionStorage.setItem('visited', 'true');
+        createJewelSparkles();
+        setTimeout(function() {
+            const ov = document.getElementById('loadingOverlay');
+            if(ov) { ov.style.opacity = '0'; ov.style.visibility = 'hidden'; setTimeout(()=>ov.style.display='none', 500); }
+        }, 1800);
+    } else {
         const ov = document.getElementById('loadingOverlay');
-        if(ov) { ov.style.opacity = '0'; ov.style.visibility = 'hidden'; setTimeout(()=>ov.style.display='none', 500); }
-    }, 1800);
+        if(ov) { ov.style.display = 'none'; }
+        // Animate the content wrapper, NOT body (body transform breaks position:fixed sidebar)
+        const pw = document.querySelector('.page-wrapper');
+        if(pw) { pw.style.animation = 'slideInFromRightGlobal 0.3s ease-out forwards'; }
+    }
 });
 </script>
 
@@ -1242,36 +1249,40 @@ function submitPayment() {
                             </div>
                             <div id="serialSearchResult" class="mb-2 hidden p-2 rounded-lg text-xs"
                                 style="background:rgba(214,139,22,0.08);border:1px solid rgba(214,139,22,0.2);"></div>
-                            <div class="flex flex-col sm:flex-row gap-2 mb-2">
-                                <select id="productSelect" class="jewel-input flex-1 rounded-lg px-3 py-2 text-sm"
-                                    onchange="onProductSelectChange()" size="1">
-                                    <option value="">-- Select Product --</option>
-                                    <?php if(count($all_products) > 0): ?>
-                                        <?php foreach($all_products as $p): ?>
-                                        <option value="<?php echo $p['id']; ?>"
-                                            data-price="<?php echo $p['price']; ?>"
-                                            data-name="<?php echo htmlspecialchars($p['name']); ?>"
-                                            data-serial="<?php echo htmlspecialchars($p['serial_no']); ?>"
-                                            data-category="<?php echo htmlspecialchars($p['category']); ?>"
-                                            data-item-name="<?php echo htmlspecialchars($p['item_name'] ?: $p['name']); ?>"
-                                            data-qty="<?php echo $p['quantity']; ?>">
-                                            <?php
-                                            $display = $p['item_name'] ? $p['item_name'] . ' (' . $p['name'] . ')' : $p['name'];
-                                            $display .= ' | SN:' . $p['serial_no'];
-                                            $display .= ' | &#8377;' . number_format($p['price'], 2);
-                                            $display .= ' | Stock:' . $p['quantity'];
-                                            echo htmlspecialchars($display);
-                                            ?>
-                                        </option>
-                                        <?php endforeach; ?>
-                                    <?php else: ?>
-                                        <option value="" disabled>No products in stock — use Manual Entry tab</option>
-                                    <?php endif; ?>
-                                </select>
-                                <input type="number" id="stockQty" placeholder="GMS/Qty" step="0.001" min="0.001"
-                                    class="jewel-input w-28 rounded-lg px-3 py-2 text-sm">
-                                <button type="button" onclick="addStockItem()"
-                                    class="btn-gold px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap">&#10133; Add</button>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                <div>
+                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Select Product</label>
+                                    <select id="productSelect" class="jewel-input w-full rounded-lg px-3 py-2 text-sm"
+                                        onchange="onProductSelectChange()" size="1">
+                                        <option value="">-- Select Product --</option>
+                                        <?php if(count($all_products) > 0): ?>
+                                            <?php foreach($all_products as $p): ?>
+                                            <option value="<?php echo $p['id']; ?>"
+                                                data-price="<?php echo $p['price']; ?>"
+                                                data-name="<?php echo htmlspecialchars($p['name']); ?>"
+                                                data-serial="<?php echo htmlspecialchars($p['serial_no']); ?>"
+                                                data-category="<?php echo htmlspecialchars($p['category']); ?>"
+                                                data-item-name="<?php echo htmlspecialchars($p['item_name'] ?: $p['name']); ?>"
+                                                data-qty="<?php echo $p['quantity']; ?>">
+                                                <?php
+                                                $display = $p['item_name'] ? $p['item_name'] . ' (' . $p['name'] . ')' : $p['name'];
+                                                $display .= ' | SN:' . $p['serial_no'];
+                                                $display .= ' | &#8377;' . number_format($p['price'], 2);
+                                                $display .= ' | Stock:' . $p['quantity'];
+                                                echo htmlspecialchars($display);
+                                                ?>
+                                            </option>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <option value="" disabled>No products in stock — use Manual Entry tab</option>
+                                        <?php endif; ?>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Weight (GMS)/Quantity</label>
+                                    <input type="number" id="stockQty" placeholder="GMS/Qty" step="0.001" min="0.001"
+                                        class="jewel-input w-full rounded-lg px-3 py-2 text-sm">
+                                </div>
                             </div>
                             <div id="selectedProductInfo" class="hidden p-2 rounded-lg text-xs"
                                 style="background:#f0fdf4;border:1px solid #86efac;color:#065f46;"></div>
@@ -1311,8 +1322,6 @@ function submitPayment() {
                                         class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="calculateTotal()">
                                 </div>
                             </div>
-                            <button type="button" onclick="addCategoryItem()"
-                                class="btn-gold w-full py-2 rounded-lg text-sm font-semibold">&#10133; Add Category Item</button>
                         </div>
 
                         <!-- PANEL 3: Manual Entry -->
@@ -1346,37 +1355,43 @@ function submitPayment() {
                                 </div>
                              
                             </div>
-                            <button type="button" onclick="addManualItem()"
-                                class="btn-gold w-full py-2 rounded-lg text-sm font-semibold">&#10133; Add Manual Item</button>
                         </div>
-                    </div>
+                        
+                        <!-- Per-Item GST & Extra Charges -->
+                        <div class="mt-4 pt-4" style="border-top:1px dashed rgba(214,139,22,0.3);">
+                            <h4 class="text-xs font-bold mb-2" style="color:#7a4e0a;">Additional Details for this Item</h4>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <div>
+                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Making Charge (&#8377;)</label>
+                                    <input type="number" id="itemMakingCharge" value="0" step="1" min="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Hallmark (&#8377;)</label>
+                                    <input type="number" id="itemHallmark" value="0" step="1" min="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Discount (&#8377;)</label>
+                                    <input type="number" id="itemDiscount" value="0" step="1" min="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">GST Rate</label>
+                                    <select id="itemGstType" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
+                                        <option value="non_gst">0%</option>
+                                        <option value="gst_3">3%</option>
+                                        <option value="gst_18">18%</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
 
-                    <!-- GST Type -->
-                    <div class="mb-4">
-                        <label class="block mb-1 text-sm font-semibold" style="color:#7a4e0a;">GST Type</label>
-                        <select name="gst_type" id="gstType" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" onchange="calculateTotal()">
-                            <option value="non_gst">Non-GST (0% Tax)</option>
-                            <option value="gst_3">GST (3% — 1.5% CGST + 1.5% SGST)</option>
-                            <option value="gst_18">GST (18% — 9% CGST + 9% SGST)</option>
-                        </select>
-                    </div>
-
-                    <!-- Extra Charges -->
-                    <div class="grid grid-cols-3 gap-3 mb-4">
-                        <div>
-                            <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Making Charge (&#8377;)</label>
-                            <input type="number" id="makingCharge" value="0" step="1" min="0"
-                                class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="calculateTotal()">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Hallmark (&#8377;)</label>
-                            <input type="number" id="hallmark" value="0" step="10" min="0"
-                                class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="calculateTotal()">
-                        </div>
-                        <div>
-                            <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Discount (&#x25;)</label>
-                            <input type="number" id="discount" value="0" step="10" min="0"
-                                class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="calculateTotal()">
+                        <!-- Unified Add Item Button -->
+                        <div class="mt-4">
+                            <button type="button" id="unifiedAddBtn" onclick="addNewItem()"
+                                class="btn-gold w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+                                style="letter-spacing:0.03em;font-size:0.95rem;">
+                                <i class="fas fa-plus-circle"></i>
+                                <span id="unifiedAddBtnLabel">Add Item to Bill</span>
+                            </button>
                         </div>
                     </div>
 
@@ -1425,10 +1440,10 @@ function submitPayment() {
                                     <span>Discount</span><span id="discountAmount">- &#8377;0.00</span>
                                 </div>
                                 <div class="flex justify-between text-sm" style="color:#2563eb;" id="cgstRow">
-                                    <span>CGST (<span id="cgstPercent">1.5</span>%)</span><span id="cgstAmount">&#8377;0.00</span>
+                                    <span>CGST Total</span><span id="cgstAmount">&#8377;0.00</span>
                                 </div>
                                 <div class="flex justify-between text-sm" style="color:#2563eb;" id="sgstRow">
-                                    <span>SGST (<span id="sgstPercent">1.5</span>%)</span><span id="sgstAmount">&#8377;0.00</span>
+                                    <span>SGST Total</span><span id="sgstAmount">&#8377;0.00</span>
                                 </div>
                                 <div style="height:1px;background:rgba(181,115,14,0.25);margin:8px 0;"></div>
                                 <div class="flex justify-between font-bold text-xl" style="color:#800020;">
@@ -1731,7 +1746,7 @@ function submitPayment() {
 <div class="print-invoice" style="display:block;">
     <div style="max-width:800px;margin:0 auto;background:#fff;font-family:Arial,sans-serif;border:1px solid #888;padding:24px 28px;position:relative;overflow:hidden;color:#111;">
         <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0;width:100%;">
-            <?php foreach($logo_paths as $lp) { if(file_exists($lp)) { echo '<img src="'.$lp.'" style="max-width:420px;max-height:420px;filter:grayscale(1) contrast(0.9) opacity(0.08);">'; break; } } ?>
+            <?php foreach($logo_paths as $lp) { if(file_exists($lp)) { echo '<img src="'.$lp.'" style="max-width:420px;max-height:420px;filter:grayscale(1) contrast(0.9) opacity(0.20);">'; break; } } ?>
         </div>
         <div style="position:relative;z-index:5;">
             <div style="text-align:center;font-size:10px;margin-bottom:2px;">SUBJECT TO PASCHIM MEDINIPUR JURISDICTION</div>
@@ -1795,6 +1810,9 @@ function submitPayment() {
                         if(!empty($item['serial_no'])) {
                             $item_label .= '<br><small style="color:#777;font-size:8.5px;">Serial: ' . htmlspecialchars($item['serial_no']) . '</small>';
                         }
+                        if(!empty($item['huid_code'])) {
+                            $item_label .= '<br><strong style="color:#111;font-size:8.5px;">HUID: ' . htmlspecialchars($item['huid_code']) . '</strong>';
+                        }
                        
                         $gross_wt   = floatval($item['quantity'] ?? 0);
                         $nett_wt    = floatval($item['quantity'] ?? 0);
@@ -1810,7 +1828,7 @@ function submitPayment() {
                         }
                         $net_total  = floatval($item['total'] ?? 0);
                         $grand_gross += $gross_wt; $grand_nett += $nett_wt;
-                        $row_bg = ($counter % 2 == 0) ? '#f7f7f7' : '#ffffff';
+                        $row_bg = ($counter % 2 == 0) ? 'rgba(0,0,0,0.015)' : 'transparent';
                     ?>
                     <tr style="background:<?php echo $row_bg; ?>;">
                         <td style="border:1px solid #181716;padding:6px 5px;"><?php echo $item_label; ?></td>
@@ -1826,7 +1844,7 @@ function submitPayment() {
 
                     <!-- Total Row -->
                     <?php $subtotal_before_tax = $last_subtotal + $last_making_charge_amount + $last_hallmark + $last_pola - $last_discount; ?>
-                    <tr style="background:#f2f2f2;font-weight:800;">
+                    <tr style="background:rgba(0,0,0,0.035);font-weight:800;">
                         <td style="border:1px solid #111;padding:5px;font-weight:800;">Total</td>
                         <td style="border:1px solid #111;padding:5px;"></td>
                         <td style="border:1px solid #111;padding:5px;text-align:center;"><?php echo number_format($grand_gross, 3); ?></td>
@@ -1860,7 +1878,7 @@ function submitPayment() {
                         <td style="border:1px solid #888;padding:4px;text-align:right;font-size:10px;"><?php echo ($last_round_off >= 0 ? '' : '(-) ') . number_format(abs($last_round_off), 2); ?></td>
                     </tr>
                     <?php endif; ?>
-                    <tr style="background:#f0f0f0;font-weight:bold;">
+                    <tr style="background:rgba(0,0,0,0.045);font-weight:bold;">
                         <td colspan="3" style="border:1px solid #888;padding:6px;text-align:right;font-size:11px;">Total</td>
                         <td style="border:1px solid #888;padding:6px;text-align:center;"><?php echo $last_total_quantity; ?> GMS</td>
                         <td colspan="3" style="border:1px solid #888;padding:6px;"></td>
@@ -1869,7 +1887,7 @@ function submitPayment() {
                 </tbody>
             </table>
 
-            <div style="font-size:11px;border:1px solid #888;border-top:none;padding:6px 8px;background:#fafafa;">
+            <div style="font-size:11px;border:1px solid #888;border-top:none;padding:6px 8px;background:rgba(0,0,0,0.01);">
                 <strong>Amount Chargeable (in words)</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>E. &amp; O.E</em>
                 <div style="margin-top:4px;"><strong>Indian Rupees <?php echo convertNumberToWords($last_total); ?></strong></div>
             </div>
@@ -2019,10 +2037,13 @@ let currentTab = 'stock';
 // Tab switching
 function switchTab(tab) {
     currentTab = tab;
+    const tabLabels = { stock: '📦 Add Stock Item', category: '🏷️ Add Category Item', manual: '✏️ Add Manual Item' };
     ['stock','category','manual'].forEach(t => {
         document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
         document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
     });
+    const lbl = document.getElementById('unifiedAddBtnLabel');
+    if(lbl) lbl.textContent = tabLabels[tab] || 'Add Item to Bill';
 }
 
 // Serial / name filter for stock select
@@ -2035,6 +2056,7 @@ function filterProductSelect(query) {
     const filtered = query.length > 0
         ? ALL_PRODUCTS.filter(p =>
             (p.serial_no || '').toLowerCase().includes(query) ||
+            (p.huid_code || '').toLowerCase().includes(query) ||
             (p.name || '').toLowerCase().includes(query) ||
             (p.item_name || '').toLowerCase().includes(query) ||
             (p.category || '').toLowerCase().includes(query)
@@ -2053,13 +2075,15 @@ function filterProductSelect(query) {
         opt.dataset.price    = p.price;
         opt.dataset.name     = p.name;
         opt.dataset.serial   = p.serial_no;
+        opt.dataset.huid     = p.huid_code || '';
         opt.dataset.category = p.category;
         opt.dataset.itemName = p.item_name || p.name;
         opt.dataset.qty      = p.quantity;
         const label = (p.item_name ? p.item_name + ' (' + p.name + ')' : p.name) +
-            ' | SN:' + (p.serial_no || '-') +
+            ' | SN: ' + (p.serial_no || '-') +
+            (p.huid_code ? ' | HUID: ' + p.huid_code : '') +
             ' | \u20B9' + parseFloat(p.price).toFixed(2) +
-            ' | Stock:' + p.quantity;
+            ' | Stock: ' + p.quantity;
         opt.textContent = label;
         select.appendChild(opt);
     });
@@ -2101,8 +2125,9 @@ function onProductSelectChange() {
     const price = parseFloat(opt.dataset.price) || 0;
     const stock = parseFloat(opt.dataset.qty)   || 0;
     const cat   = opt.dataset.category || '';
+    const huid  = opt.dataset.huid || '';
     const shopRatePerGram = getShopRateForCategory(cat);
-    infoDiv.innerHTML = '<strong>' + name + '</strong> &middot; SN: ' + opt.dataset.serial + ' &middot; Category: ' + cat + '<br>' +
+    infoDiv.innerHTML = '<strong>' + name + '</strong> &middot; SN: ' + opt.dataset.serial + (huid ? ' &middot; HUID: ' + huid : '') + ' &middot; Category: ' + cat + '<br>' +
         'Rate: \u20B9' + price.toFixed(2) + '/gm (DB) ' + (shopRatePerGram > 0 ? '&middot; Shop Rate: \u20B9' + shopRatePerGram.toFixed(2) + '/gm' : '') + '<br>' +
         'Available Stock: <strong>' + stock + ' GMS</strong>';
     infoDiv.classList.remove('hidden');
@@ -2127,23 +2152,32 @@ function addStockItem() {
     const shopRate = getShopRateForCategory(cat);
     const finalRate = shopRate > 0 ? shopRate : dbPrice;
     const stockBaseAmount = parseFloat((finalRate * qty).toFixed(2));
+    
+    const imc = parseFloat(document.getElementById('itemMakingCharge').value) || 0;
+    const ihm = parseFloat(document.getElementById('itemHallmark').value) || 0;
+    const idisc = parseFloat(document.getElementById('itemDiscount').value) || 0;
+    const igst = document.getElementById('itemGstType').value;
+    const itemTotal = parseFloat((stockBaseAmount + imc + ihm - idisc).toFixed(2));
+
     items.push({
         product_id: productId,
         name: name,
         item_type: '',
         hsn: '7108',
         serial_no: opt.dataset.serial || '',
+        huid_code: opt.dataset.huid || '',
         quantity: qty,
         price: finalRate,
         base_amount: stockBaseAmount,
-        making_charge: 0,
-        hallmark: 0,
-        discount: 0,
-        total: stockBaseAmount,
-        gst_applicable: document.getElementById('gstType').value !== 'non_gst'
+        making_charge: imc,
+        hallmark: ihm,
+        discount: idisc,
+        total: itemTotal,
+        gst_type: igst
     });
     updateItemsList();
     calculateTotal();
+    resetItemCharges();
     document.getElementById('stockQty').value = '';
     document.getElementById('selectedProductInfo').classList.add('hidden');
     showNotif('\u2705 Added: ' + name + ' (' + qty + ' GMS)', 'success');
@@ -2196,6 +2230,13 @@ function addCategoryItem() {
     if(qty <= 0)  { alert('Please enter weight in GMS.'); return; }
     if(rate <= 0) { alert('Please enter rate per gram (or save shop rates).'); return; }
     const catBaseAmount = parseFloat((rate * qty).toFixed(2));
+
+    const imc = parseFloat(document.getElementById('itemMakingCharge').value) || 0;
+    const ihm = parseFloat(document.getElementById('itemHallmark').value) || 0;
+    const idisc = parseFloat(document.getElementById('itemDiscount').value) || 0;
+    const igst = document.getElementById('itemGstType').value;
+    const itemTotal = parseFloat((catBaseAmount + imc + ihm - idisc).toFixed(2));
+
     items.push({
         product_id: 'other',
         name: cat + ' \u2013 ' + type,
@@ -2204,15 +2245,16 @@ function addCategoryItem() {
         quantity: qty,
         price: rate,
         base_amount: catBaseAmount,
-        making_charge: 0,
-        hallmark: 0,
-        discount: 0,
-        total: catBaseAmount,
+        making_charge: imc,
+        hallmark: ihm,
+        discount: idisc,
+        total: itemTotal,
         is_item_only: true,
-        gst_applicable: document.getElementById('gstType').value !== 'non_gst'
+        gst_type: igst
     });
     updateItemsList();
     calculateTotal();
+    resetItemCharges();
     document.getElementById('catQty').value  = '';
     document.getElementById('itemType').value = '';
     showNotif('\u2705 Added: ' + cat + ' ' + type, 'success');
@@ -2235,6 +2277,13 @@ function addManualItem() {
     const hsn   = document.getElementById('manualHsn').value.trim() || '7108';
     if(!name)    { alert('Please enter an item description.'); return; }
     if(total <= 0) { alert('Please enter a valid total amount (\u20B9).'); return; }
+
+    const imc = parseFloat(document.getElementById('itemMakingCharge').value) || 0;
+    const ihm = parseFloat(document.getElementById('itemHallmark').value) || 0;
+    const idisc = parseFloat(document.getElementById('itemDiscount').value) || 0;
+    const igst = document.getElementById('itemGstType').value;
+    const itemTotal = parseFloat((total + imc + ihm - idisc).toFixed(2));
+
     items.push({
         product_id: 'other',
         name: name,
@@ -2243,21 +2292,39 @@ function addManualItem() {
         quantity: gms > 0 ? gms : 0,
         price: (gms > 0 && rate > 0) ? rate : 0,
         base_amount: total,
-        making_charge: 0,
-        hallmark: 0,
-        discount: 0,
-        total: total,
+        making_charge: imc,
+        hallmark: ihm,
+        discount: idisc,
+        total: itemTotal,
         is_manual: true,
-        gst_applicable: document.getElementById('gstType').value !== 'non_gst'
+        gst_type: igst
     });
     updateItemsList();
     calculateTotal();
+    resetItemCharges();
     document.getElementById('manualName').value  = '';
     document.getElementById('manualGms').value   = '0';
     document.getElementById('manualRate').value  = '0';
     document.getElementById('manualTotal').value = '';
     document.getElementById('manualHsn').value   = '7108';
     showNotif('\u2705 Added: ' + name, 'success');
+}
+
+function addNewItem() {
+    if(currentTab === 'stock') {
+        addStockItem();
+    } else if(currentTab === 'category') {
+        addCategoryItem();
+    } else if(currentTab === 'manual') {
+        addManualItem();
+    }
+}
+
+function resetItemCharges() {
+    document.getElementById('itemMakingCharge').value = '0';
+    document.getElementById('itemHallmark').value = '0';
+    document.getElementById('itemDiscount').value = '0';
+    document.getElementById('itemGstType').value = 'non_gst';
 }
 
 function updateItemsList() {
@@ -2269,7 +2336,11 @@ function updateItemsList() {
     let html = '';
     items.forEach((item, idx) => {
         const icon = item.is_manual ? '\u270F\uFE0F' : (item.is_item_only ? '\uD83C\uDFF7\uFE0F' : '\uD83D\uDC8E');
-        const gstChecked = item.gst_applicable ? 'checked' : '';
+        const gstSelect = '<select class="jewel-input rounded text-xs" style="width:55px;padding:2px;" onchange="updateItemGst(' + idx + ', this.value)">' +
+            '<option value="non_gst"' + (item.gst_type === 'non_gst' ? ' selected' : '') + '>0%</option>' +
+            '<option value="gst_3"' + (item.gst_type === 'gst_3' ? ' selected' : '') + '>3%</option>' +
+            '<option value="gst_18"' + (item.gst_type === 'gst_18' ? ' selected' : '') + '>18%</option>' +
+            '</select>';
         const badge = item.is_manual ? '<span style="color:#9ca3af;font-size:10px;">[Manual]</span>' :
                       item.is_item_only ? '<span style="color:#b5730e;font-size:10px;">[Category]</span>' : '';
         const mc = item.making_charge || 0;
@@ -2288,7 +2359,7 @@ function updateItemsList() {
             '<td class="px-2 py-2 text-right text-xs"><input type="number" min="0" step="1" value="' + hm + '" style="' + chargeInputStyle + '" onchange="updateItemCharge(' + idx + ',\'hallmark\',this.value)"></td>' +
             '<td class="px-2 py-2 text-right text-xs"><input type="number" min="0" step="1" value="' + disc + '" style="' + chargeInputStyle + '" onchange="updateItemCharge(' + idx + ',\'discount\',this.value)"></td>' +
             '<td class="px-2 py-2 text-right text-xs font-semibold" style="color:#7a4e0a;">\u20B9' + item.total.toFixed(2) + '</td>' +
-            '<td class="px-2 py-2 text-center text-xs"><input type="checkbox" ' + gstChecked + ' onchange="toggleItemGst(' + idx + ')" style="accent-color:#d68b16;" title="Apply GST"></td>' +
+            '<td class="px-2 py-2 text-center text-xs">' + gstSelect + '</td>' +
             '<td class="px-2 py-2"><button onclick="removeItem(' + idx + ')" class="remove-btn">\u2715</button></td>' +
             '</tr>';
     });
@@ -2315,7 +2386,7 @@ function htmlEsc(str) {
 }
 
 function removeItem(index) { items.splice(index, 1); updateItemsList(); calculateTotal(); }
-function toggleItemGst(index) { if(items[index]) { items[index].gst_applicable = !items[index].gst_applicable; calculateTotal(); } }
+function updateItemGst(index, value) { if(items[index]) { items[index].gst_type = value; calculateTotal(); } }
 
 // Items added via Stock already carry their real product serial_no (HUID).
 // Manual / Category items don't have one, so fall back to the invoice-level
@@ -2352,22 +2423,23 @@ function populateHuidOptions() {
 
 function calculateTotal() {
     const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-    const makingAmt = parseFloat(document.getElementById('makingCharge').value) || 0;
-    const hallmark  = parseFloat(document.getElementById('hallmark').value)     || 0;
-    const discount  = parseFloat(document.getElementById('discount').value)     || 0;
-    const gstType   = document.getElementById('gstType').value;
-    const gstBase = items.reduce((sum, item) => sum + (item.gst_applicable ? item.total : 0), 0);
-    let cgstRate = 0, sgstRate = 0;
-    if (gstType === 'gst_3') {
-        cgstRate = 0.015;
-        sgstRate = 0.015;
-    } else if (gstType === 'gst_18') {
-        cgstRate = 0.09;
-        sgstRate = 0.09;
-    }
-    const cgst = gstBase * cgstRate;
-    const sgst = gstBase * sgstRate;
-    const grand = subtotal + makingAmt + hallmark + cgst + sgst - discount;
+    const makingAmt = items.reduce((sum, item) => sum + (item.making_charge || 0), 0);
+    const hallmark  = items.reduce((sum, item) => sum + (item.hallmark || 0), 0);
+    const discount  = items.reduce((sum, item) => sum + (item.discount || 0), 0);
+    
+    let cgst = 0, sgst = 0;
+    items.forEach(item => {
+        if (item.gst_type === 'gst_3') {
+            cgst += item.total * 0.015;
+            sgst += item.total * 0.015;
+        } else if (item.gst_type === 'gst_18') {
+            cgst += item.total * 0.09;
+            sgst += item.total * 0.09;
+        }
+    });
+
+    const grand = subtotal + cgst + sgst;
+    
     const fmt = v => '\u20B9' + v.toFixed(2);
     document.getElementById('subtotal').textContent       = fmt(subtotal);
     document.getElementById('makingChargeAmount').textContent = fmt(makingAmt);
@@ -2376,10 +2448,10 @@ function calculateTotal() {
     document.getElementById('cgstAmount').textContent     = fmt(cgst);
     document.getElementById('sgstAmount').textContent     = fmt(sgst);
     document.getElementById('grandTotal').textContent     = fmt(grand);
-    document.getElementById('cgstPercent').textContent    = (cgstRate * 100).toFixed(1);
-    document.getElementById('sgstPercent').textContent    = (sgstRate * 100).toFixed(1);
-    document.getElementById('cgstRow').style.display = (gstType === 'gst_3' || gstType === 'gst_18') ? '' : 'none';
-    document.getElementById('sgstRow').style.display = (gstType === 'gst_3' || gstType === 'gst_18') ? '' : 'none';
+    
+    document.getElementById('cgstRow').style.display = (cgst > 0) ? '' : 'none';
+    document.getElementById('sgstRow').style.display = (sgst > 0) ? '' : 'none';
+    
     document.getElementById('hiddenSubtotal').value  = subtotal;
     document.getElementById('hiddenGst').value       = cgst + sgst;
     document.getElementById('hiddenTotal').value     = grand;
@@ -2530,11 +2602,11 @@ async function fetchMetalPrices() {
         calcMetalValue();
     } catch(err) {
         statusEl.textContent = '\u2717 Offline'; statusEl.style.color = '#dc2626';
-        document.getElementById('gold24Price').textContent   = '\u20B91,56,170';
-        document.getElementById('gold22Price').textContent   = '\u20B91,43,052';
-        document.getElementById('silverPrice').textContent   = '\u20B92,750';
-        document.getElementById('platinumPrice').textContent = '\u20B959,690';
-        metalRates.gold24=15617; metalRates.gold22=14305; metalRates.silver=275; metalRates.platinum=5969;
+        document.getElementById('gold24Price').textContent   = '\u20B91,42,530';
+        document.getElementById('gold22Price').textContent   = '\u20B91,30,650';
+        document.getElementById('silverPrice').textContent   = '\u20B92,160';
+        document.getElementById('platinumPrice').textContent = '\u20B951,510';
+        metalRates.gold24=14253; metalRates.gold22=13065; metalRates.silver=216; metalRates.platinum=5151;
         calcMetalValue();
     }
 }

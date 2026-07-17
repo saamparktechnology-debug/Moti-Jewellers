@@ -96,6 +96,26 @@ if($is_logged_in) {
     $total_income = $total_income_row['total'] ?? 0;
     $total_expense = $total_expense_row['total'] ?? 0;
     $total_due = $total_due_row['total'] ?? 0;
+
+    // Total sales from invoices (all-time)
+    $total_sales_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices"));
+    $total_sales = $total_sales_row['total'] ?? 0;
+
+    // Today's sales
+    $today_sales_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE(created_at) = CURDATE()"));
+    $today_sales_amt = $today_sales_row['total'] ?? 0;
+
+    // Today's invoice count
+    $today_invoice_count_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM invoices WHERE DATE(created_at) = CURDATE()"));
+    $today_invoice_count = $today_invoice_count_row['total'] ?? 0;
+
+    // Total purchases from purchase_entries
+    $total_purchases_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_entries"));
+    $total_purchases = $total_purchases_row['total'] ?? 0;
+
+    // Today's purchases
+    $today_purchases_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(total_amount), 0) as total FROM purchase_entries WHERE DATE(purchase_date) = CURDATE()"));
+    $today_purchases = $today_purchases_row['total'] ?? 0;
 }
 ?>
 <!DOCTYPE html>
@@ -129,13 +149,12 @@ if($is_logged_in) {
             flex-direction: column;
             box-shadow: 4px 0 24px rgba(0,0,0,0.25);
             transition: transform 0.35s cubic-bezier(.4,0,.2,1);
-            overflow-y: auto;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
-        .sidebar::-webkit-scrollbar { width: 4px; }
-        .sidebar::-webkit-scrollbar-track { background: transparent; }
-        .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        .sidebar-nav::-webkit-scrollbar { width: 4px; }
+        .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
 
         .sidebar-logo {
             padding: 22px 18px 16px;
@@ -174,6 +193,8 @@ if($is_logged_in) {
         .sidebar-nav {
             flex: 1;
             padding: 10px 0;
+            overflow-y: auto;
+            overflow-x: hidden;
         }
 
         .sidebar-section-label {
@@ -183,6 +204,10 @@ if($is_logged_in) {
             font-weight: 700;
             letter-spacing: 1.5px;
             text-transform: uppercase;
+            position: sticky;
+            top: 0;
+            background: rgba(122, 78, 10, 0.95);
+            z-index: 10;
         }
 
         .sidebar-nav a {
@@ -421,8 +446,15 @@ if($is_logged_in) {
 
         /* ========== HERO ========== */
         .hero-with-logo { text-align: center; }
-        .dashboard-section { background: #fff; }
-        .dashboard-chart, .top-products-card { background: #fff; border: 1px solid rgba(181,115,14,0.15); border-radius: 20px; box-shadow: 0 16px 35px rgba(0,0,0,0.06); }
+        .dashboard-section { background: transparent; }
+        .dashboard-chart, .top-products-card {
+            background: rgba(255, 255, 255, 0.45) !important;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
+            border-radius: 20px;
+            box-shadow: 0 12px 32px rgba(122, 78, 10, 0.04) !important;
+        }
         .dashboard-chart { padding: 24px; }
         .top-products-card { padding: 24px; }
         .dashboard-title { font-size: 1.1rem; font-weight: 700; color: #7a4e0a; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem; }
@@ -450,17 +482,21 @@ if($is_logged_in) {
 
         /* ========== STAT CARDS ========== */
         .stat-gem {
-            background: linear-gradient(145deg, #fdf6e3, #f5ead0);
+            background: rgba(255, 255, 255, 0.45) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
             border-radius: 16px;
             text-align: center;
             transition: all 0.3s ease;
-            border: 1px solid rgba(181,115,14,0.2);
+            box-shadow: 0 8px 24px rgba(122, 78, 10, 0.04) !important;
         }
 
         .stat-gem:hover {
-            transform: translateY(-8px);
-            border-color: #d68b16;
-            box-shadow: 0 15px 30px rgba(181,115,14,0.15);
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.65) !important;
+            border-color: rgba(214, 139, 22, 0.4) !important;
+            box-shadow: 0 12px 30px rgba(181,115,14,0.12) !important;
         }
 
         .stat-gem i {
@@ -475,17 +511,21 @@ if($is_logged_in) {
 
         /* ========== GEM CARDS ========== */
         .gem-card {
-            background: linear-gradient(145deg, #fdf6e3, #f5ead0);
+            background: rgba(255, 255, 255, 0.45) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.4) !important;
             border-radius: 20px;
-            border: 1px solid rgba(181,115,14,0.15);
             transition: all 0.4s ease;
             cursor: pointer;
+            box-shadow: 0 8px 24px rgba(122, 78, 10, 0.04) !important;
         }
 
         .gem-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 20px 40px rgba(181,115,14,0.2);
-            border-color: #d68b16;
+            transform: translateY(-6px);
+            background: rgba(255, 255, 255, 0.65) !important;
+            box-shadow: 0 16px 35px rgba(181,115,14,0.15) !important;
+            border-color: rgba(214, 139, 22, 0.4) !important;
         }
 
         .gem-icon {
@@ -508,6 +548,22 @@ if($is_logged_in) {
         .gem-icon i { font-size: 28px; color: #fff; }
         .gem-card h3 { color: #800020; }
         .gem-card p { color: #6b5a3e; }
+
+        /* ========== GLASS WIDGET ON COLORFUL STRIP ========== */
+        .dark-glass-card {
+            background: rgba(255, 255, 255, 0.12) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.22) !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+            transition: all 0.3s ease;
+        }
+        .dark-glass-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.22) !important;
+            border-color: rgba(255, 255, 255, 0.38) !important;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12) !important;
+        }
 
         /* ========== BUTTONS ========== */
         .btn-jewel {
@@ -630,7 +686,7 @@ if($is_logged_in) {
         @media print { body * { visibility: visible; } }
     </style>
 </head>
-<body class="<?php echo $theme == 'light' ? 'light-theme' : 'dark-theme'; ?>" style="background:#F5F5F5; margin:0; padding:0;">
+<body class="<?php echo $theme == 'light' ? 'light-theme' : 'dark-theme'; ?>" style="background: radial-gradient(circle at 10% 10%, #fffbf5 0%, #faf5e6 50%, #f6eccf 100%); margin:0; padding:0; min-height:100vh;">
 
 <script>
     function createJewelSparkles() {
@@ -690,12 +746,24 @@ if($is_logged_in) {
     }
 
     window.addEventListener('load', function() {
-        createJewelSparkles();
-        setTimeout(typeEffect, 600);
-        setTimeout(function() {
-            const ov = document.getElementById('loadingOverlay');
-            if(ov) { ov.style.opacity = '0'; ov.style.visibility = 'hidden'; setTimeout(()=>ov.style.display='none', 500); }
-        }, 2000);
+        const isReload = performance.getEntriesByType("navigation")[0]?.type === "reload";
+        const hasVisited = sessionStorage.getItem('visited');
+
+        if (!hasVisited || isReload) {
+            sessionStorage.setItem('visited', 'true');
+            createJewelSparkles();
+            setTimeout(typeEffect, 600);
+            setTimeout(function() {
+                const ov = document.getElementById('loadingOverlay');
+                if(ov) { ov.style.opacity = '0'; ov.style.visibility = 'hidden'; setTimeout(()=>ov.style.display='none', 500); }
+            }, 2000);
+        } else {
+        const ov = document.getElementById('loadingOverlay');
+            if(ov) { ov.style.display = 'none'; }
+            // Animate the content wrapper, NOT body (body transform breaks position:fixed sidebar)
+            const pw = document.querySelector('.page-wrapper');
+            if(pw) { pw.style.animation = 'slideInFromRightGlobal 0.3s ease-out forwards'; }
+        }
     });
 </script>
 
@@ -939,67 +1007,115 @@ if($is_logged_in) {
 <?php endif; ?>
 
 <?php if($is_logged_in): ?>
-<section class="py-8 sm:py-10 md:py-12" style="background: linear-gradient(135deg, #f8f1e4 0%, #fdf6e3 40%, #faf0d5 100%);">
+<section class="py-6 sm:py-8" style="background: transparent;">
     <div class="container mx-auto px-4 sm:px-6">
-        <h2 class="text-3xl sm:text-4xl font-bold text-center mb-8" style="color:#7a4e0a;">Quick Business Dashboard</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            <div class="stat-gem p-6 bg-white shadow-xl border border-yellow-200">
-                <div class="text-4xl mb-4" style="color:#b87318;"><i class="fas fa-boxes"></i></div>
-                <h3 class="text-3xl font-bold"><?php echo number_format($stock_items_count); ?></h3>
-                <p class="uppercase tracking-wider mt-2">Stock Items</p>
-                <p class="text-sm text-gray-500 mt-2">Total unique products in inventory.</p>
+        <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6" style="color:#7a4e0a;">Quick Business Dashboard</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            <a href="stock.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
+                <div class="text-3xl mb-2" style="color:#b87318;"><i class="fas fa-boxes"></i></div>
+                <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($stock_items_count); ?></h3>
+                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#7a4e0a; font-weight:600;">Stock Items</p>
+                <p class="text-xs text-gray-500 mt-1">Total unique products in inventory.</p>
+            </a>
+            <a href="stock.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
+                <div class="text-3xl mb-2" style="color:#d68b16;"><i class="fas fa-weight-hanging"></i></div>
+                <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($stock_quantity); ?></h3>
+                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#7a4e0a; font-weight:600;">Stock Quantity</p>
+                <p class="text-xs text-gray-500 mt-1">Total quantity across all stock items.</p>
+            </a>
+            <a href="stock.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
+                <div class="text-3xl mb-2" style="color:#a16207;"><i class="fas fa-coins"></i></div>
+                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($stock_value, 0); ?></h3>
+                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#7a4e0a; font-weight:600;">Stock Value</p>
+                <p class="text-xs text-gray-500 mt-1">Estimated total value of inventory.</p>
+            </a>
+            <a href="customers.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
+                <div class="text-3xl mb-2" style="color:#047857;"><i class="fas fa-users"></i></div>
+                <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($customers_count); ?></h3>
+                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#065f46; font-weight:600;">Customers</p>
+                <p class="text-xs text-gray-500 mt-1">Total registered customer records.</p>
+            </a>
+            <a href="income_expenses.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
+                <div class="text-3xl mb-2" style="color:#15803d;"><i class="fas fa-arrow-up-right-from-square"></i></div>
+                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($total_income, 0); ?></h3>
+                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#166534; font-weight:600;">Total Income</p>
+                <p class="text-xs text-gray-500 mt-1">All recorded income to date.</p>
+            </a>
+            <a href="income_expenses.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
+                <div class="text-3xl mb-2" style="color:#b91c1c;"><i class="fas fa-wallet"></i></div>
+                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($total_expense, 0); ?></h3>
+                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#9f1239; font-weight:600;">Total Expenses</p>
+                <p class="text-xs text-gray-500 mt-1">All recorded business expenses.</p>
+            </a>
+            <a href="due_list.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
+                <div class="text-3xl mb-2" style="color:#c2410c;"><i class="fas fa-calendar-check"></i></div>
+                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($total_due, 0); ?></h3>
+                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#9a3412; font-weight:600;">Outstanding Due</p>
+                <p class="text-xs text-gray-500 mt-1">Total unpaid invoice balance.</p>
+            </a>
+            <a href="due_list.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
+                <div class="text-3xl mb-2" style="color:#0ea5e9;"><i class="fas fa-bell"></i></div>
+                <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($invoice_pending_count); ?></h3>
+                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#0369a1; font-weight:600;">Pending Invoices</p>
+                <p class="text-xs text-gray-500 mt-1">Invoices requiring payment follow-up.</p>
+            </a>
+            <a href="income_expenses.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
+                <div class="text-3xl mb-2" style="color:#0891b2;"><i class="fas fa-calendar-alt"></i></div>
+                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($monthly_income, 0); ?></h3>
+                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#0e7490; font-weight:600;">Monthly Income</p>
+                <p class="text-xs text-gray-500 mt-1">Income recorded this month.</p>
+            </a>
+        </div>
+    </div>
+</section>
+
+<?php if($is_logged_in): ?>
+<!-- ======== LIVE AMOUNTS SUMMARY STRIP ======== -->
+<section class="py-6 rounded-2xl mb-8 overflow-hidden" style="background:linear-gradient(135deg, #0d9488 0%, #f472b6 50%, #d946ef 100%); border: 1px solid rgba(255, 255, 255, 0.25);">
+    <div class="container mx-auto px-4 sm:px-6">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            <!-- Total Sales -->
+            <div class="dark-glass-card text-center p-4 rounded-2xl">
+                <div class="text-2xl mb-1">💰</div>
+                <div class="text-xl font-bold" style="color:#f5c842;">₹<?php echo number_format($total_sales, 0); ?></div>
+                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">TOTAL SALES</div>
             </div>
-            <div class="stat-gem p-6 bg-white shadow-xl border border-amber-200">
-                <div class="text-4xl mb-4" style="color:#d68b16;"><i class="fas fa-weight-hanging"></i></div>
-                <h3 class="text-3xl font-bold"><?php echo number_format($stock_quantity); ?></h3>
-                <p class="uppercase tracking-wider mt-2">Stock Quantity</p>
-                <p class="text-sm text-gray-500 mt-2">Total quantity across all stock items.</p>
+            <!-- Today's Sales -->
+            <div class="dark-glass-card text-center p-4 rounded-2xl">
+                <div class="text-2xl mb-1">📊</div>
+                <div class="text-xl font-bold" style="color:#86efac;">₹<?php echo number_format($today_sales_amt, 0); ?></div>
+                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">TODAY'S SALES</div>
+                <div class="text-[10px] mt-0.5" style="color:rgba(255,255,255,0.45);"><?php echo $today_invoice_count; ?> invoice<?php echo $today_invoice_count != 1 ? 's' : ''; ?></div>
             </div>
-            <div class="stat-gem p-6 bg-white shadow-xl border border-yellow-300">
-                <div class="text-4xl mb-4" style="color:#a16207;"><i class="fas fa-coins"></i></div>
-                <h3 class="text-3xl font-bold">₹<?php echo number_format($stock_value, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-2">Stock Value</p>
-                <p class="text-sm text-gray-500 mt-2">Estimated total value of inventory.</p>
+            <!-- Total Purchases -->
+            <div class="dark-glass-card text-center p-4 rounded-2xl">
+                <div class="text-2xl mb-1">🛒</div>
+                <div class="text-xl font-bold" style="color:#fda4af;">₹<?php echo number_format($total_purchases, 0); ?></div>
+                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">TOTAL PURCHASES</div>
             </div>
-            <div class="stat-gem p-6 bg-white shadow-xl border border-emerald-200">
-                <div class="text-4xl mb-4" style="color:#047857;"><i class="fas fa-users"></i></div>
-                <h3 class="text-3xl font-bold"><?php echo number_format($customers_count); ?></h3>
-                <p class="uppercase tracking-wider mt-2">Customers</p>
-                <p class="text-sm text-gray-500 mt-2">Total registered customer records.</p>
+            <!-- Today's Purchases -->
+            <div class="dark-glass-card text-center p-4 rounded-2xl">
+                <div class="text-2xl mb-1">🏷️</div>
+                <div class="text-xl font-bold" style="color:#c4b5fd;">₹<?php echo number_format($today_purchases, 0); ?></div>
+                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">TODAY'S PURCHASES</div>
             </div>
-            <div class="stat-gem p-6 bg-white shadow-xl border border-green-200">
-                <div class="text-4xl mb-4" style="color:#15803d;"><i class="fas fa-arrow-up-right-from-square"></i></div>
-                <h3 class="text-3xl font-bold">₹<?php echo number_format($total_income, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-2">Total Income</p>
-                <p class="text-sm text-gray-500 mt-2">All recorded income to date.</p>
+            <!-- Outstanding Due -->
+            <div class="dark-glass-card text-center p-4 rounded-2xl">
+                <div class="text-2xl mb-1">⏳</div>
+                <div class="text-xl font-bold" style="color:#fb923c;">₹<?php echo number_format($total_due, 0); ?></div>
+                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">OUTSTANDING DUE</div>
             </div>
-            <div class="stat-gem p-6 bg-white shadow-xl border border-rose-200">
-                <div class="text-4xl mb-4" style="color:#b91c1c;"><i class="fas fa-wallet"></i></div>
-                <h3 class="text-3xl font-bold">₹<?php echo number_format($total_expense, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-2">Total Expenses</p>
-                <p class="text-sm text-gray-500 mt-2">All recorded business expenses.</p>
-            </div>
-            <div class="stat-gem p-6 bg-white shadow-xl border border-orange-200">
-                <div class="text-4xl mb-4" style="color:#c2410c;"><i class="fas fa-calendar-check"></i></div>
-                <h3 class="text-3xl font-bold">₹<?php echo number_format($total_due, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-2">Outstanding Due</p>
-                <p class="text-sm text-gray-500 mt-2">Total unpaid invoice balance.</p>
-            </div>
-            <div class="stat-gem p-6 bg-white shadow-xl border border-sky-200">
-                <div class="text-4xl mb-4" style="color:#0ea5e9;"><i class="fas fa-bell"></i></div>
-                <h3 class="text-3xl font-bold"><?php echo number_format($invoice_pending_count); ?></h3>
-                <p class="uppercase tracking-wider mt-2">Pending Invoices</p>
-                <p class="text-sm text-gray-500 mt-2">Invoices requiring payment follow-up.</p>
-            </div>
-            <div class="stat-gem p-6 bg-white shadow-xl border border-cyan-200">
-                <div class="text-4xl mb-4" style="color:#0891b2;"><i class="fas fa-calendar-alt"></i></div>
-                <h3 class="text-3xl font-bold">₹<?php echo number_format($monthly_income, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-2">Monthly Income</p>
-                <p class="text-sm text-gray-500 mt-2">Income recorded this month.</p>
+            <!-- Net Profit (Sales - Purchases - Expenses) -->
+            <?php $net_profit = $total_sales - $total_purchases - $total_expense; ?>
+            <div class="dark-glass-card text-center p-4 rounded-2xl">
+                <div class="text-2xl mb-1"><?php echo $net_profit >= 0 ? '📈' : '📉'; ?></div>
+                <div class="text-xl font-bold" style="color:<?php echo $net_profit >= 0 ? '#86efac' : '#fca5a5'; ?>;">₹<?php echo number_format(abs($net_profit), 0); ?></div>
+                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);"><?php echo $net_profit >= 0 ? 'NET PROFIT' : 'NET LOSS'; ?></div>
             </div>
         </div>
     </div>
 </section>
+<?php endif; ?>
 <section class="dashboard-section py-8 sm:py-10 md:py-12">
     <div class="container mx-auto px-4 sm:px-6">
         <div class="grid gap-6 lg:grid-cols-3 mb-8">
@@ -1082,36 +1198,36 @@ if($is_logged_in) {
         </div>
 
         <div class="grid gap-6 lg:grid-cols-2 mt-8">
-            <div class="dashboard-chart p-6">
+            <div class="dashboard-chart p-4 sm:p-5">
                 <div class="dashboard-title"><i class="fas fa-exclamation-triangle"></i> Low Stock Alerts</div>
                 <?php if(empty($low_stock_items)): ?>
                     <p class="text-sm text-gray-500">No low-stock products currently.</p>
                 <?php else: ?>
-                    <ul class="space-y-3 mt-4">
+                    <ul class="space-y-2 mt-2">
                         <?php foreach($low_stock_items as $item): ?>
-                            <li class="flex justify-between items-center border border-gray-100 rounded-xl p-3">
-                                <span class="font-medium"><?php echo htmlspecialchars($item['name']); ?></span>
-                                <span class="text-sm text-red-600 font-semibold"><?php echo number_format($item['quantity']); ?> pcs</span>
+                            <li class="flex justify-between items-center border border-white/40 bg-white/20 backdrop-blur-md rounded-xl p-2 sm:p-3">
+                                <span class="font-medium text-sm text-gray-700"><?php echo htmlspecialchars($item['name']); ?></span>
+                                <span class="text-xs text-red-600 font-semibold bg-red-50/50 px-2.5 py-1 rounded-full border border-red-200"><?php echo number_format($item['quantity']); ?> pcs</span>
                             </li>
                         <?php endforeach; ?>
                     </ul>
                 <?php endif; ?>
             </div>
 
-            <div class="dashboard-chart p-6">
+            <div class="dashboard-chart p-4 sm:p-5">
                 <div class="dashboard-title"><i class="fas fa-file-invoice-dollar"></i> Pending Invoices</div>
                 <?php if(empty($pending_invoices)): ?>
                     <p class="text-sm text-gray-500">No pending invoices at the moment.</p>
                 <?php else: ?>
-                    <ul class="space-y-3 mt-4">
+                    <ul class="space-y-2 mt-2">
                         <?php foreach($pending_invoices as $invoice): ?>
-                            <li class="border border-gray-100 rounded-xl p-3">
+                            <li class="border border-white/40 bg-white/20 backdrop-blur-md rounded-xl p-2 sm:p-3">
                                 <div class="flex justify-between items-start gap-3">
                                     <div>
-                                        <p class="font-semibold"><?php echo htmlspecialchars($invoice['invoice_no']); ?></p>
-                                        <p class="text-sm text-gray-500"><?php echo htmlspecialchars($invoice['customer_name']); ?></p>
+                                        <p class="font-semibold text-sm text-gray-800"><?php echo htmlspecialchars($invoice['invoice_no']); ?></p>
+                                        <p class="text-xs text-gray-500 mt-0.5"><?php echo htmlspecialchars($invoice['customer_name']); ?></p>
                                     </div>
-                                    <span class="text-sm text-orange-700 font-semibold">₹<?php echo number_format($invoice['balance_amount'], 2); ?></span>
+                                    <span class="text-xs text-orange-700 font-semibold bg-orange-50/50 px-2.5 py-1 rounded-full border border-orange-200">₹<?php echo number_format($invoice['balance_amount'], 2); ?></span>
                                 </div>
                             </li>
                         <?php endforeach; ?>
@@ -1238,6 +1354,11 @@ if($is_logged_in) {
     const salesValues = <?php echo json_encode(array_column($daily_sales, 'total')); ?>;
     const salesCtx = document.getElementById('salesChart');
     if(salesCtx) {
+        const ctx = salesCtx.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+        gradient.addColorStop(0, 'rgba(214, 139, 22, 0.45)');
+        gradient.addColorStop(1, 'rgba(214, 139, 22, 0.01)');
+        
         new Chart(salesCtx, {
             type: 'line',
             data: {
@@ -1245,11 +1366,14 @@ if($is_logged_in) {
                 datasets: [{
                     label: 'Sales',
                     data: salesValues,
-                    backgroundColor: 'rgba(214,139,22,0.12)',
+                    backgroundColor: gradient,
                     borderColor: '#b5730e',
-                    borderWidth: 2,
-                    pointBackgroundColor: '#d68b16',
-                    pointRadius: 4,
+                    borderWidth: 3,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#d68b16',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
                     fill: true,
                     tension: 0.35
                 }]
@@ -1260,12 +1384,16 @@ if($is_logged_in) {
                 scales: {
                     y: {
                         beginAtZero: true,
+                        grid: { color: 'rgba(181, 115, 14, 0.08)' },
                         ticks: {
-                            callback: function(value) { return '₹' + value.toLocaleString(); }
+                            callback: function(value) { return '₹' + value.toLocaleString(); },
+                            color: '#7a4e0a',
+                            font: { size: 10 }
                         }
                     },
                     x: {
-                        grid: { display: false }
+                        grid: { display: false },
+                        ticks: { color: '#7a4e0a', font: { size: 10 } }
                     }
                 },
                 plugins: {
@@ -1283,18 +1411,19 @@ if($is_logged_in) {
                     labels: ['Income', 'Expenses'],
                     datasets: [{
                         data: [<?php echo json_encode($monthly_income); ?>, <?php echo json_encode($monthly_expense); ?>],
-                        backgroundColor: ['#16a34a', '#dc2626'],
-                        borderColor: ['#ffffff', '#ffffff'],
+                        backgroundColor: ['#0d9488', '#be185d'],
+                        borderColor: 'rgba(255, 255, 255, 0.6)',
                         borderWidth: 2
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    cutout: '65%',
                     plugins: {
                         legend: {
                             position: 'bottom',
-                            labels: { boxWidth: 12, padding: 16 }
+                            labels: { boxWidth: 10, padding: 12, font: { size: 11 }, color: '#7a4e0a' }
                         }
                     }
                 }
@@ -1303,6 +1432,11 @@ if($is_logged_in) {
 
         const monthlySalesCtx = document.getElementById('monthlySalesChart');
         if(monthlySalesCtx) {
+            const ctx = monthlySalesCtx.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+            gradient.addColorStop(0, '#d946ef');
+            gradient.addColorStop(1, '#f472b6');
+
             new Chart(monthlySalesCtx, {
                 type: 'bar',
                 data: {
@@ -1310,9 +1444,10 @@ if($is_logged_in) {
                     datasets: [{
                         label: 'Sales',
                         data: <?php echo json_encode(array_column($monthly_sales, 'total')); ?>,
-                        backgroundColor: ['#2563eb', '#4f46e5', '#ec4899', '#f59e0b', '#10b981', '#ef4444'],
-                        borderColor: '#1d4ed8',
-                        borderWidth: 1
+                        backgroundColor: gradient,
+                        borderColor: '#c084fc',
+                        borderWidth: 1.5,
+                        borderRadius: 6
                     }]
                 },
                 options: {
@@ -1320,8 +1455,12 @@ if($is_logged_in) {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, ticks: { callback: function(value) { return '₹' + value.toLocaleString(); } } },
-                        x: { grid: { display: false } }
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: 'rgba(181, 115, 14, 0.08)' },
+                            ticks: { callback: function(value) { return '₹' + value.toLocaleString(); }, color: '#7a4e0a', font: { size: 10 } } 
+                        },
+                        x: { grid: { display: false }, ticks: { color: '#7a4e0a', font: { size: 10 } } }
                     }
                 }
             });
@@ -1329,6 +1468,11 @@ if($is_logged_in) {
 
         const customerTrendCtx = document.getElementById('customerTrendChart');
         if(customerTrendCtx) {
+            const ctx = customerTrendCtx.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+            gradient.addColorStop(0, 'rgba(13, 148, 136, 0.4)');
+            gradient.addColorStop(1, 'rgba(13, 148, 136, 0.01)');
+
             new Chart(customerTrendCtx, {
                 type: 'line',
                 data: {
@@ -1336,11 +1480,13 @@ if($is_logged_in) {
                     datasets: [{
                         label: 'New Customers',
                         data: <?php echo json_encode(array_column($customer_growth, 'total')); ?>,
-                        backgroundColor: 'rgba(16,185,129,0.12)',
-                        borderColor: '#059669',
-                        borderWidth: 2,
-                        pointBackgroundColor: '#10b981',
-                        pointRadius: 4,
+                        backgroundColor: gradient,
+                        borderColor: '#0d9488',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#14b8a6',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
                         tension: 0.35,
                         fill: true
                     }]
@@ -1350,8 +1496,12 @@ if($is_logged_in) {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, ticks: { precision: 0 } },
-                        x: { grid: { display: false } }
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: 'rgba(181, 115, 14, 0.08)' },
+                            ticks: { precision: 0, color: '#7a4e0a', font: { size: 10 } } 
+                        },
+                        x: { grid: { display: false }, ticks: { color: '#7a4e0a', font: { size: 10 } } }
                     }
                 }
             });
@@ -1365,16 +1515,17 @@ if($is_logged_in) {
                     labels: ['Completed', 'Pending'],
                     datasets: [{
                         data: [<?php echo json_encode($invoice_completed_count); ?>, <?php echo json_encode($invoice_pending_count); ?>],
-                        backgroundColor: ['#14b8a6', '#f97316'],
-                        borderColor: ['#ffffff', '#ffffff'],
+                        backgroundColor: ['#0f766e', '#e11d48'],
+                        borderColor: 'rgba(255, 255, 255, 0.6)',
                         borderWidth: 2
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    cutout: '65%',
                     plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } }
+                        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 }, color: '#7a4e0a' } }
                     }
                 }
             });
@@ -1388,16 +1539,22 @@ if($is_logged_in) {
                     labels: <?php echo json_encode(array_column($category_sales, 'category')); ?>,
                     datasets: [{
                         data: <?php echo json_encode(array_map(function($row){ return (float)$row['revenue']; }, $category_sales)); ?>,
-                        backgroundColor: ['#e11d48', '#6366f1', '#22c55e', '#f59e0b', '#0ea5e9', '#8b5cf6'],
-                        borderColor: '#ffffff',
+                        backgroundColor: ['#0f766e', '#f472b6', '#d946ef', '#14b8a6', '#f43f5e', '#a21caf'],
+                        borderColor: 'rgba(255, 255, 255, 0.6)',
                         borderWidth: 2
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            grid: { color: 'rgba(181, 115, 14, 0.08)' },
+                            ticks: { display: false }
+                        }
+                    },
                     plugins: {
-                        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } }
+                        legend: { position: 'bottom', labels: { boxWidth: 10, padding: 12, font: { size: 11 }, color: '#7a4e0a' } }
                     }
                 }
             });
@@ -1405,6 +1562,11 @@ if($is_logged_in) {
 
         const invoiceCountCtx = document.getElementById('invoiceCountChart');
         if(invoiceCountCtx) {
+            const ctx = invoiceCountCtx.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+            gradient.addColorStop(0, 'rgba(217, 70, 239, 0.4)');
+            gradient.addColorStop(1, 'rgba(217, 70, 239, 0.01)');
+
             new Chart(invoiceCountCtx, {
                 type: 'line',
                 data: {
@@ -1412,14 +1574,13 @@ if($is_logged_in) {
                     datasets: [{
                         label: 'Invoices',
                         data: <?php echo json_encode(array_column($daily_invoice_counts, 'total')); ?>,
-                        backgroundColor: 'rgba(14,165,233,0.08)',
-                        borderColor: '#0ea5e9',
+                        backgroundColor: gradient,
+                        borderColor: '#d946ef',
                         borderWidth: 3,
-                        pointBackgroundColor: '#ffffff',
-                        pointBorderColor: '#0ea5e9',
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#d946ef',
                         pointRadius: 5,
-                        pointStyle: 'rectRot',
-                        stepped: 'middle',
+                        tension: 0.35,
                         fill: true
                     }]
                 },
@@ -1428,8 +1589,12 @@ if($is_logged_in) {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        y: { beginAtZero: true, ticks: { precision: 0 } },
-                        x: { grid: { display: false } }
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: 'rgba(181, 115, 14, 0.08)' },
+                            ticks: { precision: 0, color: '#7a4e0a', font: { size: 10 } } 
+                        },
+                        x: { grid: { display: false }, ticks: { color: '#7a4e0a', font: { size: 10 } } }
                     }
                 }
             });
@@ -1437,6 +1602,11 @@ if($is_logged_in) {
 
         const categoryStockCtx = document.getElementById('categoryStockChart');
         if(categoryStockCtx) {
+            const ctx = categoryStockCtx.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+            gradient.addColorStop(0, 'rgba(13, 148, 136, 0.4)');
+            gradient.addColorStop(1, 'rgba(13, 148, 136, 0.01)');
+
             new Chart(categoryStockCtx, {
                 type: 'line',
                 data: {
@@ -1444,12 +1614,12 @@ if($is_logged_in) {
                     datasets: [{
                         label: 'Stock Quantity',
                         data: <?php echo json_encode(array_map(function($row){ return (float)$row['total_qty']; }, $category_stock)); ?>,
-                        backgroundColor: 'rgba(59,130,246,0.12)',
-                        borderColor: '#2563EB',
-                        borderWidth: 2,
-                        pointBackgroundColor: '#2563EB',
-                        pointBorderColor: '#ffffff',
-                        pointRadius: 4,
+                        backgroundColor: gradient,
+                        borderColor: '#0d9488',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#0d9488',
+                        pointRadius: 5,
                         tension: 0.35,
                         fill: true
                     }]
@@ -1461,8 +1631,12 @@ if($is_logged_in) {
                         legend: { display: false }
                     },
                     scales: {
-                        y: { beginAtZero: true, ticks: { precision: 0 } },
-                        x: { grid: { display: false } }
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: 'rgba(181, 115, 14, 0.08)' },
+                            ticks: { precision: 0, color: '#7a4e0a', font: { size: 10 } } 
+                        },
+                        x: { grid: { display: false }, ticks: { color: '#7a4e0a', font: { size: 10 } } }
                     }
                 }
             });
