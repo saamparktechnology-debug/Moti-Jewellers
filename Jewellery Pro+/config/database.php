@@ -209,18 +209,25 @@ if ($chk_qty && mysqli_num_rows($chk_qty) > 0) {
 }
 
 
-// Insert default admin user if empty
-$check_admin = mysqli_query($conn, "SELECT id FROM users WHERE mobile = '9876543210'");
-if(mysqli_num_rows($check_admin) == 0) {
-$hash = password_hash('123456', PASSWORD_DEFAULT);
-mysqli_query($conn, "INSERT INTO users (name, mobile, email, password) VALUES ('Admin User', '9876543210', 'admin@gourijewellers.com', '$hash')");
-}
+// Always ensure required admin accounts exist with exact password hash for 123456
+$admin_pass_hash = password_hash('123456', PASSWORD_DEFAULT);
+$required_admins = [
+    ['motijewellers9635985848@gmail.com', '9635985848', 'Moti Admin'],
+    ['saamparktechnology@gmail.com', '8617536679', 'Saampark Admin'],
+    ['hiisupriya@gmail.com', '9876543210', 'Supriya Admin']
+];
 
-// Insert the requested admin account if it does not already exist
-$check_requested_admin = mysqli_query($conn, "SELECT id FROM users WHERE email = 'admin@gmail.com'");
-if(mysqli_num_rows($check_requested_admin) == 0) {
-$hash = password_hash('123456', PASSWORD_DEFAULT);
-mysqli_query($conn, "INSERT INTO users (name, mobile, email, password) VALUES ('Admin User', '9999999999', 'admin@gmail.com', '$hash')");
+foreach ($required_admins as $adm) {
+    $adm_email = $adm[0];
+    $adm_mob   = $adm[1];
+    $adm_name  = $adm[2];
+    
+    $chk_adm = mysqli_query($conn, "SELECT id FROM users WHERE email = '$adm_email' OR mobile = '$adm_mob'");
+    if ($chk_adm && mysqli_num_rows($chk_adm) > 0) {
+        mysqli_query($conn, "UPDATE users SET password = '$admin_pass_hash', email = '$adm_email', mobile = '$adm_mob' WHERE email = '$adm_email' OR mobile = '$adm_mob'");
+    } else {
+        mysqli_query($conn, "INSERT INTO users (name, mobile, email, password) VALUES ('$adm_name', '$adm_mob', '$adm_email', '$admin_pass_hash')");
+    }
 }
 
 // Create purchase_entries table if not exists
