@@ -70,13 +70,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
         * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
-        h1,h2,h3 { font-family: 'Playfair Display', serif; }
+        h1,h2,h3 { font-family: 'Poppins', serif; }
 
         .sidebar { position:fixed;top:0;left:0;width:240px;height:100vh;background:linear-gradient(180deg,#7a4e0a 0%,#b5730e 40%,#d68b16 100%);z-index:1000;display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,0.25);overflow:hidden; }
         .sidebar-nav { flex:1;padding:10px 0;overflow-y:auto;overflow-x:hidden; }
         .sidebar-logo { padding:22px 18px 16px;border-bottom:1px solid rgba(255,255,255,0.18);display:flex;align-items:center;gap:12px;flex-shrink:0; }
         .sidebar-logo img { width:44px;height:44px;object-fit:contain;border-radius:50%;background:rgba(255,255,255,0.1);padding:3px; }
-        .sidebar-logo-text h2 { color:#fff;font-size:13px;font-weight:700;font-family:'Playfair Display',serif; }
+        .sidebar-logo-text h2 { color:#fff;font-size:13px;font-weight:700;font-family:'Poppins',serif; }
         .sidebar-logo-text p { color:rgba(255,255,255,0.65);font-size:10px; }
         .sidebar-nav a { display:flex;align-items:center;gap:12px;padding:11px 20px;color:rgba(255,255,255,0.85);text-decoration:none;font-size:13px;font-weight:500;transition:all .2s;border-left:3px solid transparent; }
         .sidebar-nav a:hover { background:rgba(255,255,255,0.13);color:#fff;border-left-color:rgba(255,255,255,0.8); }
@@ -205,6 +205,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
+        <a href="sanchari_dashboard.php">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
         <a href="reports.php"><i class="fas fa-chart-bar"></i> REPORTS</a>
@@ -234,7 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
 <!-- Top Nav -->
 <nav class="nav-gold shadow-lg sticky top-0 z-50" style="margin-left:240px;">
     <div class="container mx-auto px-4 py-3 flex justify-between items-center">
-        <h1 style="color:#fff;font-family:'Playfair Display',serif;font-size:18px;font-weight:700;">
+        <h1 style="color:#fff;font-family:'Poppins',serif;font-size:18px;font-weight:700;">
             <i class="fas fa-trash-alt mr-2"></i>Reset All Data
         </h1>
         <a href="index.php" style="color:#fff;font-size:13px;font-weight:600;text-decoration:none;">

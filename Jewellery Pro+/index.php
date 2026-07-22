@@ -1,12 +1,14 @@
 <?php
+// Trigger Vercel rebuild with correct author email
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
 $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
-$logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-preview.png', 'moti-removebg-preview.png'];
+$logo_paths = ['logo.png', 'images/radhey_shyam_logo.png', 'radhey_shyam_logo.png'];
 
 $daily_sales = [];
 $top_products = [];
@@ -101,8 +103,8 @@ if($is_logged_in) {
     $total_sales_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices"));
     $total_sales = $total_sales_row['total'] ?? 0;
 
-    // Today's sales
-    $today_sales_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE(created_at) = CURDATE()"));
+    // Today's sales (Includes new billing invoices + due payments cleared today)
+    $today_sales_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT (SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE DATE(created_at) = CURDATE()) + (SELECT COALESCE(SUM(amount_paid), 0) FROM due_update_history WHERE DATE(payment_date) = CURDATE()) as total"));
     $today_sales_amt = $today_sales_row['total'] ?? 0;
 
     // Today's invoice count
@@ -134,7 +136,7 @@ if($is_logged_in) {
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
 
         * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
-        h1,h2,h3,.gold-font { font-family: 'Playfair Display', serif; }
+        h1,h2,h3,.gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
 
         /* ========== SIDEBAR ========== */
         .sidebar {
@@ -143,7 +145,7 @@ if($is_logged_in) {
             left: 0;
             width: 240px;
             height: 100vh;
-            background: linear-gradient(180deg, #7a4e0a 0%, #b5730e 40%, #d68b16 100%);
+            background: linear-gradient(180deg, #011921 0%, #03373b 50%, #044e54 80%, #011921 100%);
             z-index: 1000;
             display: flex;
             flex-direction: column;
@@ -180,7 +182,7 @@ if($is_logged_in) {
             font-size: 13px;
             font-weight: 700;
             line-height: 1.3;
-            font-family: 'Playfair Display', serif;
+            font-family: 'Poppins', serif;
             letter-spacing: 0.5px;
         }
 
@@ -206,7 +208,7 @@ if($is_logged_in) {
             text-transform: uppercase;
             position: sticky;
             top: 0;
-            background: rgba(122, 78, 10, 0.95);
+            background: #011921; color: #f5c842;
             z-index: 10;
         }
 
@@ -357,8 +359,7 @@ if($is_logged_in) {
         }
 
         /* ========== TOP NAVBAR ========== */
-        nav.nav-gold {
-            background: linear-gradient(135deg, #b5730e, #d68b16) !important;
+        nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important; border-bottom: 2.5px solid #ffd700; box-shadow: 0 0 12px rgba(255, 215, 0, 0.5) !important;
         }
 
         nav.nav-gold h1,
@@ -465,7 +466,7 @@ if($is_logged_in) {
             background: linear-gradient(135deg, #800020, #c9a96e, #d68b16);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
-            font-family: 'Playfair Display', serif;
+            font-family: 'Poppins', serif;
         }
 
         .cursor {
@@ -551,18 +552,51 @@ if($is_logged_in) {
 
         /* ========== GLASS WIDGET ON COLORFUL STRIP ========== */
         .dark-glass-card {
-            background: rgba(255, 255, 255, 0.12) !important;
-            backdrop-filter: blur(10px) !important;
-            -webkit-backdrop-filter: blur(10px) !important;
-            border: 1px solid rgba(255, 255, 255, 0.22) !important;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
-            transition: all 0.3s ease;
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .dark-glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
         }
         .dark-glass-card:hover {
-            transform: translateY(-4px);
-            background: rgba(255, 255, 255, 0.22) !important;
-            border-color: rgba(255, 255, 255, 0.38) !important;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12) !important;
+            transform: translateY(-4px) scale(1.03);
+            filter: brightness(1.15);
+        }
+        .glass-gold {
+            background: linear-gradient(135deg, rgba(181, 115, 14, 0.75), rgba(122, 78, 10, 0.85)) !important;
+            border: 1px solid #f5c842 !important;
+            box-shadow: 0 8px 25px rgba(214, 139, 22, 0.4) !important;
+        }
+        .glass-emerald {
+            background: linear-gradient(135deg, rgba(5, 150, 105, 0.75), rgba(4, 120, 87, 0.85)) !important;
+            border: 1px solid #34d399 !important;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4) !important;
+        }
+        .glass-rose {
+            background: linear-gradient(135deg, rgba(225, 29, 72, 0.75), rgba(159, 18, 57, 0.85)) !important;
+            border: 1px solid #fb7185 !important;
+            box-shadow: 0 8px 25px rgba(244, 63, 94, 0.4) !important;
+        }
+        .glass-purple {
+            background: linear-gradient(135deg, rgba(147, 51, 234, 0.75), rgba(107, 33, 168, 0.85)) !important;
+            border: 1px solid #c084fc !important;
+            box-shadow: 0 8px 25px rgba(168, 85, 247, 0.4) !important;
+        }
+        .glass-orange {
+            background: linear-gradient(135deg, rgba(234, 88, 12, 0.75), rgba(154, 52, 18, 0.85)) !important;
+            border: 1px solid #fdba74 !important;
+            box-shadow: 0 8px 25px rgba(249, 115, 22, 0.4) !important;
+        }
+        .glass-teal {
+            background: linear-gradient(135deg, rgba(13, 148, 136, 0.75), rgba(15, 118, 110, 0.85)) !important;
+            border: 1px solid #2dd4bf !important;
+            box-shadow: 0 8px 25px rgba(20, 184, 166, 0.4) !important;
         }
 
         /* ========== BUTTONS ========== */
@@ -784,35 +818,17 @@ if($is_logged_in) {
     <!-- Center content -->
     <div style="position:relative;z-index:10;text-align:center;">
 
-        <!-- Gem with halos -->
-        <div style="position:relative;width:110px;height:110px;margin:0 auto 28px;">
-            <div style="position:absolute;inset:-12px;border-radius:50%;border:2px solid rgba(214,139,22,0.4);animation:haloPulse 1.5s ease-in-out infinite;"></div>
-            <div style="position:absolute;inset:-24px;border-radius:50%;border:1px solid rgba(214,139,22,0.2);animation:haloPulse 1.5s ease-in-out infinite 0.5s;"></div>
-            <img src="./assets/images/moti-removebg-preview.png" alt="Moti Jewellers Logo" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 8px #d68b16);animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <defs>
-                    <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" style="stop-color:#ff9900"/>
-                        <stop offset="45%" style="stop-color:#d68b16"/>
-                        <stop offset="100%" style="stop-color:#800020"/>
-                    </linearGradient>
-                    <linearGradient id="lg2" x1="100%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color:#f5c842;stop-opacity:0.9"/>
-                        <stop offset="100%" style="stop-color:#b5730e;stop-opacity:0.9"/>
-                    </linearGradient>
-                </defs>
-                <polygon points="40,2 76,22 76,58 40,78 4,58 4,22" fill="url(#lg1)" stroke="#f5c842" stroke-width="1.5"/>
-                <polygon points="40,2 76,22 40,40" fill="url(#lg2)" opacity="0.7"/>
-                <polygon points="76,22 76,58 40,40" fill="#800020" opacity="0.5"/>
-                <polygon points="76,58 40,78 40,40" fill="#b5730e" opacity="0.6"/>
-                <polygon points="40,78 4,58 40,40" fill="#d68b16" opacity="0.4"/>
-                <polygon points="4,58 4,22 40,40" fill="#ff9900" opacity="0.35"/>
-                <polygon points="4,22 40,2 40,40" fill="url(#lg2)" opacity="0.55"/>
-                <polygon points="40,14 68,28 68,52 40,66 12,52 12,28" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
-            </svg>
+        <!-- Logo with pulsing circular halos -->
+        <div style="position:relative;width:120px;height:120px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;">
+            
+            
+            <div style="width:120px;height:120px;background:transparent;display:flex;align-items:center;justify-content:center;animation:gemGlowPulse 1.5s ease-in-out infinite;">
+                <img src="logo.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+            </div>
         </div>
 
         <!-- Title -->
-        <div style="color:#d68b16;font-size:22px;letter-spacing:6px;font-family:'Playfair Display',serif;margin-bottom:6px;animation:titleGold 2s ease infinite alternate;">MOTI JEWELLERS</div>
+        <div style="color:#d68b16;font-size:22px;letter-spacing:6px;font-family:'Poppins',serif;margin-bottom:6px;animation:titleGold 2s ease infinite alternate;">MOTI JEWELLERS</div>
         <p style="color:rgba(201,169,110,0.7);font-size:10px;letter-spacing:4px;text-transform:uppercase;margin-bottom:24px;">Crafting Timeless Elegance</p>
 
         <!-- Progress bar -->
@@ -853,15 +869,15 @@ if($is_logged_in) {
         $logo_found = false;
         foreach($logo_paths as $path) {
             if(file_exists($path)) {
-                echo '<img src="'.$path.'" alt="Moti Jewellers Logo">';
+                echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo" style="height:38px;width:auto;max-width:44px;object-fit:contain;display:inline-block;margin-right:8px;">';
                 $logo_found = true; break;
             }
         }
         if(!$logo_found) echo '<i class="fas fa-gem" style="color:#fff;font-size:30px;flex-shrink:0;"></i>';
         ?>
         <div class="sidebar-logo-text">
-            <h2>MOTI  JEWELLERS</h2>
-            <p>Premium Since 2011</p>
+            <h2>MOTI JEWELLERS</h2>
+            <p>Premium Since 2026</p>
         </div>
     </div>
 
@@ -881,12 +897,18 @@ if($is_logged_in) {
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
         </a>
+        <a href="sanchari_dashboard.php">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
 
         <a href="reports.php">
             <i class="fas fa-chart-bar"></i> REPORTS
+        </a>
+        <a href="due_list.php">
+            <i class="fas fa-hourglass-half"></i> DUE LIST
         </a>
         <a href="income_expenses.php">
             <i class="fas fa-chart-line"></i> INCOME & EXP
@@ -897,9 +919,6 @@ if($is_logged_in) {
 
         <a href="whatsapp_automation.php">
             <i class="fab fa-whatsapp"></i> WHATSAPP
-        </a>
-        <a href="sbook.php">
-            <i class="fas fa-book"></i> SANCHAY
         </a>
         <a href="purchase.php">
             <i class="fas fa-book"></i> PURCHASE
@@ -931,40 +950,50 @@ if($is_logged_in) {
 
 <!-- ========== TOP NAVBAR ========== -->
 <nav class="nav-gold shadow-lg sticky top-0 z-50" style="<?php echo $is_logged_in ? 'margin-left:240px;' : ''; ?>">
-    <div class="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
+    <div class="container mx-auto px-4 sm:px-6 py-2.5 sm:py-3">
         <div class="flex justify-between items-center">
 
-            <!-- Left: Logo + Title -->
-            <!-- <div class="flex items-center space-x-3">
+            <!-- Left: Logo + Shop Title (Always visible) -->
+            <div class="flex items-center space-x-3">
                 <?php
                 $logo_found = false;
                 foreach($logo_paths as $path) {
                     if(file_exists($path)) {
-                        echo '<img src="'.$path.'" alt="Logo" style="height:40px;width:auto;object-fit:contain;">';
+                        echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo" style="height:40px;width:auto;max-width:44px;object-fit:contain;display:inline-block;">';
                         $logo_found = true; break;
                     }
                 }
-                if(!$logo_found) echo '<i class="fas fa-crown" style="color:#fff;font-size:24px;"></i>';
+                if(!$logo_found) echo '<i class="fas fa-gem" style="color:#ffd700;font-size:24px;"></i>';
                 ?>
                 <div>
-                    <h1 class="text-lg sm:text-xl font-bold" style="color:#fff;">MOTI JEWELLERS</h1>
-                    <p class="text-xs hidden sm:block" style="color:rgba(255,255,255,0.75);">Premium Jewellery Management</p>
+                    <h1 class="text-sm sm:text-lg font-bold tracking-wide" style="color:#fff;font-family:\'Poppins\',serif;line-height:1.2;margin:0;">MOTI JEWELLERS</h1>
+                    <p class="text-[10px] hidden sm:block" style="color:rgba(255,255,255,0.75);margin:0;letter-spacing:0.5px;">Premium Jewellery Management</p>
                 </div>
-            </div> -->
+            </div>
 
-            <!-- Right: Theme toggle + user + burger -->
-            <!-- Right Side -->
-<div class="ml-auto flex items-center gap-4">
-    <?php if($is_logged_in): ?>
-    <span class="text-sm font-medium text-white flex items-center gap-2">
-        <i class="fas fa-user"></i>
-        <?php echo htmlspecialchars($_SESSION['user_name']); ?>
-    </span>
-    <a href="logout.php" class="btn-jewel">Logout</a>
-    <?php else: ?>
-    <a href="login.php" class="btn-jewel">Login</a>
-    <?php endif; ?>
-</div>
+            <!-- Right: User info + Hamburger Menu (on mobile) -->
+            <div class="ml-auto flex items-center gap-3 sm:gap-4">
+                <?php if($is_logged_in): ?>
+                <span class="text-xs sm:text-sm font-medium text-white hidden md:flex items-center gap-2">
+                    <i class="fas fa-user-circle" style="color:#ffd700;"></i>
+                    <?php echo htmlspecialchars($_SESSION['user_name']); ?>
+                </span>
+                <a href="logout.php" class="text-xs font-semibold px-3 py-1.5 rounded-lg bg-red-600/80 hover:bg-red-600 text-white transition-all border border-red-400/40 hidden sm:inline-flex items-center">
+                    <i class="fas fa-sign-out-alt mr-1"></i> Logout
+                </a>
+
+                <!-- Mobile Hamburger Menu Button (Always on right on mobile) -->
+                <div class="mobile-burger" style="display:none;">
+                    <div class="burger-menu" id="burgerMenu" onclick="toggleSidebar()">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+                <?php else: ?>
+                <a href="login.php" class="btn-jewel" style="padding: 6px 18px; font-size: 12px;">Login</a>
+                <?php endif; ?>
+            </div>
 
         </div>
     </div>
@@ -982,7 +1011,7 @@ if($is_logged_in) {
             $logo_found = false;
             foreach($logo_paths as $path) {
                 if(file_exists($path)) {
-                    echo '<img src="'.$path.'" alt="Moti Jewellers Logo">';
+                    echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo" style="height:150px;width:150px;max-width:180px;object-fit:contain;display:block;margin:0 auto;filter:drop-shadow(0 8px 24px rgba(181,115,14,0.4));">';
                     $logo_found = true; break;
                 }
             }
@@ -1007,115 +1036,105 @@ if($is_logged_in) {
 <?php endif; ?>
 
 <?php if($is_logged_in): ?>
-<section class="py-6 sm:py-8" style="background: transparent;">
+<section class="py-4" style="background: transparent;">
     <div class="container mx-auto px-4 sm:px-6">
-        <h2 class="text-2xl sm:text-3xl font-bold text-center mb-6" style="color:#7a4e0a;">Quick Business Dashboard</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            <a href="stock.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
-                <div class="text-3xl mb-2" style="color:#b87318;"><i class="fas fa-boxes"></i></div>
-                <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($stock_items_count); ?></h3>
-                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#7a4e0a; font-weight:600;">Stock Items</p>
-                <p class="text-xs text-gray-500 mt-1">Total unique products in inventory.</p>
+        <h2 class="text-xl font-bold text-center mb-3" style="color:#7a4e0a;"><i class="fas fa-chart-line mr-2" style="color:#d68b16;"></i> Quick Business Dashboard</h2>
+        
+        <!-- ======== LIVE AMOUNTS SUMMARY STRIP (Top 6 Financial Metrics) ======== -->
+        <div class="py-3 px-3 rounded-2xl mb-4 overflow-hidden" style="background:linear-gradient(135deg, #011921 0%, #03373b 50%, #044e54 100%); border: 2.5px solid #ffd700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.5); box-shadow: 0 10px 30px rgba(2,44,34,0.3);">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <!-- Total Sales -->
+                <div class="dark-glass-card glass-gold text-center p-2.5 rounded-xl">
+                    <div class="text-lg mb-0.5">💰</div>
+                    <div class="text-base font-bold" style="color:#f5c842;">₹<?php echo number_format($total_sales, 0); ?></div>
+                    <div class="text-[10px] font-semibold mt-0.5" style="color:rgba(255,255,255,0.85);">TOTAL SALES</div>
+                </div>
+                <!-- Today's Sales -->
+                <div class="dark-glass-card glass-emerald text-center p-2.5 rounded-xl">
+                    <div class="text-lg mb-0.5">📊</div>
+                    <div class="text-base font-bold" style="color:#86efac;">₹<?php echo number_format($today_sales_amt, 0); ?></div>
+                    <div class="text-[10px] font-semibold mt-0.5" style="color:rgba(255,255,255,0.85);">TODAY'S SALES</div>
+                    <div class="text-[9px]" style="color:rgba(255,255,255,0.6);"><?php echo $today_invoice_count; ?> invoice<?php echo $today_invoice_count != 1 ? 's' : ''; ?></div>
+                </div>
+                <!-- Total Purchases -->
+                <div class="dark-glass-card glass-rose text-center p-2.5 rounded-xl">
+                    <div class="text-lg mb-0.5">🛒</div>
+                    <div class="text-base font-bold" style="color:#fda4af;">₹<?php echo number_format($total_purchases, 0); ?></div>
+                    <div class="text-[10px] font-semibold mt-0.5" style="color:rgba(255,255,255,0.85);">TOTAL PURCHASES</div>
+                </div>
+                <!-- Today's Purchases -->
+                <div class="dark-glass-card glass-purple text-center p-2.5 rounded-xl">
+                    <div class="text-lg mb-0.5">🏷️</div>
+                    <div class="text-base font-bold" style="color:#c4b5fd;">₹<?php echo number_format($today_purchases, 0); ?></div>
+                    <div class="text-[10px] font-semibold mt-0.5" style="color:rgba(255,255,255,0.85);">TODAY'S PURCHASES</div>
+                </div>
+                <!-- Outstanding Due -->
+                <div class="dark-glass-card glass-orange text-center p-2.5 rounded-xl">
+                    <div class="text-lg mb-0.5">⏳</div>
+                    <div class="text-base font-bold" style="color:#fb923c;">₹<?php echo number_format($total_due, 0); ?></div>
+                    <div class="text-[10px] font-semibold mt-0.5" style="color:rgba(255,255,255,0.85);">OUTSTANDING DUE</div>
+                </div>
+                <!-- Net Profit -->
+                <?php $net_profit = $total_sales - $total_purchases - $total_expense; ?>
+                <div class="dark-glass-card glass-teal text-center p-2.5 rounded-xl">
+                    <div class="text-lg mb-0.5"><?php echo $net_profit >= 0 ? '📈' : '📉'; ?></div>
+                    <div class="text-base font-bold" style="color:<?php echo $net_profit >= 0 ? '#86efac' : '#fca5a5'; ?>;">₹<?php echo number_format(abs($net_profit), 0); ?></div>
+                    <div class="text-[10px] font-semibold mt-0.5" style="color:rgba(255,255,255,0.85);"><?php echo $net_profit >= 0 ? 'NET PROFIT' : 'NET LOSS'; ?></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======== COMPACT INVENTORY & OPERATIONAL METRICS ======== -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <a href="stock.php" class="stat-gem p-3 block cursor-pointer text-center">
+                <div class="text-xl mb-1" style="color:#b87318;"><i class="fas fa-boxes"></i></div>
+                <h3 class="text-lg font-bold text-gray-800"><?php echo number_format($stock_items_count); ?></h3>
+                <p class="uppercase text-[10px] tracking-wider mt-0.5" style="color:#7a4e0a; font-weight:600;">Stock Items</p>
             </a>
-            <a href="stock.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
-                <div class="text-3xl mb-2" style="color:#d68b16;"><i class="fas fa-weight-hanging"></i></div>
-                <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($stock_quantity); ?></h3>
-                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#7a4e0a; font-weight:600;">Stock Quantity</p>
-                <p class="text-xs text-gray-500 mt-1">Total quantity across all stock items.</p>
+            <a href="stock.php" class="stat-gem p-3 block cursor-pointer text-center">
+                <div class="text-xl mb-1" style="color:#d68b16;"><i class="fas fa-weight-hanging"></i></div>
+                <h3 class="text-lg font-bold text-gray-800"><?php echo number_format($stock_quantity); ?></h3>
+                <p class="uppercase text-[10px] tracking-wider mt-0.5" style="color:#7a4e0a; font-weight:600;">Stock Qty</p>
             </a>
-            <a href="stock.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
-                <div class="text-3xl mb-2" style="color:#a16207;"><i class="fas fa-coins"></i></div>
-                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($stock_value, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#7a4e0a; font-weight:600;">Stock Value</p>
-                <p class="text-xs text-gray-500 mt-1">Estimated total value of inventory.</p>
+            <a href="stock.php" class="stat-gem p-3 block cursor-pointer text-center">
+                <div class="text-xl mb-1" style="color:#a16207;"><i class="fas fa-coins"></i></div>
+                <h3 class="text-lg font-bold text-gray-800">₹<?php echo number_format($stock_value, 0); ?></h3>
+                <p class="uppercase text-[10px] tracking-wider mt-0.5" style="color:#7a4e0a; font-weight:600;">Stock Value</p>
             </a>
-            <a href="customers.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
-                <div class="text-3xl mb-2" style="color:#047857;"><i class="fas fa-users"></i></div>
-                <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($customers_count); ?></h3>
-                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#065f46; font-weight:600;">Customers</p>
-                <p class="text-xs text-gray-500 mt-1">Total registered customer records.</p>
+            <a href="customers.php" class="stat-gem p-3 block cursor-pointer text-center">
+                <div class="text-xl mb-1" style="color:#047857;"><i class="fas fa-users"></i></div>
+                <h3 class="text-lg font-bold text-gray-800"><?php echo number_format($customers_count); ?></h3>
+                <p class="uppercase text-[10px] tracking-wider mt-0.5" style="color:#065f46; font-weight:600;">Customers</p>
             </a>
-            <a href="income_expenses.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
-                <div class="text-3xl mb-2" style="color:#15803d;"><i class="fas fa-arrow-up-right-from-square"></i></div>
-                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($total_income, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#166534; font-weight:600;">Total Income</p>
-                <p class="text-xs text-gray-500 mt-1">All recorded income to date.</p>
+            <a href="income_expenses.php" class="stat-gem p-3 block cursor-pointer text-center">
+                <div class="text-xl mb-1" style="color:#15803d;"><i class="fas fa-arrow-up-right-from-square"></i></div>
+                <h3 class="text-lg font-bold text-gray-800">₹<?php echo number_format($total_income, 0); ?></h3>
+                <p class="uppercase text-[10px] tracking-wider mt-0.5" style="color:#166534; font-weight:600;">Total Income</p>
             </a>
-            <a href="income_expenses.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
-                <div class="text-3xl mb-2" style="color:#b91c1c;"><i class="fas fa-wallet"></i></div>
-                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($total_expense, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#9f1239; font-weight:600;">Total Expenses</p>
-                <p class="text-xs text-gray-500 mt-1">All recorded business expenses.</p>
+            <a href="income_expenses.php" class="stat-gem p-3 block cursor-pointer text-center">
+                <div class="text-xl mb-1" style="color:#b91c1c;"><i class="fas fa-wallet"></i></div>
+                <h3 class="text-lg font-bold text-gray-800">₹<?php echo number_format($total_expense, 0); ?></h3>
+                <p class="uppercase text-[10px] tracking-wider mt-0.5" style="color:#9f1239; font-weight:600;">Expenses</p>
             </a>
-            <a href="due_list.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
-                <div class="text-3xl mb-2" style="color:#c2410c;"><i class="fas fa-calendar-check"></i></div>
-                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($total_due, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#9a3412; font-weight:600;">Outstanding Due</p>
-                <p class="text-xs text-gray-500 mt-1">Total unpaid invoice balance.</p>
+            <a href="due_list.php" class="stat-gem p-3 block cursor-pointer text-center">
+                <div class="text-xl mb-1" style="color:#c2410c;"><i class="fas fa-calendar-check"></i></div>
+                <h3 class="text-lg font-bold text-gray-800">₹<?php echo number_format($total_due, 0); ?></h3>
+                <p class="uppercase text-[10px] tracking-wider mt-0.5" style="color:#9a3412; font-weight:600;">Due Balance</p>
             </a>
-            <a href="due_list.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
-                <div class="text-3xl mb-2" style="color:#0ea5e9;"><i class="fas fa-bell"></i></div>
-                <h3 class="text-2xl font-bold text-gray-800"><?php echo number_format($invoice_pending_count); ?></h3>
-                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#0369a1; font-weight:600;">Pending Invoices</p>
-                <p class="text-xs text-gray-500 mt-1">Invoices requiring payment follow-up.</p>
+            <a href="due_list.php" class="stat-gem p-3 block cursor-pointer text-center">
+                <div class="text-xl mb-1" style="color:#0ea5e9;"><i class="fas fa-bell"></i></div>
+                <h3 class="text-lg font-bold text-gray-800"><?php echo number_format($invoice_pending_count); ?></h3>
+                <p class="uppercase text-[10px] tracking-wider mt-0.5" style="color:#0369a1; font-weight:600;">Pending Invoices</p>
             </a>
-            <a href="income_expenses.php" class="stat-gem p-4 sm:p-5 block cursor-pointer">
-                <div class="text-3xl mb-2" style="color:#0891b2;"><i class="fas fa-calendar-alt"></i></div>
-                <h3 class="text-2xl font-bold text-gray-800">₹<?php echo number_format($monthly_income, 0); ?></h3>
-                <p class="uppercase tracking-wider mt-1 text-xs" style="color:#0e7490; font-weight:600;">Monthly Income</p>
-                <p class="text-xs text-gray-500 mt-1">Income recorded this month.</p>
+            <a href="income_expenses.php" class="stat-gem p-3 block cursor-pointer text-center col-span-2 sm:col-span-1">
+                <div class="text-xl mb-1" style="color:#0891b2;"><i class="fas fa-calendar-alt"></i></div>
+                <h3 class="text-lg font-bold text-gray-800">₹<?php echo number_format($monthly_income, 0); ?></h3>
+                <p class="uppercase text-[10px] tracking-wider mt-0.5" style="color:#0e7490; font-weight:600;">Monthly Income</p>
             </a>
         </div>
     </div>
 </section>
 
-<?php if($is_logged_in): ?>
-<!-- ======== LIVE AMOUNTS SUMMARY STRIP ======== -->
-<section class="py-6 rounded-2xl mb-8 overflow-hidden" style="background:linear-gradient(135deg, #0d9488 0%, #f472b6 50%, #d946ef 100%); border: 1px solid rgba(255, 255, 255, 0.25);">
-    <div class="container mx-auto px-4 sm:px-6">
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            <!-- Total Sales -->
-            <div class="dark-glass-card text-center p-4 rounded-2xl">
-                <div class="text-2xl mb-1">💰</div>
-                <div class="text-xl font-bold" style="color:#f5c842;">₹<?php echo number_format($total_sales, 0); ?></div>
-                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">TOTAL SALES</div>
-            </div>
-            <!-- Today's Sales -->
-            <div class="dark-glass-card text-center p-4 rounded-2xl">
-                <div class="text-2xl mb-1">📊</div>
-                <div class="text-xl font-bold" style="color:#86efac;">₹<?php echo number_format($today_sales_amt, 0); ?></div>
-                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">TODAY'S SALES</div>
-                <div class="text-[10px] mt-0.5" style="color:rgba(255,255,255,0.45);"><?php echo $today_invoice_count; ?> invoice<?php echo $today_invoice_count != 1 ? 's' : ''; ?></div>
-            </div>
-            <!-- Total Purchases -->
-            <div class="dark-glass-card text-center p-4 rounded-2xl">
-                <div class="text-2xl mb-1">🛒</div>
-                <div class="text-xl font-bold" style="color:#fda4af;">₹<?php echo number_format($total_purchases, 0); ?></div>
-                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">TOTAL PURCHASES</div>
-            </div>
-            <!-- Today's Purchases -->
-            <div class="dark-glass-card text-center p-4 rounded-2xl">
-                <div class="text-2xl mb-1">🏷️</div>
-                <div class="text-xl font-bold" style="color:#c4b5fd;">₹<?php echo number_format($today_purchases, 0); ?></div>
-                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">TODAY'S PURCHASES</div>
-            </div>
-            <!-- Outstanding Due -->
-            <div class="dark-glass-card text-center p-4 rounded-2xl">
-                <div class="text-2xl mb-1">⏳</div>
-                <div class="text-xl font-bold" style="color:#fb923c;">₹<?php echo number_format($total_due, 0); ?></div>
-                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);">OUTSTANDING DUE</div>
-            </div>
-            <!-- Net Profit (Sales - Purchases - Expenses) -->
-            <?php $net_profit = $total_sales - $total_purchases - $total_expense; ?>
-            <div class="dark-glass-card text-center p-4 rounded-2xl">
-                <div class="text-2xl mb-1"><?php echo $net_profit >= 0 ? '📈' : '📉'; ?></div>
-                <div class="text-xl font-bold" style="color:<?php echo $net_profit >= 0 ? '#86efac' : '#fca5a5'; ?>;">₹<?php echo number_format(abs($net_profit), 0); ?></div>
-                <div class="text-xs font-semibold mt-1" style="color:rgba(255,255,255,0.65);"><?php echo $net_profit >= 0 ? 'NET PROFIT' : 'NET LOSS'; ?></div>
-            </div>
-        </div>
-    </div>
-</section>
-<?php endif; ?>
 <section class="dashboard-section py-8 sm:py-10 md:py-12">
     <div class="container mx-auto px-4 sm:px-6">
         <div class="grid gap-6 lg:grid-cols-3 mb-8">
@@ -1245,7 +1264,7 @@ if($is_logged_in) {
         <?php
         $products_count = $conn->query("SELECT COUNT(*) as total FROM products")->fetch_assoc();
         $stock_value    = $conn->query("SELECT SUM(price * quantity) as total FROM products")->fetch_assoc();
-        $today_sales    = $conn->query("SELECT SUM(total_amount) as total FROM invoices WHERE DATE(created_at) = CURDATE()")->fetch_assoc();
+        $today_sales    = $conn->query("SELECT (SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE DATE(created_at) = CURDATE()) + (SELECT COALESCE(SUM(amount_paid), 0) FROM due_update_history WHERE DATE(payment_date) = CURDATE()) as total")->fetch_assoc();
         $customers_count = $conn->query("SELECT COUNT(*) as total FROM customers")->fetch_assoc();
         ?>
         <div class="stat-gem p-5">
@@ -1326,9 +1345,10 @@ if($is_logged_in) {
             <div>
                 <h4 class="font-bold mb-4">CONTACT</h4>
                 <ul class="space-y-2 text-sm" style="color:#6b5a3e;">
-                    <li><i class="fas fa-phone mr-2" style="color:#d68b16;"></i> +91 9635985848</li>
-                    <li><i class="fas fa-envelope mr-2" style="color:#d68b16;"></i> motijewellers9635985848@gmail.com</li>
-                    <li><i class="fab fa-whatsapp mr-2" style="color:#25D366;"></i> WhatsApp Concierge</li>
+                    <li><i class="fas fa-phone mr-2" style="color:#d68b16;"></i> +91 <?php echo htmlspecialchars($COMPANY['mobile'] ?? '8617536679'); ?></li>
+                    <li><i class="fas fa-envelope mr-2" style="color:#d68b16;"></i> <?php echo htmlspecialchars($COMPANY['email'] ?? 'Subhapatra169@gmail.com'); ?></li>
+                    <li><i class="fas fa-map-marker-alt mr-2" style="color:#d68b16;"></i> <?php echo htmlspecialchars(($COMPANY['address_line1'] ?? 'Temathani, Sabang') . ', ' . ($COMPANY['address_line2'] ?? 'Paschim Medinipur')); ?></li>
+                    <li><i class="fas fa-globe mr-2" style="color:#d68b16;"></i> <?php echo htmlspecialchars($COMPANY['state'] ?? 'West Bengal'); ?></li>
                 </ul>
             </div>
             <div>
@@ -1339,8 +1359,7 @@ if($is_logged_in) {
         </div>
         <div class="mt-8 pt-6 text-center" style="border-top:1px solid rgba(181,115,14,0.25);">
             <p class="text-xs" style="color:#7a4e0a;">
-                &copy; 2011 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
-                Developed by <a href="https://saamparktechnologyresearch.in/" target="_blank" style="text-decoration:underline;color:#800020;">Saampark Technology</a>
+                &copy; <?php echo date('Y'); ?> MOTI JEWELLERS &nbsp;|&nbsp; Developed by <a href="https://saamparktechnology.com/" target="_blank" style="text-decoration:underline;color:#800020;font-weight:700;">Saampark Technology</a>
             </p>
         </div>
     </div>
@@ -1644,3 +1663,10 @@ if($is_logged_in) {
     </script>
     <?php endif; ?>
 </html>
+
+
+
+
+
+
+

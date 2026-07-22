@@ -3,6 +3,8 @@ session_start();
 require_once 'config/database.php';
 if(!isset($_SESSION['user_id'])) { header('Location: login.php'); exit; }
 
+$logo_paths = ['logo.png', 'assets/images/logo.png', 'images/logo.png', 'assets/images/moti-removebg-preview.png'];
+
 function genId($prefix, $table, $field) {
   global $conn;
   $res = mysqli_query($conn, "SELECT $field FROM $table ORDER BY id DESC LIMIT 1");
@@ -13,6 +15,7 @@ function genId($prefix, $table, $field) {
 }
 
 $customers = mysqli_query($conn, "SELECT customer_id, book_id, customer_name, monthly_amount FROM sanchari_customers ORDER BY id DESC");
+$error_msg = '';
 
 if($_SERVER['REQUEST_METHOD']==='POST') {
   $payment_id = genId('PAY', 'sanchari_payments', 'payment_id');
@@ -26,59 +29,340 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
   $weight = $gold_rate > 0 ? round($amount / $gold_rate, 3) : 0;
   $payment_mode = mysqli_real_escape_string($conn, trim($_POST['payment_mode']));
   $remarks = mysqli_real_escape_string($conn, trim($_POST['remarks']));
-  $stmt = mysqli_prepare($conn, "INSERT INTO sanchari_payments (payment_id, customer_id, book_id, customer_name, installment_no, payment_date, amount, gold_rate, weight, payment_mode, remarks) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
-  mysqli_stmt_bind_param($stmt, 'ssssissdsss', $payment_id, $customer_id, $book_id, $customer_name, $installment_no, $payment_date, $amount, $gold_rate, $weight, $payment_mode, $remarks);
-  mysqli_stmt_execute($stmt);
-  header('Location: sbook.php?payment=1');
-  exit;
+
+  if(!$customer_id || $amount <= 0) {
+      $error_msg = 'Please select a customer and enter a valid amount.';
+  } else {
+      $stmt = mysqli_prepare($conn, "INSERT INTO sanchari_payments (payment_id, customer_id, book_id, customer_name, installment_no, payment_date, amount, gold_rate, weight, payment_mode, remarks) VALUES (?,?,?,?,?,?,?,?,?,?,?)");
+      mysqli_stmt_bind_param($stmt, 'ssssissdsss', $payment_id, $customer_id, $book_id, $customer_name, $installment_no, $payment_date, $amount, $gold_rate, $weight, $payment_mode, $remarks);
+      if(mysqli_stmt_execute($stmt)) {
+          header('Location: sanchari_dashboard.php?tab=payments&msg=payment_added');
+          exit;
+      } else {
+          $error_msg = 'Error recording payment: ' . mysqli_error($conn);
+      }
+  }
 }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="author" content="MANU GUPTA">
-  <title>Payment Entry | Moti Jewellers</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+  <title>Sanchay Payment Entry - MOTI JEWELLERS</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
+  <style>
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+      * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
+      h1,h2,h3,.gold-font { font-family: 'Playfair Display', serif; }
+
+      /* SIDEBAR */
+      .sidebar {
+          position: fixed; top: 0; left: 0; width: 240px; height: 100vh;
+          background: linear-gradient(180deg, #011921 0%, #03373b 50%, #044e54 80%, #011921 100%);
+          z-index: 1000; display: flex; flex-direction: column;
+          box-shadow: 4px 0 24px rgba(0,0,0,0.25);
+          transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+          overflow: hidden;
+      }
+      .sidebar-logo {
+          padding: 22px 18px 16px; border-bottom: 1px solid rgba(255,255,255,0.18);
+          display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+      }
+      .sidebar-logo img { width: 44px; height: 44px; object-fit: contain; border-radius: 50%; background: rgba(255,255,255,0.1); }
+      .sidebar-logo-text h2 { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; font-family: 'Playfair Display', serif; }
+      .sidebar-logo-text p { color: rgba(255,255,255,0.65); font-size: 10px; margin-top: 1px; }
+      .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; overflow-x: hidden; }
+      .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; position: sticky; top: 0; background: #011921; color: #f5c842; z-index: 10; }
+      .sidebar-nav a { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13px; font-weight: 500; transition: all 0.2s ease; border-left: 3px solid transparent; position: relative; }
+      .sidebar-nav a:hover { background: rgba(255,255,255,0.13); color: #fff; border-left-color: rgba(255,255,255,0.8); padding-left: 26px; }
+      .sidebar-nav a.active { background: rgba(255,255,255,0.22); color: #fff; border-left-color: #fff; font-weight: 700; }
+      .sidebar-nav a i { width: 18px; text-align: center; font-size: 14px; flex-shrink: 0; }
+      .sidebar-divider { height: 1px; background: rgba(255,255,255,0.12); margin: 6px 16px; }
+      .sidebar-user { padding: 14px 16px 18px; border-top: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.12); flex-shrink: 0; }
+      .sidebar-user-info { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+      .sidebar-user-info i { color: rgba(255,255,255,0.9); font-size: 26px; }
+      .sidebar-user-info .user-details p { color: #fff; font-size: 12px; font-weight: 600; }
+      .sidebar-user-info .user-details span { color: rgba(255,255,255,0.55); font-size: 10px; }
+      .sidebar-logout { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; background: rgba(239,68,68,0.75); color: #fff; border-radius: 8px; font-size: 12px; font-weight: 600; text-decoration: none; transition: background 0.2s; }
+      .sidebar-logout:hover { background: #ef4444; color: #fff; }
+      .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(2px); }
+      .sidebar-overlay.active { display: block; }
+      .page-wrapper { margin-left: 240px; min-height: 100vh; transition: margin-left 0.35s ease; }
+      nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important; border-bottom: 2.5px solid #ffd700; box-shadow: 0 0 12px rgba(255, 215, 0, 0.5) !important; transition: margin-left 0.35s ease; }
+
+      /* BURGER MENU */
+      .burger-menu { width: 28px; height: 20px; position: relative; cursor: pointer; }
+      .burger-menu span { display: block; position: absolute; height: 3px; width: 100%; background: #fff; border-radius: 3px; transition: all 0.3s ease; }
+      .burger-menu span:nth-child(1) { top: 0; }
+      .burger-menu span:nth-child(2) { top: 9px; }
+      .burger-menu span:nth-child(3) { top: 18px; }
+      .burger-menu.active span:nth-child(1) { top: 9px; transform: rotate(135deg); }
+      .burger-menu.active span:nth-child(2) { opacity: 0; left: -20px; }
+      .burger-menu.active span:nth-child(3) { top: 9px; transform: rotate(-135deg); }
+
+      .jewel-card { background: linear-gradient(145deg, #fdf6e3, #f5ead0); border-radius: 20px; border: 1px solid rgba(181,115,14,0.25); box-shadow: 0 8px 30px rgba(181,115,14,0.1); }
+      .form-input { width: 100%; padding: 12px 16px; border-radius: 12px; border: 1.5px solid rgba(181,115,14,0.3); background: #fff; color: #3a1f00; outline: none; transition: all 0.2s ease; font-size: 13px; }
+      .form-input:focus { border-color: #d68b16; box-shadow: 0 0 0 4px rgba(214,139,22,0.15); }
+      .form-label { display: block; color: #7a4e0a; font-weight: 600; font-size: 12px; margin-bottom: 6px; }
+      .required { color: #dc2626; }
+
+      .btn-gold { background: linear-gradient(135deg, #800020, #d68b16); border: none; color: #fff; font-weight: 700; padding: 12px 28px; border-radius: 50px; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; text-decoration: none; }
+      .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(214,139,22,0.4); color: #fff; }
+
+      @media (max-width: 768px) {
+          .sidebar { transform: translateX(-100%); }
+          .sidebar.open { transform: translateX(0); }
+          .page-wrapper { margin-left: 0 !important; }
+          nav.nav-gold { margin-left: 0 !important; }
+          .mobile-burger { display: block !important; }
+      }
+      @media (min-width: 769px) { .mobile-burger { display: none !important; } }
+  </style>
 </head>
-<body class="bg-light">
-  <div class="container py-4">
-    <div class="card shadow-sm border-0 mx-auto" style="max-width:900px;">
-      <div class="card-body p-4">
-        <h3 class="mb-3" style="color:#c7522a;">Sanchay Payment Entry</h3>
-        <form method="post">
-          <div class="row g-3">
-            <div class="col-md-6"><label class="form-label">Payment ID</label><input class="form-control" value="Auto Generated" disabled></div>
-            <div class="col-md-6"><label class="form-label">Customer</label><select id="customerSelect" name="customer_id" class="form-select" required>
-              <option value="">Select customer</option>
-              <?php while($row=mysqli_fetch_assoc($customers)){ echo '<option value="'.$row['customer_id'].'" data-book="'.$row['book_id'].'" data-name="'.$row['customer_name'].'">'.$row['customer_id'].' - '.$row['customer_name'].'</option>'; } ?>
-            </select></div>
-            <div class="col-md-6"><label class="form-label">Book ID</label><input id="bookId" name="book_id" class="form-control" readonly></div>
-            <div class="col-md-6"><label class="form-label">Customer Name</label><input id="customerName" name="customer_name" class="form-control" readonly></div>
-            <div class="col-md-6"><label class="form-label">Installment Number</label><input type="number" name="installment_no" class="form-control" required></div>
-            <div class="col-md-6"><label class="form-label">Payment Date</label><input type="date" name="payment_date" class="form-control" value="<?=date('Y-m-d')?>" required></div>
-            <div class="col-md-6"><label class="form-label">Amount Paid</label><input type="number" step="0.01" name="amount" id="amount" class="form-control" required></div>
-            <div class="col-md-6"><label class="form-label">Gold Rate Per Gram</label><input type="number" step="0.01" name="gold_rate" id="goldRate" class="form-control" required></div>
-            <div class="col-md-6"><label class="form-label">Gold Weight (Auto)</label><input id="weightOut" class="form-control" readonly></div>
-            <div class="col-md-6"><label class="form-label">Payment Mode</label><select name="payment_mode" class="form-select"><option>Cash</option><option>UPI</option><option>Bank</option><option>Card</option></select></div>
-            <div class="col-md-12"><label class="form-label">Remarks</label><textarea name="remarks" class="form-control" rows="3"></textarea></div>
-          </div>
-          <div class="mt-4 text-end"><button class="btn btn-warning text-white" type="submit">Save Payment</button></div>
-        </form>
-      </div>
+<body class="light-theme" style="background:#F5F5F5;">
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="mainSidebar">
+    <div class="sidebar-logo">
+        <?php
+        $logo_found = false;
+        foreach($logo_paths as $path) {
+            if(file_exists($path)) {
+                echo '<img src="'.$path.'" alt="Logo">';
+                $logo_found = true; break;
+            }
+        }
+        if(!$logo_found) echo '<i class="fas fa-gem" style="color:#fff;font-size:30px;flex-shrink:0;"></i>';
+        ?>
+        <div class="sidebar-logo-text">
+            <h2>MOTI JEWELLERS</h2>
+            <p>Premium Since 2026</p>
+        </div>
     </div>
-  </div>
-  <script>
-    const select = document.getElementById('customerSelect');
-    const bookId = document.getElementById('bookId');
-    const customerName = document.getElementById('customerName');
-    const amount = document.getElementById('amount');
-    const goldRate = document.getElementById('goldRate');
-    const weightOut = document.getElementById('weightOut');
-    function updateWeight(){ const w = goldRate.value > 0 ? (amount.value / goldRate.value) : 0; weightOut.value = w.toFixed(3); }
-    select.addEventListener('change', function(){ const opt = this.options[this.selectedIndex]; bookId.value = opt.dataset.book || ''; customerName.value = opt.dataset.name || ''; });
-    amount.addEventListener('input', updateWeight); goldRate.addEventListener('input', updateWeight);
-  </script>
+    <nav class="sidebar-nav">
+        <div class="sidebar-section-label">Main Menu</div>
+
+        <a href="index.php">
+            <i class="fas fa-home"></i> HOME
+        </a>
+        <a href="billing.php">
+            <i class="fas fa-receipt"></i> BILLING
+        </a>
+        <a href="stock.php">
+            <i class="fas fa-boxes"></i> STOCK
+        </a>
+        <a href="customers.php">
+            <i class="fas fa-users"></i> CUSTOMERS
+        </a>
+        <a href="sanchari_dashboard.php" class="active">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
+
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section-label">Analytics</div>
+
+        <a href="reports.php">
+            <i class="fas fa-chart-bar"></i> REPORTS
+        </a>
+        <a href="due_list.php">
+            <i class="fas fa-hourglass-half"></i> DUE LIST
+        </a>
+        <a href="income_expenses.php">
+            <i class="fas fa-chart-line"></i> INCOME & EXP
+        </a>
+
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section-label">Tools</div>
+
+        <a href="whatsapp_automation.php">
+            <i class="fab fa-whatsapp"></i> WHATSAPP
+        </a>
+        <a href="purchase.php">
+            <i class="fas fa-book"></i> PURCHASE
+        </a>
+        <a href="contacts.php">
+            <i class="fas fa-address-book"></i> CONTACTS
+        </a>
+        <a href="accounts.php">
+            <i class="fas fa-calculator"></i> ACCOUNTS
+        </a>
+    </nav>
+    <div class="sidebar-user">
+        <div class="sidebar-user-info">
+            <i class="fas fa-user-circle"></i>
+            <div class="user-details">
+                <p><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Admin'); ?></p>
+                <span><?php echo htmlspecialchars($_SESSION['user_mobile'] ?? 'Admin'); ?></span>
+            </div>
+        </div>
+        <a href="logout.php" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> LOGOUT</a>
+    </div>
+</div>
+
+<!-- TOP NAVBAR -->
+<nav class="nav-gold shadow-lg sticky top-0 z-50" style="margin-left:240px;">
+    <div class="container mx-auto px-4 sm:px-6 py-3">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="mobile-burger" style="display:none;">
+                    <div class="burger-menu" id="burgerMenu" onclick="toggleSidebar()">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+                <span class="font-bold text-white text-xs sm:text-sm" style="font-family:'Playfair Display',serif;">
+                    <i class="fas fa-coins mr-2"></i>MOTI JEWELLERS — Sanchay Installment Payment
+                </span>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="sanchari_dashboard.php" class="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all font-semibold">
+                    <i class="fas fa-arrow-left mr-1"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- PAGE WRAPPER -->
+<div class="page-wrapper">
+<div class="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-4xl">
+
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
+                💰 Record Installment Payment
+            </h2>
+            <p class="text-xs sm:text-sm mt-1" style="color:#7a4e0a;">Record gold scheme installment deposit and calculate accumulated gold weight</p>
+        </div>
+    </div>
+
+    <?php if($error_msg): ?>
+        <div class="mb-4 p-4 rounded-xl text-xs sm:text-sm" style="background:#fef2f2;border:1px solid #fca5a5;color:#991b1b;font-weight:600;">
+            <i class="fas fa-exclamation-circle mr-2"></i><?php echo $error_msg; ?>
+        </div>
+    <?php endif; ?>
+
+    <div class="jewel-card p-4 sm:p-8">
+        <form method="post">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div>
+                    <label class="form-label">Payment Entry ID</label>
+                    <input class="form-input font-bold text-gray-500" value="Auto Generated (PAY-XXXX)" disabled style="background:#f8fafc;">
+                </div>
+
+                <div>
+                    <label class="form-label">Select Customer <span class="required">*</span></label>
+                    <select id="customerSelect" name="customer_id" class="form-input font-semibold" required>
+                        <option value="">-- Choose Registered Customer --</option>
+                        <?php while($row=mysqli_fetch_assoc($customers)){ 
+                            echo '<option value="'.$row['customer_id'].'" data-book="'.$row['book_id'].'" data-name="'.htmlspecialchars($row['customer_name']).'" data-amount="'.$row['monthly_amount'].'">'.$row['customer_id'].' - '.htmlspecialchars($row['customer_name']).' ('.$row['book_id'].')</option>'; 
+                        } ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="form-label">Book ID</label>
+                    <input id="bookId" name="book_id" class="form-input font-bold text-yellow-900" readonly style="background:#fff9ed;">
+                </div>
+                <div>
+                    <label class="form-label">Customer Name</label>
+                    <input id="customerName" name="customer_name" class="form-input font-bold text-yellow-900" readonly style="background:#fff9ed;">
+                </div>
+
+                <div>
+                    <label class="form-label">Installment No. <span class="required">*</span></label>
+                    <input type="number" name="installment_no" class="form-input" min="1" max="12" value="1" required>
+                </div>
+                <div>
+                    <label class="form-label">Payment Date <span class="required">*</span></label>
+                    <input type="date" name="payment_date" class="form-input" value="<?php echo date('Y-m-d'); ?>" required>
+                </div>
+
+                <div>
+                    <label class="form-label">Amount Paid (₹) <span class="required">*</span></label>
+                    <input type="number" step="0.01" name="amount" id="amount" class="form-input font-bold text-green-700" placeholder="e.g. 3000" required>
+                </div>
+                <div>
+                    <label class="form-label">Today's Gold Rate (₹/g) <span class="required">*</span></label>
+                    <input type="number" step="0.01" name="gold_rate" id="goldRate" class="form-input font-bold text-yellow-900" placeholder="e.g. 7200" required>
+                </div>
+
+                <div>
+                    <label class="form-label">Calculated Gold Weight (g)</label>
+                    <input id="weightOut" class="form-input font-bold text-yellow-900 text-lg" readonly style="background:#fff9ed;color:#800020;" placeholder="0.000 g">
+                </div>
+                <div>
+                    <label class="form-label">Payment Mode</label>
+                    <select name="payment_mode" class="form-input">
+                        <option value="Cash">Cash</option>
+                        <option value="UPI">UPI / GPay / PhonePe</option>
+                        <option value="Bank">Bank Transfer</option>
+                        <option value="Card">Credit / Debit Card</option>
+                    </select>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="form-label">Remarks / Notes</label>
+                    <textarea name="remarks" rows="2" class="form-input" placeholder="Optional notes..."></textarea>
+                </div>
+            </div>
+
+            <div class="mt-6 sm:mt-8 flex flex-col sm:flex-row justify-end gap-3 sm:gap-4">
+                <a href="sanchari_dashboard.php" class="px-6 py-3 rounded-full text-xs font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300 transition-all text-center">Cancel</a>
+                <button type="submit" class="btn-gold justify-center"><i class="fas fa-check-circle"></i> Save Payment Entry</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+</div>
+
+<script>
+const select = document.getElementById('customerSelect');
+const bookId = document.getElementById('bookId');
+const customerName = document.getElementById('customerName');
+const amount = document.getElementById('amount');
+const goldRate = document.getElementById('goldRate');
+const weightOut = document.getElementById('weightOut');
+
+function updateWeight(){ 
+    const amt = parseFloat(amount.value) || 0;
+    const rate = parseFloat(goldRate.value) || 0;
+    const w = rate > 0 ? (amt / rate) : 0; 
+    weightOut.value = w.toFixed(3) + ' g'; 
+}
+
+select.addEventListener('change', function(){ 
+    const opt = this.options[this.selectedIndex]; 
+    bookId.value = opt.dataset.book || ''; 
+    customerName.value = opt.dataset.name || ''; 
+    if(opt.dataset.amount && !amount.value) {
+        amount.value = opt.dataset.amount;
+        updateWeight();
+    }
+});
+
+amount.addEventListener('input', updateWeight); 
+goldRate.addEventListener('input', updateWeight);
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('mainSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const burger  = document.getElementById('burgerMenu');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('active');
+    if(burger) burger.classList.toggle('active');
+}
+function closeSidebar() {
+    document.getElementById('mainSidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('active');
+    const burger  = document.getElementById('burgerMenu');
+    if(burger) burger.classList.remove('active');
+}
+</script>
 </body>
 </html>

@@ -126,7 +126,7 @@ $customers = [];
 if($customers_result) while($row = mysqli_fetch_assoc($customers_result)) $customers[] = $row;
 
 $error_message = isset($error_msg) ? $error_msg : '';
-$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
+$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -141,13 +141,13 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
 
         * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
-        h1,h2,h3,.gold-font { font-family: 'Playfair Display', serif; }
+        h1,h2,h3,.gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
 
         /* ========== SIDEBAR ========== */
         .sidebar {
             position: fixed; top: 0; left: 0;
             width: 240px; height: 100vh;
-            background: linear-gradient(180deg, #7a4e0a 0%, #b5730e 40%, #d68b16 100%);
+            background: linear-gradient(180deg, #011921 0%, #03373b 50%, #044e54 80%, #011921 100%);
             z-index: 1000;
             display: flex; flex-direction: column;
             box-shadow: 4px 0 24px rgba(0,0,0,0.25);
@@ -168,7 +168,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         }
         .sidebar-logo-text h2 {
             color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3;
-            font-family: 'Playfair Display', serif; letter-spacing: 0.5px;
+            font-family: 'Poppins', serif; letter-spacing: 0.5px;
         }
         .sidebar-logo-text p { color: rgba(255,255,255,0.65); font-size: 10px; margin-top: 1px; }
 
@@ -185,7 +185,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
             font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
             position: sticky;
             top: 0;
-            background: rgba(122, 78, 10, 0.95);
+            background: #011921; color: #f5c842;
             z-index: 10;
         }
 
@@ -246,7 +246,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         .page-wrapper { margin-left: 240px; min-height: 100vh; transition: margin-left 0.35s ease; }
 
         /* ========== NAVBAR ========== */
-        nav.nav-gold { background: linear-gradient(135deg, #b5730e, #d68b16) !important; }
+        nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important; border-bottom: 2.5px solid #ffd700; box-shadow: 0 0 12px rgba(255, 215, 0, 0.5) !important; }
 
         /* ========== BURGER ========== */
         .burger-menu { width: 28px; height: 20px; position: relative; cursor: pointer; }
@@ -481,39 +481,12 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
     <div style="position:relative;z-index:10;text-align:center;">
 
         <!-- Gem with halos -->
-        <div style="position:relative;width:110px;height:110px;margin:0 auto 28px;">
-            <div style="position:absolute;inset:-12px;border-radius:50%;border:2px solid rgba(214,139,22,0.4);animation:haloPulse 1.5s ease-in-out infinite;"></div>
-            <div style="position:absolute;inset:-24px;border-radius:50%;border:1px solid rgba(214,139,22,0.2);animation:haloPulse 1.5s ease-in-out infinite 0.5s;"></div>
-            <img src="./assets/images/moti-removebg-preview.png" alt="Moti Jewellers Logo" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 8px #d68b16);animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <defs>
-                    <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" style="stop-color:#ff9900"/>
-                        <stop offset="45%" style="stop-color:#d68b16"/>
-                        <stop offset="100%" style="stop-color:#800020"/>
-                    </linearGradient>
-                    <linearGradient id="lg2" x1="100%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color:#f5c842;stop-opacity:0.9"/>
-                        <stop offset="100%" style="stop-color:#b5730e;stop-opacity:0.9"/>
-                    </linearGradient>
-                </defs>
-                <polygon points="40,2 76,22 76,58 40,78 4,58 4,22" fill="url(#lg1)" stroke="#f5c842" stroke-width="1.5"/>
-                <polygon points="40,2 76,22 40,40" fill="url(#lg2)" opacity="0.7"/>
-                <polygon points="76,22 76,58 40,40" fill="#800020" opacity="0.5"/>
-                <polygon points="76,58 40,78 40,40" fill="#b5730e" opacity="0.6"/>
-                <polygon points="40,78 4,58 40,40" fill="#d68b16" opacity="0.4"/>
-                <polygon points="4,58 4,22 40,40" fill="#ff9900" opacity="0.35"/>
-                <polygon points="4,22 40,2 40,40" fill="url(#lg2)" opacity="0.55"/>
-                <polygon points="40,14 68,28 68,52 40,66 12,52 12,28" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
-            </svg>
-        </div>
-
-        <!-- Title -->
-        <div style="color:#d68b16;font-size:22px;letter-spacing:6px;font-family:'Playfair Display',serif;margin-bottom:6px;animation:titleGold 2s ease infinite alternate;">MOTI JEWELLERS</div>
-        <p style="color:rgba(201,169,110,0.7);font-size:10px;letter-spacing:4px;text-transform:uppercase;margin-bottom:24px;">Crafting Timeless Elegance</p>
-
-        <!-- Progress bar -->
-        <div style="width:200px;height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin:0 auto 16px;overflow:hidden;">
-            <div style="height:100%;width:35%;background:linear-gradient(90deg,#7a4e0a,#d68b16,#f5c842);border-radius:3px;animation:barSlide 1.8s ease-in-out infinite;"></div>
+                <div style="position:relative;width:120px;height:120px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;">
+            
+            
+            <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
+                <img src="logo.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+            </div>
         </div>
 
         <!-- Dots -->
@@ -562,16 +535,19 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php" class="active"><i class="fas fa-users"></i> CUSTOMERS</a>
+        <a href="sanchari_dashboard.php">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
         <a href="reports.php"><i class="fas fa-chart-bar"></i> REPORTS</a>
+        <a href="due_list.php"><i class="fas fa-hourglass-half"></i> DUE LIST</a>
         <a href="income_expenses.php"><i class="fas fa-chart-line"></i> INCOME &amp; EXP</a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Tools</div>
         <a href="whatsapp_automation.php"><i class="fab fa-whatsapp"></i> WHATSAPP</a>
-        <a href="sbook.php"><i class="fas fa-book"></i> SANCHARI</a>
         <a href="purchase.php"><i class="fas fa-book"></i> PURCHASE</a>
         <a href="accounts.php"><i class="fas fa-book"></i> ACCOUNTS</a>
     </nav>
@@ -739,8 +715,8 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
     <!-- Footer -->
     <footer class="footer-jewel">
         <p class="text-xs" style="color:#7a4e0a;">
-            &copy; 2011 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
-            Developed by <a href="https://saamparktechnologyresearch.in/" target="_blank" style="text-decoration:underline;color:#800020;">Saampark Technology</a>
+            &copy; 2026 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
+            Developed by <a href="https://saamparktechnology.com/" target="_blank" style="text-decoration:underline;color:#800020;font-weight:700;">Saampark Technology</a>
         </p>
     </footer>
 </div><!-- end .page-wrapper -->
@@ -893,7 +869,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         <!-- Header -->
         <div style="background:linear-gradient(135deg,#7a4e0a,#d68b16);padding:18px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
             <div>
-                <div style="color:#fff;font-size:16px;font-weight:700;font-family:'Playfair Display',serif;" id="ohCustomerName">Customer Orders</div>
+                <div style="color:#fff;font-size:16px;font-weight:700;font-family:'Poppins',serif;" id="ohCustomerName">Customer Orders</div>
                 <div style="color:rgba(255,255,255,0.75);font-size:11px;margin-top:2px;" id="ohCustomerMobile"></div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;">
@@ -1074,7 +1050,7 @@ function downloadStatementPDF() {
     doc.setFontSize(16); doc.setFont('helvetica','bold');
     doc.text('MOTI JEWELLERS', W/2, 11, {align:'center'});
     doc.setFontSize(8); doc.setFont('helvetica','normal');
-    doc.text('Hamirpur, Balichak, Station Road, Paschim Medinipur  |  +91-9635985848', W/2, 17, {align:'center'});
+    doc.text('Krishnapriya, Midnapore (W), West Bengal - 721440  |  +91-9091518567', W/2, 17, {align:'center'});
     doc.setFontSize(10); doc.setFont('helvetica','bold');
     doc.text('CUSTOMER ACCOUNT STATEMENT', W/2, 24, {align:'center'});
     y = 34;
@@ -1192,7 +1168,7 @@ function downloadStatementPDF() {
     doc.setDrawColor(181,115,14); doc.line(margin, y, W-margin, y);
     y += 5;
     doc.setFontSize(7); doc.setTextColor(140,140,140); doc.setFont('helvetica','italic');
-    doc.text('This is a computer-generated statement from MOTI JEWELLERS. For queries contact +91-9635985848.', W/2, y, {align:'center'});
+    doc.text('This is a computer-generated statement from MOTI JEWELLERS. For queries contact +91-9091518567.', W/2, y, {align:'center'});
 
     // Page numbers
     const totalPages = doc.internal.getNumberOfPages();
@@ -1207,3 +1183,7 @@ function downloadStatementPDF() {
 }
 
 </script>
+
+
+
+

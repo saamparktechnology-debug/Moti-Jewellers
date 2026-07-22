@@ -48,7 +48,13 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_delete_invoice'
         mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 1");
         
         if ($success) {
-            header("Location: reports.php?reset_msg=" . urlencode($reset_success));
+            $redirect_url = 'reports.php?reset_msg=' . urlencode($reset_success);
+            echo '<!DOCTYPE html><html><head>';
+            echo '<meta http-equiv="refresh" content="0;url=' . htmlspecialchars($redirect_url) . '">';
+            echo '<script>window.location.replace(' . json_encode($redirect_url) . ');<\/script>';
+            echo '</head><body style="background:#fffbf4;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;">';
+            echo '<p style="color:#7a4e0a;font-weight:600;">✅ Done! Redirecting...</p>';
+            echo '</body></html>';
             exit();
         }
     }
@@ -246,7 +252,13 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_reset_report'])
         
         // If successful, reload to refresh stats/reports
         if ($success) {
-            header("Location: reports.php?reset_msg=" . urlencode($reset_success));
+            $redirect_url = 'reports.php?reset_msg=' . urlencode($reset_success);
+            echo '<!DOCTYPE html><html><head>';
+            echo '<meta http-equiv="refresh" content="0;url=' . htmlspecialchars($redirect_url) . '">';
+            echo '<script>window.location.replace(' . json_encode($redirect_url) . ');<\/script>';
+            echo '</head><body style="background:#fffbf4;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;">';
+            echo '<p style="color:#7a4e0a;font-weight:600;">✅ Done! Redirecting...</p>';
+            echo '</body></html>';
             exit();
         }
     }
@@ -332,14 +344,14 @@ while($r = mysqli_fetch_assoc($bills_result)) $bills_rows[] = $r;
 $total_bills_amount = array_sum(array_column($bills_rows, 'total_amount'));
 $total_bills_count  = count($bills_rows);
 
-$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
+$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>Reports - MOti Jewellers</title>
+    <title>Reports - MOTI JEWELLERS</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -349,13 +361,13 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
 
         * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
-        h1,h2,h3,.gold-font { font-family: 'Playfair Display', serif; }
+        h1,h2,h3,.gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
 
         /* ========== SIDEBAR ========== */
         .sidebar {
             position: fixed; top: 0; left: 0;
             width: 240px; height: 100vh;
-            background: linear-gradient(180deg, #7a4e0a 0%, #b5730e 40%, #d68b16 100%);
+            background: linear-gradient(180deg, #011921 0%, #03373b 50%, #044e54 80%, #011921 100%);
             z-index: 1000;
             display: flex; flex-direction: column;
             box-shadow: 4px 0 24px rgba(0,0,0,0.25);
@@ -370,12 +382,12 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
             border-bottom: 1px solid rgba(255,255,255,0.18);
             display: flex; align-items: center; gap: 12px; flex-shrink: 0;
         }
-        .sidebar-logo img { width: 44px; height: 44px; object-fit: contain; border-radius: 50%; background: rgba(255,255,255,0.1); padding: 3px; flex-shrink: 0; }
-        .sidebar-logo-text h2 { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; font-family: 'Playfair Display', serif; letter-spacing: 0.5px; }
+        .sidebar-logo img { width: 44px; height: 44px; object-fit: cover; border-radius: 50%; background: rgba(255,255,255,0.1); flex-shrink: 0; }
+        .sidebar-logo-text h2 { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; font-family: 'Poppins', serif; letter-spacing: 0.5px; }
         .sidebar-logo-text p  { color: rgba(255,255,255,0.65); font-size: 10px; margin-top: 1px; }
 
         .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; overflow-x: hidden; }
-        .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; position: sticky; top: 0; background: rgba(122, 78, 10, 0.95); z-index: 10; }
+        .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; position: sticky; top: 0; background: #011921; color: #f5c842; z-index: 10; }
 
         .sidebar-nav a {
             display: flex; align-items: center; gap: 12px;
@@ -406,7 +418,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         /* ========== LAYOUT ========== */
         .page-wrapper { margin-left: 240px; min-height: 100vh; transition: margin-left 0.35s ease; background: #F5F5F5; }
 
-        nav.nav-gold { background: linear-gradient(135deg, #b5730e, #d68b16) !important; }
+        nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important; border-bottom: 2.5px solid #ffd700; box-shadow: 0 0 12px rgba(255, 215, 0, 0.5) !important; }
 
         .burger-menu { width: 28px; height: 20px; position: relative; cursor: pointer; }
         .burger-menu span { display: block; position: absolute; height: 3px; width: 100%; background: #fff; border-radius: 3px; transition: all 0.3s ease; }
@@ -543,7 +555,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         }
     }
 
-    const texts = ["Moti JEWELLERS"];
+    const texts = ["MOTI JEWELLERS"];
     let textIndex = 0, charIndex = 0, isDeleting = false, typingSpeed = 100;
 
     function typeEffect() {
@@ -608,15 +620,12 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
 
     <div style="position:relative;z-index:10;text-align:center;">
         <!-- Logo -->
-        <div style="position:relative;width:110px;height:110px;margin:0 auto 28px;display:flex;align-items:center;justify-content:center;">
-            <img src="assets/images/moti-removebg-preview.png" alt="Logo" style="max-width:100%;max-height:100%;animation:gemGlowPulse 2s ease-in-out infinite;">
-        </div>
-
-        <div style="color:#d68b16;font-size:22px;letter-spacing:6px;font-family:'Playfair Display',serif;margin-bottom:6px;animation:titleGold 2s ease infinite alternate;">MOTI JEWELLERS</div>
-        <p style="color:rgba(201,169,110,0.7);font-size:10px;letter-spacing:4px;text-transform:uppercase;margin-bottom:24px;">Crafting Timeless Elegance</p>
-
-        <div style="width:200px;height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin:0 auto 16px;overflow:hidden;">
-            <div style="height:100%;width:35%;background:linear-gradient(90deg,#7a4e0a,#d68b16,#f5c842);border-radius:3px;animation:barSlide 1.8s ease-in-out infinite;"></div>
+                <div style="position:relative;width:120px;height:120px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;">
+            
+            
+            <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
+                <img src="logo.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+            </div>
         </div>
 
         <div style="display:flex;gap:9px;justify-content:center;">
@@ -653,7 +662,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         ?>
         <div class="sidebar-logo-text">
             <h2>MOTI JEWELLERS</h2>
-            <p>Premium Since 2011</p>
+            <p>Premium Since 2026</p>
         </div>
     </div>
 
@@ -663,17 +672,20 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
+        <a href="sanchari_dashboard.php">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
         <a href="reports.php" class="active"><i class="fas fa-chart-bar"></i> REPORTS</a>
+        <a href="due_list.php"><i class="fas fa-hourglass-half"></i> DUE LIST</a>
         <a href="income_expenses.php"><i class="fas fa-chart-line"></i> INCOME &amp; EXP</a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Tools</div>
         <a href="whatsapp_automation.php"><i class="fab fa-whatsapp"></i> WHATSAPP</a>
-        <a href="sbook.php"><i class="fas fa-book"></i> SANCHAY</a>
-         <a href="purchase.php">
+        <a href="purchase.php">
             <i class="fas fa-book"></i>PURCHASE
         </a>
         <a href="accounts.php">
@@ -718,9 +730,6 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
     <div class="page-heading">
         <h1 class="gold-font"><i class="fas fa-chart-bar mr-2"></i> Business Reports</h1>
         <p>Sales analytics, payment status &amp; GST summary</p>
-        <div style="margin-top:10px;">
-            <a href="due_list.php" class="btn-gold px-4 py-2 rounded-lg" style="background:#d68b16;color:#fff;text-decoration:none;">Due List</a>
-        </div>
     </div>
 
     <div class="container mx-auto px-4 sm:px-6 py-6">
@@ -1083,12 +1092,11 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
                         $cgst_amt  = round($gst_amt/2, 2);
                         $sgst_amt  = round($gst_amt/2, 2);
                         $gstin     = trim($bill['customer_gstin'] ?? '');
-                        $status_badge = match($bill['payment_status']) {
-                            'paid'   => '<span class="badge-paid">✅ Paid</span>',
-                            'part'   => '<span class="badge-part">⏳ Part</span>',
-                            'unpaid' => '<span class="badge-unpaid">❌ Unpaid</span>',
-                            default  => htmlspecialchars($bill['payment_status']),
-                        };
+                        $ps = $bill['payment_status'];
+                        if ($ps === 'paid')        $status_badge = '<span class="badge-paid">✅ Paid</span>';
+                        elseif ($ps === 'part')    $status_badge = '<span class="badge-part">⏳ Part</span>';
+                        elseif ($ps === 'unpaid')  $status_badge = '<span class="badge-unpaid">❌ Unpaid</span>';
+                        else                       $status_badge = htmlspecialchars($ps);
                     ?>
                     <tr>
                         <td style="color:#7a4e0a;"><?php echo $i+1; ?></td>
@@ -1145,8 +1153,8 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
 
     <footer>
         <p class="text-xs" style="color:#7a4e0a;">
-            &copy; 2011 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
-            Developed by <a href="https://saamparktechnologyresearch.in/" target="_blank" style="text-decoration:underline;color:#800020;">Saampark Technology</a>
+            &copy; 2026 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
+            Developed by <a href="https://saamparktechnology.com/" target="_blank" style="text-decoration:underline;color:#800020;font-weight:700;">Saampark Technology</a>
         </p>
     </footer>
 </div><!-- end .page-wrapper -->
@@ -1355,7 +1363,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         ws3['!cols'] = [{wch:5},{wch:20},{wch:22},{wch:20},{wch:14},{wch:18},{wch:16},{wch:18},{wch:14},{wch:14}];
         XLSX.utils.book_append_sheet(wb, ws3, 'Pending Payments');
 
-        XLSX.writeFile(wb, `MotiJewellers_Report_${todayFile}.xlsx`);
+        XLSX.writeFile(wb, `Radhe ShyamJewellers_Report_${todayFile}.xlsx`);
     }
 
     function confirmDeleteInvoice(invoiceNo) {
@@ -1385,3 +1393,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
 </script>
 </body>
 </html>
+
+
+
+

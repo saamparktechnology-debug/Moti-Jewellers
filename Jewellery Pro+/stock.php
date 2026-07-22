@@ -88,7 +88,7 @@ if(!empty($search)) {
     $products = mysqli_query($conn, "SELECT * FROM products ORDER BY id");
 }
 $low_stock = mysqli_query($conn, "SELECT * FROM products WHERE quantity < 5 ORDER BY quantity ASC");
-$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
+$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -104,7 +104,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
 
         * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
-        h1,h2,h3,.gold-font { font-family: 'Playfair Display', serif; }
+        h1,h2,h3,.gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
 
         /* ========== SIDEBAR (identical to index.php) ========== */
         .sidebar {
@@ -112,7 +112,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
             top: 0; left: 0;
             width: 240px;
             height: 100vh;
-            background: linear-gradient(180deg, #7a4e0a 0%, #b5730e 40%, #d68b16 100%);
+            background: linear-gradient(180deg, #011921 0%, #03373b 50%, #044e54 80%, #011921 100%);
             z-index: 1000;
             display: flex;
             flex-direction: column;
@@ -148,7 +148,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
             font-size: 13px;
             font-weight: 700;
             line-height: 1.3;
-            font-family: 'Playfair Display', serif;
+            font-family: 'Poppins', serif;
             letter-spacing: 0.5px;
         }
 
@@ -174,7 +174,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
             text-transform: uppercase;
             position: sticky;
             top: 0;
-            background: rgba(122, 78, 10, 0.95);
+            background: #011921; color: #f5c842;
             z-index: 10;
         }
 
@@ -287,8 +287,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         }
 
         /* ========== TOP NAVBAR ========== */
-        nav.nav-gold {
-            background: linear-gradient(135deg, #b5730e, #d68b16) !important;
+        nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important; border-bottom: 2.5px solid #ffd700; box-shadow: 0 0 12px rgba(255, 215, 0, 0.5) !important;
         }
 
         /* ========== BURGER MENU ========== */
@@ -686,35 +685,12 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
     <div id="loaderStars" style="position:absolute;inset:0;pointer-events:none;z-index:2;"></div>
     <div id="loaderRings" style="position:absolute;inset:0;pointer-events:none;z-index:2;display:flex;align-items:center;justify-content:center;"></div>
     <div style="position:relative;z-index:10;text-align:center;">
-        <div style="position:relative;width:110px;height:110px;margin:0 auto 28px;">
-            <div style="position:absolute;inset:-12px;border-radius:50%;border:2px solid rgba(214,139,22,0.4);animation:haloPulse 1.5s ease-in-out infinite;"></div>
-            <div style="position:absolute;inset:-24px;border-radius:50%;border:1px solid rgba(214,139,22,0.2);animation:haloPulse 1.5s ease-in-out infinite 0.5s;"></div>
-            <img src="./assets/images/moti-removebg-preview.png" alt="Moti Jewellers Logo" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 8px #d68b16);animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <defs>
-                    <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" style="stop-color:#ff9900"/>
-                        <stop offset="45%" style="stop-color:#d68b16"/>
-                        <stop offset="100%" style="stop-color:#800020"/>
-                    </linearGradient>
-                    <linearGradient id="lg2" x1="100%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" style="stop-color:#f5c842;stop-opacity:0.9"/>
-                        <stop offset="100%" style="stop-color:#b5730e;stop-opacity:0.9"/>
-                    </linearGradient>
-                </defs>
-                <polygon points="40,2 76,22 76,58 40,78 4,58 4,22" fill="url(#lg1)" stroke="#f5c842" stroke-width="1.5"/>
-                <polygon points="40,2 76,22 40,40" fill="url(#lg2)" opacity="0.7"/>
-                <polygon points="76,22 76,58 40,40" fill="#800020" opacity="0.5"/>
-                <polygon points="76,58 40,78 40,40" fill="#b5730e" opacity="0.6"/>
-                <polygon points="40,78 4,58 40,40" fill="#d68b16" opacity="0.4"/>
-                <polygon points="4,58 4,22 40,40" fill="#ff9900" opacity="0.35"/>
-                <polygon points="4,22 40,2 40,40" fill="url(#lg2)" opacity="0.55"/>
-                <polygon points="40,14 68,28 68,52 40,66 12,52 12,28" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="0.8"/>
-            </svg>
-        </div>
-        <div style="color:#d68b16;font-size:22px;letter-spacing:6px;font-family:'Playfair Display',serif;margin-bottom:6px;animation:titleGold 2s ease infinite alternate;">MOTI JEWELLERS</div>
-        <p style="color:rgba(201,169,110,0.7);font-size:10px;letter-spacing:4px;text-transform:uppercase;margin-bottom:24px;">Crafting Timeless Elegance</p>
-        <div style="width:200px;height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin:0 auto 16px;overflow:hidden;">
-            <div style="height:100%;width:35%;background:linear-gradient(90deg,#7a4e0a,#d68b16,#f5c842);border-radius:3px;animation:barSlide 1.8s ease-in-out infinite;"></div>
+                <div style="position:relative;width:120px;height:120px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;">
+            
+            
+            <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
+                <img src="logo.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+            </div>
         </div>
         <div style="display:flex;gap:9px;justify-content:center;">
             <div style="width:6px;height:6px;border-radius:50%;background:#d68b16;animation:dotBounce 1.2s ease-in-out infinite;"></div>
@@ -736,7 +712,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         $logo_found = false;
         foreach($logo_paths as $path) {
             if(file_exists($path)) {
-                echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo">';
+                echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo" style="height:38px;width:auto;max-width:44px;object-fit:contain;display:inline-block;margin-right:8px;">';
                 $logo_found = true; break;
             }
         }
@@ -764,12 +740,18 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
         </a>
+        <a href="sanchari_dashboard.php">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
 
         <a href="reports.php">
             <i class="fas fa-chart-bar"></i> REPORTS
+        </a>
+        <a href="due_list.php">
+            <i class="fas fa-hourglass-half"></i> DUE LIST
         </a>
         <a href="income_expenses.php">
             <i class="fas fa-chart-line"></i> INCOME & EXP
@@ -780,9 +762,6 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
 
         <a href="whatsapp_automation.php">
             <i class="fab fa-whatsapp"></i> WHATSAPP
-        </a>
-        <a href="sbook.php">
-            <i class="fas fa-book"></i> SANCHAY
         </a>
         <a href="purchase.php">
             <i class="fas fa-book"></i> PURCHASE
@@ -1127,8 +1106,8 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
     <!-- Footer -->
     <footer style="background:linear-gradient(0deg,#f5e6c8,#fdf6e3);border-top:2px solid #d68b16;padding:20px;margin-top:40px;text-align:center;">
         <p class="text-xs" style="color:#7a4e0a;">
-            &copy; 2011 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
-            Developed by <a href="https://saamparktechnologyresearch.in/" target="_blank" style="text-decoration:underline;color:#800020;">Saampark Technology</a>
+            &copy; 2026 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
+            Developed by <a href="https://saamparktechnology.com/" target="_blank" style="text-decoration:underline;color:#800020;font-weight:700;">Saampark Technology</a>
         </p>
     </footer>
 </div><!-- end .page-wrapper -->
@@ -1261,12 +1240,12 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
 
     /* ---------- Item types ---------- */
     const itemsByCategory = {
-        'Gold 22K': ['Chur','Bala','Churi','Necklace','Chain','Jhumka','Jhumkolol','Tops','Ladies Ring','Gents Ring','Chokey','Breslet','Ladies Breslet','Tika','Takti','Mantasa','Loket','Mangal Sutra','Moti Chokey','Nosepin','Sankha','Pola','Baby Ring','Bali','Pitaring','Breslet Noya','Steu Noya','Other'],
-        'Gold 18K': ['Chur','Bala','Churi','Necklace','Chain','Jhumka','Jhumkolol','Tops','Ladies Ring','Gents Ring','Chokey','Breslet','Ladies Breslet','Tika','Takti','Mantasa','Loket','Mangal Sutra','Baby Ring','Bali','Pitaring','Other'],
-        'Silver':   ['Chur','Bala','Churi','Necklace','Chain','Jhumka','Tops','Ladies Ring','Gents Ring','Breslet','Tika','Loket','Mankha','Payal','Bichiya','Nosering','Baby Ring','Pat (Gross)','S- (Gross)','Nosepin (Gross)','Sankha','Pola','Silver Thali','Silver Bali','Silver Thali', 'Silver Bati ', 'Silver Glass', 'Silver Spoon ', 'Silver Showpiece', 'B.B.C Silver', 'Mix Silver', 'Other'],
+        'Gold 22K': ['Necklace','Chur','Bala','Chain','Tops','Single Loket','Double Loket','Churi','Jhuladul','Jhumka','Ladies Ring','Gold Choker','Gents Ring','Gents Breslet','Ladies Breslet','Tika','Takti','Mantasa','Pearl Choker','Bauti Chur','Soket Bauti','Breslet Noya','Stell Noya','Baby Ring','Bali','Pitaring','Baby Breslet','Pearl Sitahar','Nose Pin','Other'],
+        'Gold 18K': ['Necklace','Chur','Bala','Chain','Tops','Single Loket','Double Loket','Churi','Jhuladul','Jhumka','Ladies Ring','Gold Choker','Gents Ring','Gents Breslet','Ladies Breslet','Tika','Takti','Mantasa','Pearl Choker','Bauti Chur','Soket Bauti','Breslet Noya','Stell Noya','Baby Ring','Bali','Pitaring','Baby Breslet','Pearl Sitahar','Nose Pin','Other'],
+        'Silver':   ['Thali','Bati','Glass','Spoon','Showpiece','B.B.C Silver','Mix Silver','Other'],
         'Stone':    ['Natural Pearl','Gomed','Red Coral','Nila','Panna','Jerkon','Amethist','Cats Eye','Other'],
-        'Diamond':  ['Ladies Ring','Gents Ring','Tops','Mangal Sutra','Nose pin','Necklace','Other'],
-        'Other':    ['Chur','Bala','Churi','Necklace','Chain','Jhumka','Jhumkolol','Tops','Ladies Ring','Gents Ring','Chokey','Breslet','Ladies Breslet','Tika','Takti','Mantasa','Loket','Mangal Sutra','Moti Chokey','Nosepin','Sankha','Pola','Baby Ring','Bali','Pitaring','Breslet Noya','Steu Noya','Shankha','Pala','Mala','Moti Mala','Trasel','Branch Fram','Braslate Pala','parl Mala','Gala','Reparing','Stamp Charg','Other']
+        'Diamond':  ['Ladies Ring','Gents Ring','Tops','Mangal Sutra','Nose Pin','Necklace','Other'],
+        'Other':    ['Shankha','Pala','Mala','Moti Mala','Trasel','Branch Fram','Braslate Pala','Parl Mala','Gala','Reparing','Stamp Charg','Other']
     };
 
     function updateItemTypes(catSelectId, itemSelectId, customDivId) {
@@ -1288,8 +1267,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
 
         itemSel.innerHTML = '<option value="">-- Select Item Type --</option>';
 
-        const addName = document.getElementById('addProductName');
-        if(addName && catSelectId === 'addCategorySelect') addName.value = cat;
+        // Do NOT auto-fill product name — admin must type it manually
 
         itemsByCategory[cat].forEach(function(item) {
             const opt = document.createElement('option');
@@ -1379,3 +1357,6 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
 
 </body>
 </html>
+
+
+

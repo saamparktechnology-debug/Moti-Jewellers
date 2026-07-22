@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 session_start();
 require_once 'config/database.php';
 require_once 'config/mail_config.php';
@@ -238,8 +241,9 @@ $last_payment_method = 'Cash';
 $last_cash_paid = 0;
 $last_upi_paid = 0;
 $last_is_split = 0;
+$last_old_gold_amount = 0;
 
-$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
+$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
 
 // Fetch products from DB
 $all_products = [];
@@ -272,27 +276,20 @@ foreach ($categories as $cat) {
     }
 }
 
-$itemTypeOptions['Gold 22K'] = array_unique(array_merge($itemTypeOptions['Gold 22K'], ['Chur','Bala','Soket Bauti','Bauti Chur','Pearl Sitahar','Pearl Choker','Baby Breslet','Churi','Necklace','Single Loket','Double Loket','Jhuladul','Gents Breslet','Chain','Jhumka','Jhumkolol','Tops','Ladies Ring','Gents Ring','Chokey','Breslet','Ladies Breslet','Tika','Takti','Mantasa','Loket','Mangal Sutra','Moti Chokey','Nosepin','Sankha','Pola','Baby Ring','Bali','Pitaring','Breslet Nova','Steu Nova','Other']));
+// Gold 22K & 18K items — as specified by shop owner
+$goldItems = ['Necklace','Chur','Bala','Chain','Tops','Single Loket','Double Loket','Churi','Jhuladul','Jhumka','Ladies Ring','Gold Choker','Gents Ring','Gents Breslet','Ladies Breslet','Tika','Takti','Mantasa','Pearl Choker','Bauti Chur','Soket Bauti','Breslet Noya','Stell Noya','Baby Ring','Bali','Pitaring','Baby Breslet','Pearl Sitahar','Nose Pin','Other'];
+$itemTypeOptions['Gold 22K'] = array_unique(array_merge($itemTypeOptions['Gold 22K'], $goldItems));
+$itemTypeOptions['Gold 18K'] = array_unique(array_merge($itemTypeOptions['Gold 18K'], $goldItems));
 
-
-$itemTypeOptions['Gold 18K'] = array_unique(array_merge($itemTypeOptions['Gold 18K'], ['Chur','Moti Chokey','Mankasa','Nosepin','Sankha','Breslet Nova','Steu Nova','Pola','Bala','Churi','Necklace','Chain','Jhumka','Jhumkolol','Tops','Ladies Ring','Gents Ring','Chokey','Breslet','Ladies Breslet','Tika','Takti','Mantasa','Loket','Mangal Sutra','Baby Ring','Bali','Pitaring','Other']));
-
-
-$itemTypeOptions['Silver']   = array_unique(array_merge($itemTypeOptions['Silver'],  
- ['Chur','Bala','Churi','Necklace','Chain','Jhumka','Tops','Ladies Ring','Gents Ring',
- 'Breslet','Tika','Loket','Mankha','Payal','Bichiya','Nosering','Baby Ring','Pat (Gross)',
- 'S- (Gross)','Nosepin (Gross)','Sankha','Pola','Silver Thali', 'Silver Bati ', 
- 'Silver Glass', 'Silver Spoon ', 'Silver Showpiece', 'B.B.C Silver', 'Mix Silver', 'Other']));
-$itemTypeOptions['Stone']    = array_unique(array_merge($itemTypeOptions['Stone'],   
+$itemTypeOptions['Silver']   = array_unique(array_merge($itemTypeOptions['Silver'],
+ ['Thali','Bati','Glass','Spoon','Showpiece','B.B.C Silver','Mix Silver','Other']));
+$itemTypeOptions['Stone']    = array_unique(array_merge($itemTypeOptions['Stone'],
  ['Natural Pearl','Gomed','Red Coral','Nila','Panna','Jerkon','Amethist','Cats Eye','Other']));
 $itemTypeOptions['Diamond']  = array_unique(array_merge($itemTypeOptions['Diamond'],
-  ['Ladies Ring','Gents Ring','Tops','Mangal Sutra','Nose pin','Necklace','Other']));
-$itemTypeOptions['Others']   = array_unique(array_merge($itemTypeOptions['Others'], 
+  ['Ladies Ring','Gents Ring','Tops','Mangal Sutra','Nose Pin','Necklace','Other']));
+$itemTypeOptions['Others']   = array_unique(array_merge($itemTypeOptions['Others'],
   ['Shankha','Pala','Mala','Moti Mala','Trasel','Branch Fram','Braslate Pala',
-  'parl Mala','Gala','Reparing','Stamp Charg','Chur','Bala','Churi','Necklace',
-  'Chain','Jhumka','Jhumkolol','Tops','Ladies Ring','Gents Ring','Chokey',
-  'Breslet','Ladies Breslet','Tika','Takti','Mantasa','Loket','Mangal Sutra',
-  'Moti Chokey','Nosepin','Sankha','Pola','Baby Ring','Bali','Pitaring','Breslet Nova','Steu Nova','Other']));
+  'Parl Mala','Gala','Reparing','Stamp Charg','Other']));
 // ── NEW: Fetch due-today payments ─────────────────────────────────────────
 $today = date('Y-m-d');
 $due_today_result = mysqli_query($conn, "
@@ -339,7 +336,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
     $customer_mobile  = mysqli_real_escape_string($conn, $_POST['customer_mobile']);
     $customer_address = mysqli_real_escape_string($conn, $_POST['customer_address'] ?? '');
     $customer_email   = mysqli_real_escape_string($conn, $_POST['customer_email'] ?? '');
-    $gst_type         = mysqli_real_escape_string($conn, $_POST['gst_type'] ?? 'mixed');
+    $raw_gst_type     = strtolower(trim($_POST['gst_type'] ?? 'non_gst'));
+    $gst_type         = mysqli_real_escape_string($conn, $raw_gst_type);
     $subtotal         = floatval($_POST['subtotal']);
     $making_charge    = floatval($_POST['making_charge'] ?? 0);
     $hallmark         = floatval($_POST['hallmark'] ?? 0);
@@ -374,12 +372,13 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
 
     $making_charge_amount = $making_charge;
     $gst_amount = floatval($_POST['gst_amount'] ?? 0);
+    $old_gold_amount = floatval($_POST['old_gold_amount'] ?? 0);
     
     // The $subtotal from JS already includes all per-item making charges, hallmarks, and discounts.
-    // So we don't add them again here.
+    // Old Gold is deducted after tax so GST is calculated strictly on new items subtotal.
     $subtotal_before_tax = $subtotal + $pola;
-    $total_before_round  = $subtotal_before_tax + $gst_amount;
-    $total_amount  = round($total_before_round);
+    $total_before_round  = $subtotal_before_tax + $gst_amount - $old_gold_amount;
+    $total_amount  = max(0, round($total_before_round));
     $round_off     = $total_amount - $total_before_round;
 
     $chkEmailColumn = mysqli_query($conn, "SHOW COLUMNS FROM customers LIKE 'email'");
@@ -403,7 +402,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
     }
     $customer_gstin = mysqli_real_escape_string($conn, $_POST['customer_gstin'] ?? '');
     $huid_code = mysqli_real_escape_string($conn, trim($_POST['huid_code'] ?? ''));
-    $created_by = $_SESSION['user_id'];
+    $created_by_val = (isset($_SESSION['user_id']) && intval($_SESSION['user_id']) > 0) ? intval($_SESSION['user_id']) : "NULL";
 
     $chk1 = mysqli_query($conn, "SHOW COLUMNS FROM invoices LIKE 'paid_amount'");
     if($chk1 && mysqli_num_rows($chk1) == 0) {
@@ -423,9 +422,64 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         $balance_amount = 0;
     }
 
-    $invoice_query = "INSERT INTO invoices (invoice_no, customer_name, customer_mobile, customer_address, customer_gstin, gst_type, subtotal, gst_amount, total_amount, payment_status, payment_method, paid_amount, balance_amount, cash_paid, upi_paid, account_paid, due_date, created_by, huid_code)
-              VALUES ('$invoice_no', '$customer_name', '$customer_mobile', '$customer_address', '$customer_gstin', '$gst_type', $subtotal, $gst_amount, $total_amount, '$payment_status', '$payment_method', $paid_amount, $balance_amount, $cash_paid, $upi_paid, $account_paid, $due_date, $created_by, '$huid_code')";
-    if(mysqli_query($conn, $invoice_query)) {
+    $old_gold_amount = floatval($_POST['old_gold_amount'] ?? 0);
+    $col_og = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoices LIKE 'old_gold_amount'")) > 0;
+    if(!$col_og) mysqli_query($conn, "ALTER TABLE invoices ADD COLUMN old_gold_amount DECIMAL(10,2) DEFAULT 0");
+
+    // Auto-drop foreign key constraints on invoice_items to allow zero-stock product auto-deletion
+    $fk_check = mysqli_query($conn, "SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'invoice_items' AND REFERENCED_TABLE_NAME IS NOT NULL");
+    if ($fk_check) {
+        while ($fk_row = mysqli_fetch_assoc($fk_check)) {
+            $c_name = $fk_row['CONSTRAINT_NAME'];
+            @mysqli_query($conn, "ALTER TABLE invoice_items DROP FOREIGN KEY `$c_name`");
+        }
+    }
+
+    // ── STOCK VALIDATION: Pre-check available stock pieces before creating invoice ──
+    $raw_items = json_decode($_POST['items'] ?? '[]', true);
+    if (is_array($raw_items)) {
+        $req_pcs_map = [];
+        foreach ($raw_items as $it) {
+            $pid = $it['product_id'] ?? '';
+            if ($pid !== 'other' && is_numeric($pid)) {
+                $pid_int = intval($pid);
+                $pcs_req = floatval($it['pcs'] ?? $it['stock_deduct'] ?? 1);
+                if ($pcs_req <= 0) $pcs_req = 1;
+                $req_pcs_map[$pid_int] = ($req_pcs_map[$pid_int] ?? 0) + $pcs_req;
+            }
+        }
+        foreach ($req_pcs_map as $pid_int => $total_pcs_req) {
+            $st_res = mysqli_query($conn, "SELECT name, item_name, quantity FROM products WHERE id = $pid_int");
+            if ($st_res && $st_row = mysqli_fetch_assoc($st_res)) {
+                $avail_qty = floatval($st_row['quantity']);
+                $p_title = !empty($st_row['item_name']) ? $st_row['item_name'] : $st_row['name'];
+                if ($avail_qty <= 0) {
+                    $error = "&#10007; Cannot create invoice! Product '$p_title' is OUT OF STOCK (0 pcs available).";
+                    goto skip_invoice;
+                }
+                if ($total_pcs_req > $avail_qty) {
+                    $error = "&#10007; Cannot create invoice! Product '$p_title' has only $avail_qty pcs in stock, but $total_pcs_req pcs requested.";
+                    goto skip_invoice;
+                }
+            } else {
+                $error = "&#10007; Cannot create invoice! Selected stock product (ID: $pid_int) was not found in stock.";
+                goto skip_invoice;
+            }
+        }
+    }
+
+    $invoice_query = "INSERT INTO invoices (invoice_no, customer_name, customer_mobile, customer_address, customer_gstin, gst_type, subtotal, gst_amount, total_amount, payment_status, payment_method, paid_amount, balance_amount, cash_paid, upi_paid, account_paid, due_date, created_by, huid_code, old_gold_amount)
+              VALUES ('$invoice_no', '$customer_name', '$customer_mobile', '$customer_address', '$customer_gstin', '$gst_type', $subtotal, $gst_amount, $total_amount, '$payment_status', '$payment_method', $paid_amount, $balance_amount, $cash_paid, $upi_paid, $account_paid, $due_date, $created_by_val, '$huid_code', $old_gold_amount)";
+    $inv_exec = mysqli_query($conn, $invoice_query);
+    if(!$inv_exec) {
+        die("<div style='padding:30px;font-family:sans-serif;background:#fff1f2;color:#991b1b;border:2px solid #f87171;border-radius:12px;margin:40px auto;max-width:650px;'>
+            <h3 style='margin-top:0;'>❌ Invoice Creation Failed</h3>
+            <p><strong>MySQL Error:</strong> " . htmlspecialchars(mysqli_error($conn)) . "</p>
+            <p><a href='billing.php' style='color:#991b1b;font-weight:bold;text-decoration:underline;'>← Back to Billing</a></p>
+        </div>");
+    }
+    if($inv_exec) {
+        $last_old_gold_amount = $old_gold_amount;
         $invoice_id = mysqli_insert_id($conn);
         $items = json_decode($_POST['items'], true);
         $col_prod_name = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'product_name'")) > 0;
@@ -447,6 +501,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         // Per-item making charge / hallmark / discount columns (manual entry per item)
         $col_item_mc = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'making_charge'")) > 0;
         if(!$col_item_mc) mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN making_charge DECIMAL(10,2) DEFAULT 0");
+        $col_item_mc_pct = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'making_charge_pct'")) > 0;
+        if(!$col_item_mc_pct) mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN making_charge_pct DECIMAL(5,2) DEFAULT 0");
         $col_item_hm = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'hallmark'")) > 0;
         if(!$col_item_hm) mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN hallmark DECIMAL(10,2) DEFAULT 0");
         $col_item_disc = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'discount'")) > 0;
@@ -459,6 +515,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
                 $price      = floatval($item['price'] ?? 0);
                 $total      = floatval($item['total'] ?? 0);
                 $item_making_charge = floatval($item['making_charge'] ?? 0);
+                $item_making_charge_pct = floatval($item['making_charge_pct'] ?? 0);
                 $item_hallmark      = floatval($item['hallmark'] ?? 0);
                 $item_discount      = floatval($item['discount'] ?? 0);
                 $manual_name = mysqli_real_escape_string($conn, trim($item['name'] ?? $item['product'] ?? ''));
@@ -467,48 +524,38 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
                 $manual_hsn = mysqli_real_escape_string($conn, trim($item['hsn'] ?? $item['hsn_code'] ?? ''));
 
                 if($product_id === 'other' || !is_numeric($product_id)) {
-                    $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, hallmark, discount) VALUES ($invoice_id, NULL, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_hallmark, $item_discount)";
+                    $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, making_charge_pct, hallmark, discount) VALUES ($invoice_id, NULL, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_making_charge_pct, $item_hallmark, $item_discount)";
                     mysqli_query($conn, $item_query);
                     continue;
                 }
                 $pid = intval($product_id);
-                $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, hallmark, discount)
-                               VALUES ($invoice_id, $pid, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_hallmark, $item_discount)";
+                $pcs_deduct = floatval($item['pcs'] ?? $item['stock_deduct'] ?? 1);
+                if($pcs_deduct <= 0) $pcs_deduct = 1;
+
+                $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, making_charge_pct, hallmark, discount)
+                               VALUES ($invoice_id, $pid, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_making_charge_pct, $item_hallmark, $item_discount)";
                 mysqli_query($conn, $item_query);
-                mysqli_query($conn, "UPDATE products SET quantity = quantity - $quantity WHERE id = $pid");
+
+                // 1. Deduct piece count from products.quantity
+                mysqli_query($conn, "UPDATE products SET quantity = quantity - $pcs_deduct WHERE id = $pid");
+                // 2. Auto-delete product from stock table if stock reaches 0 or less
+                mysqli_query($conn, "DELETE FROM products WHERE id = $pid AND quantity <= 0");
             }
         }
         $total_qty = 0;
         if(is_array($items)) foreach($items as $item) { $total_qty += floatval($item['quantity'] ?? 0); }
 
-        $success = "&#10003; Invoice created successfully! Invoice No: $invoice_no | Amount: &#8377;" . number_format($total_amount, 2);
-        $last_invoice_no       = $invoice_no;
-        $last_customer_name    = $customer_name;
-        $last_customer_mobile  = $customer_mobile;
-        $last_customer_address = $customer_address;
-        $last_gst_type         = $gst_type;
-        $last_making_charge    = $making_charge;
-        $last_making_charge_amount = $making_charge_amount;
-        $last_hallmark         = $hallmark;
-        $last_pola             = $pola;
-        $last_discount         = $discount;
-        $last_items            = is_array($items) ? $items : [];
-        $last_subtotal         = $subtotal;
-        $last_gst_amount       = $gst_amount;
-        $last_cgst_amount      = $gst_amount / 2;
-        $last_sgst_amount      = $gst_amount / 2;
-        $last_cgst_rate        = 0;
-        $last_sgst_rate        = 0;
-        $last_round_off        = $round_off;
-        $last_total            = $total_amount;
-        $last_total_quantity   = $total_qty;
-        $last_payment_status   = $payment_status;
-        $last_payment_method   = $payment_method;
-        $last_paid_amount      = $paid_amount;
-        $last_balance_amount   = $balance_amount;
-        $last_cash_paid        = $cash_paid;
-        $last_upi_paid         = $upi_paid;
-        $last_is_split         = $is_split;
+        $redirect_url = 'view_pdf.php?invoice_no=' . urlencode($invoice_no);
+        // Use JS redirect — works reliably on Vercel/serverless where ob_start() may buffer headers
+        echo '<!DOCTYPE html><html><head>';
+        echo '<meta http-equiv="refresh" content="0;url=' . htmlspecialchars($redirect_url) . '">';
+        echo '<script>window.location.replace(' . json_encode($redirect_url) . ');</script>';
+        echo '</head><body style="background:#fffbf4;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;">';
+        echo '<div style="text-align:center;"><div style="font-size:40px;margin-bottom:12px;">🧾</div>';
+        echo '<p style="color:#7a4e0a;font-weight:600;">Invoice saved! Redirecting...</p>';
+        echo '<a href="' . htmlspecialchars($redirect_url) . '" style="color:#d68b16;">Click here if not redirected</a></div>';
+        echo '</body></html>';
+        exit();
     } else {
         $error = "&#10007; Error: " . mysqli_error($conn);
     }
@@ -520,19 +567,19 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-    <title>Billing - Moti Jewellers</title>
+    <title>Billing - MOTI JEWELLERS</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/theme.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
         * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
-        h1,h2,h3,.gold-font { font-family: 'Playfair Display', serif; }
+        h1,h2,h3,.gold-font { font-family: 'Poppins', serif; }
 
         /* SIDEBAR */
         .sidebar {
             position: fixed; top: 0; left: 0; width: 240px; height: 100vh;
-            background: linear-gradient(180deg, #7a4e0a 0%, #b5730e 40%, #d68b16 100%);
+            background: linear-gradient(180deg, #011921 0%, #03373b 50%, #044e54 80%, #011921 100%);
             z-index: 1000; display: flex; flex-direction: column;
             box-shadow: 4px 0 24px rgba(0,0,0,0.25);
             transition: transform 0.35s cubic-bezier(.4,0,.2,1);
@@ -544,11 +591,11 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
             padding: 22px 18px 16px; border-bottom: 1px solid rgba(255,255,255,0.18);
             display: flex; align-items: center; gap: 12px; flex-shrink: 0;
         }
-        .sidebar-logo img { width: 44px; height: 44px; object-fit: contain; border-radius: 50%; background: rgba(255,255,255,0.1); padding: 3px; }
-        .sidebar-logo-text h2 { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; font-family: 'Playfair Display', serif; }
+        .sidebar-logo img { width: 44px; height: 44px; object-fit: cover; border-radius: 50%; background: rgba(255,255,255,0.1); }
+        .sidebar-logo-text h2 { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; font-family: 'Poppins', serif; }
         .sidebar-logo-text p { color: rgba(255,255,255,0.65); font-size: 10px; margin-top: 1px; }
         .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; overflow-x: hidden; }
-        .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; position: sticky; top: 0; background: rgba(122, 78, 10, 0.95); z-index: 10; }
+        .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; position: sticky; top: 0; background: #011921; color: #f5c842; z-index: 10; }
         .sidebar-nav a { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13px; font-weight: 500; transition: all 0.2s ease; border-left: 3px solid transparent; position: relative; }
         .sidebar-nav a:hover { background: rgba(255,255,255,0.13); color: #fff; border-left-color: rgba(255,255,255,0.8); padding-left: 26px; }
         .sidebar-nav a.active { background: rgba(255,255,255,0.22); color: #fff; border-left-color: #fff; font-weight: 700; }
@@ -564,7 +611,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(2px); }
         .sidebar-overlay.active { display: block; }
         .page-wrapper { margin-left: 240px; min-height: 100vh; transition: margin-left 0.35s ease; }
-        nav.nav-gold { background: linear-gradient(135deg, #b5730e, #d68b16) !important; }
+        nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important; border-bottom: 2.5px solid #ffd700; box-shadow: 0 0 12px rgba(255, 215, 0, 0.5) !important; }
         .burger-menu { width: 28px; height: 20px; position: relative; cursor: pointer; }
         .burger-menu span { display: block; position: absolute; height: 3px; width: 100%; background: #fff; border-radius: 3px; transition: all 0.3s ease; }
         .burger-menu span:nth-child(1) { top: 0; }
@@ -693,23 +740,39 @@ function createJewelSparkles() {
         document.body.appendChild(s);
     }
 }
+function populateStockSelects() {
+    if (typeof filterGramStock === 'function') filterGramStock('');
+}
+function loadShopRates() {}
+
 window.addEventListener('load', function() {
+    try {
+        populateStockSelects();
+        loadShopRates();
+    } catch(e) {
+        console.warn("Init error:", e);
+    }
+
     const isReload = performance.getEntriesByType("navigation")[0]?.type === "reload";
     const hasVisited = sessionStorage.getItem('visited');
 
-    if (!hasVisited || isReload) {
-        sessionStorage.setItem('visited', 'true');
-        createJewelSparkles();
-        setTimeout(function() {
-            const ov = document.getElementById('loadingOverlay');
-            if(ov) { ov.style.opacity = '0'; ov.style.visibility = 'hidden'; setTimeout(()=>ov.style.display='none', 500); }
-        }, 1800);
-    } else {
+    const hideOverlay = function() {
         const ov = document.getElementById('loadingOverlay');
-        if(ov) { ov.style.display = 'none'; }
-        // Animate the content wrapper, NOT body (body transform breaks position:fixed sidebar)
+        if(ov) {
+            ov.style.opacity = '0';
+            ov.style.visibility = 'hidden';
+            setTimeout(() => ov.style.display = 'none', 500);
+        }
         const pw = document.querySelector('.page-wrapper');
         if(pw) { pw.style.animation = 'slideInFromRightGlobal 0.3s ease-out forwards'; }
+    };
+
+    if (!hasVisited || isReload) {
+        sessionStorage.setItem('visited', 'true');
+        try { createJewelSparkles(); } catch(e) {}
+        setTimeout(hideOverlay, 800);
+    } else {
+        hideOverlay();
     }
 });
 </script>
@@ -721,27 +784,12 @@ window.addEventListener('load', function() {
     <div style="position:absolute;bottom:28px;left:28px;color:rgba(214,139,22,0.18);font-size:72px;animation:ornFloat 4s ease-in-out infinite 2s;">&#10022;</div>
     <div style="position:absolute;bottom:28px;right:28px;color:rgba(214,139,22,0.18);font-size:72px;animation:ornFloat 4s ease-in-out infinite 3s;">&#10022;</div> -->
     <div style="position:relative;z-index:10;text-align:center;">
-        <div style="position:relative;width:110px;height:110px;margin:0 auto 28px;">
-            <div style="position:absolute;inset:-12px;border-radius:50%;border:2px solid rgba(214,139,22,0.4);animation:haloPulse 1.5s ease-in-out infinite;"></div>
-            <div style="position:absolute;inset:-24px;border-radius:50%;border:1px solid rgba(214,139,22,0.2);animation:haloPulse 1.5s ease-in-out infinite 0.5s;"></div>
-            <img src="./assets/images/moti-removebg-preview.png" alt="Moti Jewellers Logo" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 8px #d68b16);animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <defs>
-                    <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#ff9900"/><stop offset="45%" style="stop-color:#d68b16"/><stop offset="100%" style="stop-color:#800020"/></linearGradient>
-                    <linearGradient id="lg2" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" style="stop-color:#f5c842;stop-opacity:0.9"/><stop offset="100%" style="stop-color:#b5730e;stop-opacity:0.9"/></linearGradient>
-                </defs>
-                <polygon points="40,2 76,22 76,58 40,78 4,58 4,22" fill="url(#lg1)" stroke="#f5c842" stroke-width="1.5"/>
-                <polygon points="40,2 76,22 40,40" fill="url(#lg2)" opacity="0.7"/>
-                <polygon points="76,22 76,58 40,40" fill="#800020" opacity="0.5"/>
-                <polygon points="76,58 40,78 40,40" fill="#b5730e" opacity="0.6"/>
-                <polygon points="40,78 4,58 40,40" fill="#d68b16" opacity="0.4"/>
-                <polygon points="4,58 4,22 40,40" fill="#ff9900" opacity="0.35"/>
-                <polygon points="4,22 40,2 40,40" fill="url(#lg2)" opacity="0.55"/>
-            </svg>
-        </div>
-        <div style="color:#d68b16;font-size:22px;letter-spacing:6px;font-family:'Playfair Display',serif;margin-bottom:6px;animation:titleGold 2s ease infinite alternate;">MOTI JEWELLERS</div>
-        <p style="color:rgba(201,169,110,0.7);font-size:10px;letter-spacing:4px;text-transform:uppercase;margin-bottom:24px;">Crafting Timeless Elegance</p>
-        <div style="width:200px;height:3px;background:rgba(255,255,255,0.08);border-radius:3px;margin:0 auto 16px;overflow:hidden;">
-            <div style="height:100%;width:35%;background:linear-gradient(90deg,#7a4e0a,#d68b16,#f5c842);border-radius:3px;animation:barSlide 1.8s ease-in-out infinite;"></div>
+                <div style="position:relative;width:120px;height:120px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;">
+            
+            
+            <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
+                <img src="logo.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+            </div>
         </div>
         <div style="display:flex;gap:9px;justify-content:center;">
             <div style="width:6px;height:6px;border-radius:50%;background:#d68b16;animation:dotBounce 1.2s ease-in-out infinite;"></div>
@@ -768,7 +816,7 @@ window.addEventListener('load', function() {
         ?>
         <div class="sidebar-logo-text">
             <h2>MOTI JEWELLERS</h2>
-            <p>Premium Since 2011</p>
+            <p>Premium Since 2026</p>
         </div>
     </div>
     <nav class="sidebar-nav">
@@ -786,12 +834,18 @@ window.addEventListener('load', function() {
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
         </a>
+        <a href="sanchari_dashboard.php">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
 
         <a href="reports.php">
             <i class="fas fa-chart-bar"></i> REPORTS
+        </a>
+        <a href="due_list.php">
+            <i class="fas fa-hourglass-half"></i> DUE LIST
         </a>
         <a href="income_expenses.php">
             <i class="fas fa-chart-line"></i> INCOME & EXP
@@ -802,9 +856,6 @@ window.addEventListener('load', function() {
 
         <a href="whatsapp_automation.php">
             <i class="fab fa-whatsapp"></i> WHATSAPP
-        </a>
-        <a href="sbook.php">
-            <i class="fas fa-book"></i> SANCHAY
         </a>
         <a href="purchase.php">
             <i class="fas fa-book"></i> PURCHASE
@@ -838,7 +889,7 @@ window.addEventListener('load', function() {
                         <span></span><span></span><span></span>
                     </div>
                 </div>
-                <span class="font-bold text-white text-sm hidden sm:inline" style="font-family:'Playfair Display',serif;">
+                <span class="font-bold text-white text-sm hidden sm:inline" style="font-family:'Poppins',serif;">
                     <i class="fas fa-receipt mr-2"></i>Billing
                 </span>
             </div>
@@ -869,7 +920,7 @@ window.addEventListener('load', function() {
 
     <!-- Page Title -->
     <div class="mb-6">
-        <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
+        <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Poppins',serif;">
             <i class="fas fa-receipt mr-2" style="color:#d68b16;"></i> Billing
         </h2>
         <p class="text-sm mt-1" style="color:#7a4e0a;">Create invoices and manage customer transactions</p>
@@ -884,7 +935,7 @@ window.addEventListener('load', function() {
             <div style="display:flex;align-items:center;gap:10px;">
                 <span class="bell-ring" style="font-size:22px;color:#fff;" title="Due Today">&#128276;</span>
                 <div style="flex:1;min-width:0;">
-                    <div style="color:#fff;font-weight:700;font-size:15px;font-family:'Playfair Display',serif;">
+                    <div style="color:#fff;font-weight:700;font-size:15px;font-family:'Poppins',serif;">
                         Payment Due Today
                     </div>
                     <div style="color:rgba(255,255,255,0.78);font-size:11px;">
@@ -972,9 +1023,10 @@ window.addEventListener('load', function() {
                 </div>
             </div>
             <?php endforeach; ?>
-        </div>
     </div>
 <?php endif; ?>
+
+
 
 
 <!-- ============================================================ -->
@@ -1018,7 +1070,7 @@ window.addEventListener('load', function() {
 .payment-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;}
 .payment-modal{background:#fff;border-radius:12px;width:360px;max-width:90%;padding:20px;box-shadow:0 10px 40px rgba(0,0,0,0.2);}
 .payment-modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
-.payment-modal-header h3{margin:0;font-family:'Playfair Display',serif;color:#991b1b;}
+.payment-modal-header h3{margin:0;font-family:'Poppins',serif;color:#991b1b;}
 .payment-modal-header button{background:none;border:none;font-size:20px;cursor:pointer;color:#9ca3af;}
 .pm-rows div{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px;color:#374151;}
 #pmAmountInput{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:15px;margin:8px 0;box-sizing:border-box;}
@@ -1149,8 +1201,8 @@ function submitPayment() {
         <!-- Billing Form -->
         <div class="lg:col-span-2">
             <div class="jewel-card p-4 sm:p-6">
-                <h2 class="text-xl sm:text-2xl font-bold mb-5" style="color:#800020;font-family:'Playfair Display',serif;">
-                    <?php foreach($logo_paths as $path) { if(file_exists($path)) { echo '<img src="'.$path.'" style="width:32px;height:32px;object-fit:contain;display:inline-block;vertical-align:middle;margin-right:8px;">'; break; } } ?>
+                <h2 class="text-xl sm:text-2xl font-bold mb-5" style="color:#800020;font-family:'Poppins',serif;">
+                    <?php foreach($logo_paths as $path) { if(file_exists($path)) { echo '<img src="'.$path.'" style="width:32px;height:32px;object-fit:cover;border-radius:50%;border:1px solid #d68b16;display:inline-block;vertical-align:middle;margin-right:8px;">'; break; } } ?>
                     Create New Invoice
                 </h2>
 
@@ -1198,9 +1250,9 @@ function submitPayment() {
                         <div>
                             <label class="block mb-1 text-sm font-semibold" style="color:#7a4e0a;">GSTIN <span style="color:#9ca3af;font-size:11px;">(Optional)</span></label>
                             <input type="text" name="customer_gstin" id="customerGstin"
-                                class="jewel-input w-full rounded-lg px-3 py-2 text-sm" placeholder="e.g. 19AEPPM9851A1Z4"
+                                class="jewel-input w-full rounded-lg px-3 py-2 text-sm" placeholder="e.g. 19ELQPP1010L1ZR"
                                 maxlength="15" style="text-transform:uppercase;"
-                                oninput="this.value=this.value.toUpperCase()">
+                                oninput="this.value=this.value.toUpperCase(); calculateTotal();">
                         </div>
                         <div>
                             <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">HUID Code <span style="color:#9ca3af;">(Optional)</span></label>
@@ -1216,162 +1268,133 @@ function submitPayment() {
                             <i class="fas fa-plus-circle mr-1" style="color:#d68b16;"></i> Add Items
                         </h3>
 
-                        <!-- Mode tabs -->
-                        <div class="add-mode-tabs">
-                            <button type="button" class="add-mode-tab active" id="tabStock" onclick="switchTab('stock')">
-                                &#128230; From Stock
-                            </button>
-                            <button type="button" class="add-mode-tab" id="tabCategory" onclick="switchTab('category')">
-                                &#127991;&#65039; By Category
-                            </button>
-                            <button type="button" class="add-mode-tab" id="tabManual" onclick="switchTab('manual')">
-                                &#9999;&#65039; Manual Entry
-                            </button>
+                        <!-- UNIFIED FORM PANEL -->
+                        <div class="add-mode-panel active" id="panelGram">
+                            <div class="mb-4 flex items-center gap-4 bg-white p-2 rounded-lg border border-yellow-200">
+                                <span class="text-xs font-semibold text-yellow-800">Source:</span>
+                                <label class="flex items-center gap-1.5 text-xs cursor-pointer font-medium text-gray-700">
+                                    <input type="radio" name="gram_source" value="stock" checked onchange="switchSource('gram', 'stock')" class="accent-amber-600">
+                                    From Stock
+                                </label>
+                                <label class="flex items-center gap-1.5 text-xs cursor-pointer font-medium text-gray-700">
+                                    <input type="radio" name="gram_source" value="category" onchange="switchSource('gram', 'category')" class="accent-amber-600">
+                                    By Category
+                                </label>
+                                <label class="flex items-center gap-1.5 text-xs cursor-pointer font-medium text-gray-700">
+                                    <input type="radio" name="gram_source" value="manual" onchange="switchSource('gram', 'manual')" class="accent-amber-600">
+                                    Manual Entry
+                                </label>
+                            </div>
+
+                            <!-- Source: Stock -->
+                            <div id="gramSourceStock" class="">
+                                <p class="text-xs mb-2 text-gray-400">Search stock by name, SKU, or serial number.</p>
+                                <div class="flex gap-2 mb-2 relative">
+                                    <div class="relative flex-1">
+                                        <input type="text" id="gramStockSearch" placeholder="🔍 Search stock..." class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="filterGramStock(this.value)" autocomplete="off">
+                                        <div id="gramStockSuggestions" class="autocomplete-suggestions hidden"></div>
+                                    </div>
+                                    <button type="button" onclick="clearGramStockSearch()" class="px-3 py-2 rounded-lg text-sm bg-white border border-yellow-300 text-yellow-800">✖</button>
+                                </div>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label class="block mb-1 text-xs font-semibold text-yellow-800">Select Product</label>
+                                        <select id="gramStockProduct" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" onchange="onGramStockChange()">
+                                            <option value="">-- Select Product --</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-xs font-semibold text-yellow-800">Weight (g)</label>
+                                        <input type="number" id="gramWeight" placeholder="Grams (e.g. 5.5)" step="0.001" min="0" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="autoGramTotal()">
+                                    </div>
+                                </div>
+                                <div id="gramStockProductInfo" class="hidden p-2 rounded-lg text-xs bg-green-50 border border-green-200 text-green-800 mb-3"></div>
+                            </div>
+
+                            <!-- Source: Category -->
+                            <div id="gramSourceCategory" class="hidden">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                    <div>
+                                        <label class="block mb-1 text-xs font-semibold text-yellow-800">Category</label>
+                                        <select id="gramCatSelect" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" onchange="updateGramItemTypes()">
+                                            <option value="">-- Select Category --</option>
+                                            <option value="Gold 22K">Gold 22K</option>
+                                            <option value="Gold 18K">Gold 18K</option>
+                                            <option value="Silver">Silver</option>
+                                            <option value="Stone">Stone</option>
+                                            <option value="Diamond">Diamond</option>
+                                            <option value="Others">Others</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-xs font-semibold text-yellow-800">Item Type</label>
+                                        <select id="gramItemType" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" onchange="onGramItemTypeChange(); autoGramTotal()">
+                                            <option value="">-- Select Category first --</option>
+                                        </select>
+                                        <div id="gramCatStockStatus" class="mt-1 text-xs font-bold hidden"></div>
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-xs font-semibold text-yellow-800">Weight (g)</label>
+                                        <input type="number" id="gramWeightCat" placeholder="Grams" step="0.001" min="0" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="document.getElementById('gramWeight').value=this.value; autoGramTotal()">
+                                    </div>
+                                </div>
+                                <div id="gramCatLiveRateBadge" class="hidden p-2 rounded-lg text-xs bg-amber-50 border border-amber-200 text-amber-800 mb-3">
+                                    <span id="gramCatLiveRateText"></span>
+                                </div>
+                            </div>
+
+                            <!-- Source: Manual -->
+                            <div id="gramSourceManual" class="hidden">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                                    <div class="sm:col-span-2">
+                                        <label class="block mb-1 text-xs font-semibold text-yellow-800">Item Description *</label>
+                                        <input type="text" id="gramManualName" placeholder="e.g. Handmade Kada 22K, Box..." class="jewel-input w-full rounded-lg px-3 py-2 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-xs font-semibold text-yellow-800">Weight (g)</label>
+                                        <input type="number" id="gramWeightManual" placeholder="Grams" step="0.001" min="0" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="document.getElementById('gramWeight').value=this.value; autoGramTotal()">
+                                    </div>
+                                    <div>
+                                        <label class="block mb-1 text-xs font-semibold text-yellow-800">HSN Code</label>
+                                        <input type="text" id="gramManualHsn" placeholder="7108" value="7108" class="jewel-input w-full rounded-lg px-3 py-2 text-sm">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Rate, Qty & Live preview -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                                <div>
+                                    <label class="block mb-1 text-xs font-semibold text-yellow-800">Rate / Price (₹) *</label>
+                                    <input type="number" id="gramRate" placeholder="Rate per 10g or Piece" step="0.01" min="0" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="autoGramTotal()">
+                                    <div class="text-xs mt-1" style="color:#059669;" id="gramRatePerGramHint"></div>
+                                </div>
+                                <div>
+                                    <label class="block mb-1 text-xs font-semibold text-yellow-800">Quantity (Pcs) *</label>
+                                    <input type="number" id="gramQty" value="1" step="1" min="1" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="autoGramTotal()">
+                                </div>
+                                <div id="gramTotalPreviewRow" style="display:none;">
+                                    <label class="block mb-1 text-xs font-semibold text-green-700">Calculated Base Amount</label>
+                                    <div class="text-lg font-bold text-green-800 px-3 py-1.5 bg-green-50 border border-green-200 rounded-lg" id="gramTotalPreview">₹0.00</div>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- PANEL 1: From Stock -->
-                        <div class="add-mode-panel active" id="panelStock">
-                            <p class="text-xs mb-2" style="color:#9ca3af;">
-                                <?php if(count($all_products) > 0): ?>
-                                    <?php echo count($all_products); ?> product(s) in stock. Search by name or serial number.
-                                <?php else: ?>
-                                    &#9888;&#65039; No products found in stock. Add products via the Stock page, or use Manual Entry.
-                                <?php endif; ?>
-                            </p>
-                            <div class="flex gap-2 mb-2">
-                                <input type="text" id="serialSearch" placeholder="&#128269; Search by Serial No. or Name..."
-                                    class="jewel-input flex-1 rounded-lg px-3 py-2 text-sm"
-                                    oninput="filterProductSelect(this.value)"
-                                    onkeydown="if(event.key==='Enter'){event.preventDefault();searchBySerial();}">
-                                <button type="button" onclick="clearSerialSearch()"
-                                    class="px-3 py-2 rounded-lg text-sm"
-                                    style="background:#fff;border:1.5px solid rgba(181,115,14,0.3);color:#7a4e0a;">&#10006;</button>
-                            </div>
-                            <div id="serialSearchResult" class="mb-2 hidden p-2 rounded-lg text-xs"
-                                style="background:rgba(214,139,22,0.08);border:1px solid rgba(214,139,22,0.2);"></div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                                <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Select Product</label>
-                                    <select id="productSelect" class="jewel-input w-full rounded-lg px-3 py-2 text-sm"
-                                        onchange="onProductSelectChange()" size="1">
-                                        <option value="">-- Select Product --</option>
-                                        <?php if(count($all_products) > 0): ?>
-                                            <?php foreach($all_products as $p): ?>
-                                            <option value="<?php echo $p['id']; ?>"
-                                                data-price="<?php echo $p['price']; ?>"
-                                                data-name="<?php echo htmlspecialchars($p['name']); ?>"
-                                                data-serial="<?php echo htmlspecialchars($p['serial_no']); ?>"
-                                                data-category="<?php echo htmlspecialchars($p['category']); ?>"
-                                                data-item-name="<?php echo htmlspecialchars($p['item_name'] ?: $p['name']); ?>"
-                                                data-qty="<?php echo $p['quantity']; ?>">
-                                                <?php
-                                                $display = $p['item_name'] ? $p['item_name'] . ' (' . $p['name'] . ')' : $p['name'];
-                                                $display .= ' | SN:' . $p['serial_no'];
-                                                $display .= ' | &#8377;' . number_format($p['price'], 2);
-                                                $display .= ' | Stock:' . $p['quantity'];
-                                                echo htmlspecialchars($display);
-                                                ?>
-                                            </option>
-                                            <?php endforeach; ?>
-                                        <?php else: ?>
-                                            <option value="" disabled>No products in stock — use Manual Entry tab</option>
-                                        <?php endif; ?>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Weight (GMS)/Quantity</label>
-                                    <input type="number" id="stockQty" placeholder="GMS/Qty" step="0.001" min="0.001"
-                                        class="jewel-input w-full rounded-lg px-3 py-2 text-sm">
-                                </div>
-                            </div>
-                            <div id="selectedProductInfo" class="hidden p-2 rounded-lg text-xs"
-                                style="background:#f0fdf4;border:1px solid #86efac;color:#065f46;"></div>
-                        </div>
-
-                        <!-- PANEL 2: By Category -->
-                        <div class="add-mode-panel" id="panelCategory">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                                <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Category</label>
-                                    <select id="itemCategory" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" onchange="updateItemTypes()">
-                                        <option value="">-- Select Category --</option>
-                                        <option value="Gold 22K">Gold 22K</option>
-                                        <option value="Gold 18K">Gold 18K</option>
-                                        <option value="Silver">Silver</option>
-                                        <option value="Stone">Stone</option>
-                                        <option value="Diamond">Diamond</option>
-                                        <!-- <option value="Others">Others</option> -->
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Item Type</label>
-                                    <select id="itemType" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" onchange="onItemTypeChange()">
-                                        <option value="">-- Select Category first --</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Weight (GMS)/Quantity</label>
-                                    <input type="number" id="catQty" placeholder="Enter grams" step="0.001" min="0.001"
-                                        class="jewel-input w-full rounded-lg px-3 py-2 text-sm">
-                                </div>
-                                <div id="itemTypePriceWrapper">
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">
-                                        Rate per GMS (&#8377;)/Rate per Quantity (&#8377;) <span id="catRateNote" class="font-normal" style="color:#9ca3af;"></span>
-                                    </label>
-                                    <input type="number" id="catRate" placeholder="Rate (auto from shop)" step="0.01" min="0"
-                                        class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="calculateTotal()">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- PANEL 3: Manual Entry -->
-                        <div class="add-mode-panel" id="panelManual">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                                <div class="sm:col-span-2">
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Item Description *</label>
-                                    <input type="text" id="manualName" placeholder="e.g. Gold Chain 22K, Silver Bangles..."
-                                        class="jewel-input w-full rounded-lg px-3 py-2 text-sm">
-                                </div>
-                                <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Weight (GMS)/Quantity <span style="color:#9ca3af;">(0 for fixed price)</span></label>
-                                    <input type="number" id="manualGms" placeholder="0" step="0.001" min="0" value="0"
-                                        class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="calcManualTotal()">
-                                </div>
-                                <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Rate per GMS (&#8377;)/Rate per Quantity (&#8377;) <span style="color:#9ca3af;">(0 for fixed price)</span></label>
-                                    <input type="number" id="manualRate" placeholder="0.00" step="0.01" min="0" value="0"
-                                        class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="calcManualTotal()">
-                                </div>
-                                <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Total Amount (&#8377;) *</label>
-                                    <input type="number" id="manualTotal" placeholder="Enter total amount" step="0.01" min="0.01"
-                                        class="jewel-input w-full rounded-lg px-3 py-2 text-sm"
-                                        style="border-color:rgba(5,150,105,0.4);color:#065f46;" oninput="calculateTotal()">
-                                </div>
-                                <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">HSN Code <span style="color:#9ca3af;">(Optional)</span></label>
-                                    <input type="text" id="manualHsn" placeholder="7108" value="7108"
-                                        class="jewel-input w-full rounded-lg px-3 py-2 text-sm">
-                                </div>
-                             
-                            </div>
-                        </div>
-                        
                         <!-- Per-Item GST & Extra Charges -->
                         <div class="mt-4 pt-4" style="border-top:1px dashed rgba(214,139,22,0.3);">
                             <h4 class="text-xs font-bold mb-2" style="color:#7a4e0a;">Additional Details for this Item</h4>
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Making Charge (&#8377;)</label>
-                                    <input type="number" id="itemMakingCharge" value="0" step="1" min="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
+                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Making Charge (%)</label>
+                                    <input type="number" id="itemMakingCharge" value="" step="0.1" min="0" placeholder="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm" oninput="updateMakingChargeHint()">
+                                    <div id="itemMakingChargeHint" class="text-xs mt-0.5" style="color:#059669;font-weight:600;display:none;"></div>
                                 </div>
                                 <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Hallmark (&#8377;)</label>
-                                    <input type="number" id="itemHallmark" value="0" step="1" min="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
+                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Hallmark (₹)</label>
+                                    <input type="number" id="itemHallmark" value="" step="1" min="0" placeholder="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
                                 </div>
                                 <div>
-                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Discount (&#8377;)</label>
-                                    <input type="number" id="itemDiscount" value="0" step="1" min="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
+                                    <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Discount (₹)</label>
+                                    <input type="number" id="itemDiscount" value="" step="1" min="0" placeholder="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
                                 </div>
                                 <div>
                                     <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">GST Rate</label>
@@ -1386,11 +1409,9 @@ function submitPayment() {
 
                         <!-- Unified Add Item Button -->
                         <div class="mt-4">
-                            <button type="button" id="unifiedAddBtn" onclick="addNewItem()"
-                                class="btn-gold w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
-                                style="letter-spacing:0.03em;font-size:0.95rem;">
-                                <i class="fas fa-plus-circle"></i>
-                                <span id="unifiedAddBtnLabel">Add Item to Bill</span>
+                            <button type="button" id="unifiedAddBtn" onclick="submitGramItem()"
+                                class="btn-gold w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-md">
+                                <i class="fas fa-plus"></i> Add Item to Bill
                             </button>
                         </div>
                     </div>
@@ -1405,7 +1426,7 @@ function submitPayment() {
                                     <th class="px-3 py-2 text-center text-xs">GMS/Qty</th>
                                     <th class="px-3 py-2 text-right text-xs">Rate</th>
                                     <th class="px-3 py-2 text-right text-xs">Amount</th>
-                                    <th class="px-3 py-2 text-right text-xs" style="width:90px;">Making&nbsp;Chg</th>
+                                    <th class="px-3 py-2 text-right text-xs" style="width:105px;">Making&nbsp;Chg&nbsp;(%)</th>
                                     <th class="px-3 py-2 text-right text-xs" style="width:80px;">Hallmark</th>
                                     <th class="px-3 py-2 text-right text-xs" style="width:80px;">Discount</th>
                                     <th class="px-3 py-2 text-right text-xs">Net Total</th>
@@ -1416,7 +1437,7 @@ function submitPayment() {
                             <tbody id="itemsList">
                                 <tr id="emptyRow">
                                     <td colspan="11" style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">
-                                        No items added yet — use the tabs above to add products
+                                        No items added yet — enter details above to add products
                                     </td>
                                 </tr>
                             </tbody>
@@ -1426,7 +1447,7 @@ function submitPayment() {
                     <!-- Totals -->
                     <div class="p-4 rounded-xl" style="background:rgba(214,139,22,0.06);border:1px solid rgba(214,139,22,0.18);">
                         <div class="flex justify-end">
-                            <div class="w-full sm:w-80 space-y-1">
+                            <div class="w-full sm:w-96 space-y-1.5">
                                 <div class="flex justify-between text-sm" style="color:#7a4e0a;">
                                     <span>Subtotal</span><span id="subtotal" class="font-semibold">&#8377;0.00</span>
                                 </div>
@@ -1438,6 +1459,13 @@ function submitPayment() {
                                 </div>
                                 <div class="flex justify-between text-sm" style="color:#dc2626;">
                                     <span>Discount</span><span id="discountAmount">- &#8377;0.00</span>
+                                </div>
+                                <div class="flex justify-between items-center text-sm pt-1 pb-1" style="color:#b91c1c;border-top:1px dashed rgba(185,28,28,0.2);border-bottom:1px dashed rgba(185,28,28,0.2);">
+                                    <span class="font-semibold">Old Gold Exchange / Return (₹)</span>
+                                    <input type="number" id="oldGoldAmountInput" value="" step="1" min="0" placeholder="0" class="jewel-input rounded-lg px-2 py-1 text-sm text-right w-32 border-red-300 font-bold" oninput="calculateTotal()">
+                                </div>
+                                <div class="flex justify-between text-sm" style="color:#b91c1c;display:none;" id="oldGoldRow">
+                                    <span>Old Gold Deduction</span><span id="oldGoldDisplayAmount">- &#8377;0.00</span>
                                 </div>
                                 <div class="flex justify-between text-sm" style="color:#2563eb;" id="cgstRow">
                                     <span>CGST Total</span><span id="cgstAmount">&#8377;0.00</span>
@@ -1462,6 +1490,7 @@ function submitPayment() {
                     <input type="hidden" name="hallmark" id="hiddenHallmark" value="0">
                     <input type="hidden" name="pola" value="0">
                     <input type="hidden" name="discount" id="hiddenDiscount" value="0">
+                    <input type="hidden" name="old_gold_amount" id="hiddenOldGold" value="0">
                     <input type="hidden" name="cash_paid" id="hiddenCashPaid" value="0">
                     <input type="hidden" name="upi_paid" id="hiddenUpiPaid" value="0">
                     <input type="hidden" name="is_split_payment" id="hiddenIsSplit" value="0">
@@ -1501,13 +1530,13 @@ function submitPayment() {
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                                 <div>
                                     <label class="block mb-1 text-xs font-semibold" style="color:#065f46;">Cash Amount (&#8377;)</label>
-                                    <input type="number" id="cashAmount" value="0" step="1" min="0"
+                                    <input type="number" id="cashAmount" value="" step="1" min="0" placeholder="0"
                                         class="jewel-input split-input-cash w-full rounded-lg px-3 py-2 text-sm"
                                         oninput="onSplitInput('cash')">
                                 </div>
                                 <div>
                                     <label class="block mb-1 text-xs font-semibold" style="color:#1e3a8a;">UPI Amount (&#8377;)</label>
-                                    <input type="number" id="upiAmount" value="0" step="1" min="0"
+                                    <input type="number" id="upiAmount" value="" step="1" min="0" placeholder="0"
                                         class="jewel-input split-input-upi w-full rounded-lg px-3 py-2 text-sm"
                                         oninput="onSplitInput('upi')">
                                 </div>
@@ -1545,7 +1574,7 @@ function submitPayment() {
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div>
                                     <label class="block mb-1 text-xs font-semibold" style="color:#b5730e;">&#128181; Paid Amount (&#8377;)</label>
-                                    <input type="number" name="paid_amount" id="paidAmount" value="0" step="1" min="0"
+                                    <input type="number" name="paid_amount" id="paidAmount" value="" step="1" min="0"
                                         class="jewel-input w-full rounded-lg px-3 py-2 text-sm"
                                         placeholder="How much paid now?" oninput="updateBalanceFromPart()">
                                 </div>
@@ -1575,7 +1604,7 @@ function submitPayment() {
                     <div class="mt-6">
                         <button type="submit" name="create_invoice" id="submitBtn"
                             class="btn-gold w-full py-3 rounded-xl font-bold text-lg"
-                            style="background:linear-gradient(135deg,#800020,#d68b16);font-family:'Playfair Display',serif;letter-spacing:1px;">
+                            style="background:linear-gradient(135deg,#800020,#d68b16);font-family:'Poppins',serif;letter-spacing:1px;">
                             &#10024; Generate Invoice &#10024;
                         </button>
                     </div>
@@ -1587,35 +1616,41 @@ function submitPayment() {
         <div>
             <!-- My Shop Rates -->
             <div class="jewel-card p-4 sm:p-5 mt-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-base font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
+                <div class="flex items-center justify-between mb-1">
+                    <h3 class="text-base font-bold" style="color:#800020;font-family:'Poppins',serif;">
                         <i class="fas fa-store mr-2" style="color:#d68b16;"></i> My Shop Rates
                     </h3>
                     <span class="text-xs px-2 py-1 rounded-lg" id="shopRateSaveStatus"
                         style="background:rgba(214,139,22,0.1);border:1px solid rgba(214,139,22,0.3);color:#b5730e;">Not saved</span>
                 </div>
+                <p class="text-xs mb-3" style="color:#9ca3af;">Enter price <strong>per 10 grams</strong> (as shown in market). Billing auto-converts to per gram.</p>
+                <button onclick="autoFillShopFromLive()" class="w-full py-2 rounded-lg text-xs font-bold mb-3"
+                    style="background:linear-gradient(135deg,#059669,#34d399);color:#fff;border:none;cursor:pointer;">
+                    ⚡ Auto-fill from Live Market Rates
+                </button>
                 <?php
                 $shopFields = [
-                    ['key'=>'gold22','label'=>'Gold 22K','color'=>'#d68b16','dispId'=>'shopGold22Display','inputId'=>'shopGold22Input','step'=>'1'],
-                    ['key'=>'gold18','label'=>'Gold 18K','color'=>'#b5730e','dispId'=>'shopGold18Display','inputId'=>'shopGold18Input','step'=>'1'],
-                    ['key'=>'silver','label'=>'Silver',  'color'=>'#6b7280','dispId'=>'shopSilverDisplay', 'inputId'=>'shopSilverInput', 'step'=>'0.5'],
-                    ['key'=>'diamond','label'=>'Diamond','color'=>'#2563eb','dispId'=>'shopDiamondDisplay','inputId'=>'shopDiamondInput','step'=>'1'],
+                    ['key'=>'gold22','label'=>'Gold 22K','color'=>'#d68b16','dispId'=>'shopGold22Display','inputId'=>'shopGold22Input','step'=>'1','perGramId'=>'shopGold22PerGram'],
+                    ['key'=>'gold18','label'=>'Gold 18K','color'=>'#b5730e','dispId'=>'shopGold18Display','inputId'=>'shopGold18Input','step'=>'1','perGramId'=>'shopGold18PerGram'],
+                    ['key'=>'silver','label'=>'Silver',  'color'=>'#6b7280','dispId'=>'shopSilverDisplay', 'inputId'=>'shopSilverInput', 'step'=>'0.5','perGramId'=>'shopSilverPerGram'],
+                    ['key'=>'diamond','label'=>'Diamond','color'=>'#2563eb','dispId'=>'shopDiamondDisplay','inputId'=>'shopDiamondInput','step'=>'1','perGramId'=>'shopDiamondPerGram'],
                 ];
                 foreach($shopFields as $f): ?>
-                <div class="mb-3">
+                <div class="mb-3 p-2 rounded-lg" style="background:rgba(214,139,22,0.03);border:1px solid rgba(214,139,22,0.12);">
                     <div class="flex items-center justify-between mb-1">
                         <label class="text-xs font-semibold" style="color:<?php echo $f['color']; ?>;">
                             <?php echo $f['label']; ?> <span style="color:#9ca3af;font-weight:400;">(per 10g)</span>
                         </label>
                         <span class="text-xs font-bold" style="color:<?php echo $f['color']; ?>;" id="<?php echo $f['dispId']; ?>">&#8212;</span>
                     </div>
-                    <div class="flex gap-2">
-                        <input type="number" id="<?php echo $f['inputId']; ?>" placeholder="Enter your shop price"
+                    <div class="flex gap-2 mb-1">
+                        <input type="number" id="<?php echo $f['inputId']; ?>" placeholder="e.g. 65000"
                             step="<?php echo $f['step']; ?>" min="0" class="jewel-input flex-1 rounded-lg px-3 py-2 text-sm"
                             oninput="previewShopRate('<?php echo $f['key']; ?>')">
                         <button onclick="saveShopRate('<?php echo $f['key']; ?>')"
                             class="btn-gold px-3 py-2 rounded-lg text-xs font-bold">Save</button>
                     </div>
+                    <div class="text-xs" style="color:#059669;" id="<?php echo $f['perGramId']; ?>"></div>
                 </div>
                 <?php endforeach; ?>
                 <button onclick="saveAllShopRates()" class="btn-gold w-full py-2 rounded-lg text-sm font-bold mt-1">
@@ -1644,7 +1679,7 @@ function submitPayment() {
             <!-- Live Metal Rates -->
             <div class="jewel-card p-4 sm:p-5 mt-4">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-base font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
+                    <h3 class="text-base font-bold" style="color:#800020;font-family:'Poppins',serif;">
                         <i class="fas fa-coins mr-2" style="color:#d68b16;"></i> Live Metal Rates
                     </h3>
                     <div class="flex items-center gap-2">
@@ -1693,7 +1728,7 @@ function submitPayment() {
             </div>
          <!-- EMI Calculator -->
             <div class="jewel-card p-4 sm:p-6">
-                <h3 class="text-lg font-bold mb-4" style="color:#800020;font-family:'Playfair Display',serif;">
+                <h3 class="text-lg font-bold mb-4" style="color:#800020;font-family:'Poppins',serif;">
                     <i class="fas fa-calculator mr-2" style="color:#d68b16;"></i> EMI Calculator
                 </h3>
                 <div class="space-y-3">
@@ -1739,286 +1774,24 @@ function submitPayment() {
     <?php endif; ?>
 
 </div><!-- /container -->
+    <footer style="background:linear-gradient(0deg,#f5e6c8,#fdf6e3);border-top:2px solid #d68b16;padding:20px;margin-top:40px;text-align:center;">
+        <p class="text-xs" style="color:#7a4e0a;">
+            &copy; 2026 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
+            Developed by <a href="https://saamparktechnology.com/" target="_blank" style="text-decoration:underline;color:#800020;font-weight:700;">Saampark Technology</a>
+        </p>
+    </footer>
 </div><!-- /page-wrapper -->
-
-<!-- PRINT INVOICE -->
-<?php if(!empty($success) && !empty($last_invoice_no) && $last_total > 0): ?>
-<div class="print-invoice" style="display:block;">
-    <div style="max-width:800px;margin:0 auto;background:#fff;font-family:Arial,sans-serif;border:1px solid #888;padding:24px 28px;position:relative;overflow:hidden;color:#111;">
-        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:0;width:100%;">
-            <?php foreach($logo_paths as $lp) { if(file_exists($lp)) { echo '<img src="'.$lp.'" style="max-width:420px;max-height:420px;filter:grayscale(1) contrast(0.9) opacity(0.20);">'; break; } } ?>
-        </div>
-        <div style="position:relative;z-index:5;">
-            <div style="text-align:center;font-size:10px;margin-bottom:2px;">SUBJECT TO PASCHIM MEDINIPUR JURISDICTION</div>
-            <div style="text-align:center;font-size:10px;font-style:italic;margin-bottom:10px;">(TRIPLICATE FOR SUPPLIER)</div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:8px;">
-                <div><strong>Invoice No.</strong> <?php echo htmlspecialchars($last_invoice_no); ?><br><strong>Ref. No.</strong></div>
-                <div style="text-align:right;"><strong>Dated</strong> <?php echo date('d-M-y'); ?><br>
-                    <?php if($last_payment_status === 'paid'): ?><div style="border:2px solid #16a34a;border-radius:4px;padding:2px 8px;display:inline-block;margin-top:2px;"><div style="color:#16a34a;font-size:9px;font-weight:900;">&#10003; PAID</div></div><?php endif; ?>
-                </div>
-            </div>
-            <div style="border-top:1.5px solid #000;border-bottom:1.5px solid #000;padding:8px 0;margin-bottom:5px;text-align:center;">
-                <!-- Logo + Shop Name inline -->
-                <div style="display:inline-flex;align-items:center;justify-content:center;gap:10px;margin-bottom:3px;">
-                    <?php foreach($logo_paths as $lp) { if(file_exists($lp)) { echo '<img src="'.$lp.'" alt="MOTI JEWELLERS Logo" style="width:52px;height:52px;object-fit:contain;display:block;">'; break; } } ?>
-                    <div style="font-size:22px;font-weight:bold;letter-spacing:1px;line-height:1;">MOTI JEWELLERS</div>
-                </div>
-                <!-- Address below -->
-                <div style="font-size:11px;">Prop: Debabrata Mondal</div>
-                <div style="font-size:11px;">Hamirpur, Balichak, Station Road</div>
-                <div style="font-size:11px;">Paschim Medinipur</div>
-                <div style="font-size:11px;">GSTIN/UIN: 19AEPPM9851A1Z4</div>
-                <div style="font-size:11px;">State Name: West Bengal, Code: 19</div>
-                <div style="font-size:11px;">Contact: +91-9635985848</div>
-            </div>
-            <div style="text-align:center;margin-bottom:10px;">
-                <span style="background:#222;color:#fff;padding:4px 36px;font-size:15px;font-weight:bold;letter-spacing:2px;">INVOICE</span>
-            </div>
-            <div style="font-size:11px;margin-bottom:10px;border-bottom:1px solid #aaa;padding-bottom:8px;">
-                <div><strong>Party:</strong> <?php echo htmlspecialchars($last_customer_name); ?></div>
-                <?php if(!empty($last_customer_address)): ?><div style="padding-left:50px;"><?php echo htmlspecialchars($last_customer_address); ?></div><?php endif; ?>
-                <?php $cgstin = $_POST['customer_gstin'] ?? ''; if(!empty($cgstin)): ?><div><strong>GSTIN:</strong> <?php echo htmlspecialchars($cgstin); ?></div><?php endif; ?>
-                <div><strong>State Name:</strong> West Bengal, Code: 19</div>
-                <div><strong>Contact:</strong> <?php echo htmlspecialchars($last_customer_mobile); ?></div>
-            </div>
-
-            <!-- Yellow Bill Style Items Table -->
-            <table style="width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:0;">
-                <thead>
-                    <tr style="background:#111;">
-                        <th style="border:1px solid #111;padding:6px 5px;text-align:left;color:#fff;font-weight:800;text-transform:uppercase;font-size:9.5px;">DESCRIPTION</th>
-                        <th style="border:1px solid #111;padding:6px 4px;text-align:center;color:#fff;font-weight:800;text-transform:uppercase;font-size:9px;width:60px;">HSN<br>CODE</th>
-                        <th style="border:1px solid #111;padding:6px 4px;text-align:center;color:#fff;font-weight:800;text-transform:uppercase;font-size:9px;width:68px;">GROSS WT.<br><span style="font-weight:400;font-size:8px;">Gold:gm, gem:ct</span></th>
-                        <th style="border:1px solid #111;padding:6px 4px;text-align:center;color:#fff;font-weight:800;text-transform:uppercase;font-size:9px;width:68px;">NETT WT.<br><span style="font-weight:400;font-size:8px;">Gold:gm, gem:ct</span></th>
-                        <th style="border:1px solid #111;padding:6px 4px;text-align:center;color:#fff;font-weight:800;text-transform:uppercase;font-size:9px;width:72px;">RATE<br><span style="font-weight:400;font-size:8px;">₹/gm, ₹/ct</span></th>
-                        <th style="border:1px solid #111;padding:6px 4px;text-align:center;color:#fff;font-weight:800;text-transform:uppercase;font-size:9px;width:72px;">PROCESSING<br>CHARGES</th>
-                        <th style="border:1px solid #111;padding:6px 4px;text-align:center;color:#fff;font-weight:800;text-transform:uppercase;font-size:9px;width:52px;">H.M.<br>CHARGES</th>
-                        <th style="border:1px solid #111;padding:6px 4px;text-align:right;color:#fff;font-weight:800;text-transform:uppercase;font-size:9px;width:75px;">NET TOTAL ₹</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    $counter = 1;
-                    $item_count  = count($last_items);
-                    $grand_gross = 0; $grand_nett = 0;
-                    foreach($last_items as $item):
-                        $is_other = !empty($item['is_other']) || !empty($item['is_manual']);
-                        $item_label = htmlspecialchars($item['name']);
-                        if(!$is_other && !empty($item['item_type']) && $item['item_type'] !== 'Other') {
-                            $item_label .= '<br><small style="color:#555;font-size:9px;">' . htmlspecialchars($item['item_type']) . '</small>';
-                        }
-                        if(!empty($item['serial_no'])) {
-                            $item_label .= '<br><small style="color:#777;font-size:8.5px;">Serial: ' . htmlspecialchars($item['serial_no']) . '</small>';
-                        }
-                        if(!empty($item['huid_code'])) {
-                            $item_label .= '<br><strong style="color:#111;font-size:8.5px;">HUID: ' . htmlspecialchars($item['huid_code']) . '</strong>';
-                        }
-                       
-                        $gross_wt   = floatval($item['quantity'] ?? 0);
-                        $nett_wt    = floatval($item['quantity'] ?? 0);
-                        $rate       = floatval($item['price'] ?? 0);
-                        $proc_chg   = floatval($item['making_charge'] ?? $item['making_charges'] ?? 0);
-                        $hm_chg     = floatval($item['hallmark'] ?? 0);
-                        // Making Charge & Hallmark are entered ONCE for the whole invoice (not per item).
-                        // When there's only one item on the bill, show the invoice-level amount on that
-                        // item's row so it's visible on the printed bill instead of a blank "—".
-                        if ($item_count === 1) {
-                            if ($proc_chg <= 0) $proc_chg = $last_making_charge_amount;
-                            if ($hm_chg   <= 0) $hm_chg   = $last_hallmark;
-                        }
-                        $net_total  = floatval($item['total'] ?? 0);
-                        $grand_gross += $gross_wt; $grand_nett += $nett_wt;
-                        $row_bg = ($counter % 2 == 0) ? 'rgba(0,0,0,0.015)' : 'transparent';
-                    ?>
-                    <tr style="background:<?php echo $row_bg; ?>;">
-                        <td style="border:1px solid #181716;padding:6px 5px;"><?php echo $item_label; ?></td>
-                        <td style="border:1px solid #161614;padding:6px 4px;text-align:center;"><?php echo htmlspecialchars($item['hsn'] ?? '7108'); ?></td>
-                        <td style="border:1px solid #0c0c0b;padding:6px 4px;text-align:center;"><?php echo $gross_wt > 0 ? number_format($gross_wt, 3) : '—'; ?></td>
-                        <td style="border:1px solid #e0c84a;padding:6px 4px;text-align:center;"><?php echo $nett_wt > 0 ? number_format($nett_wt, 3) : '—'; ?></td>
-                        <td style="border:1px solid #e0c84a;padding:6px 4px;text-align:right;"><?php echo $rate > 0 ? number_format($rate, 2) : '—'; ?></td>
-                        <td style="border:1px solid #e0c84a;padding:6px 4px;text-align:right;"><?php echo $proc_chg > 0 ? number_format($proc_chg, 2) : '—'; ?></td>
-                        <td style="border:1px solid #e0c84a;padding:6px 4px;text-align:right;"><?php echo $hm_chg > 0 ? number_format($hm_chg, 2) : '—'; ?></td>
-                        <td style="border:1px solid #e0c84a;padding:6px 4px;text-align:right;font-weight:700;"><?php echo number_format($net_total, 2); ?></td>
-                    </tr>
-                    <?php $counter++; endforeach; ?>
-
-                    <!-- Total Row -->
-                    <?php $subtotal_before_tax = $last_subtotal + $last_making_charge_amount + $last_hallmark + $last_pola - $last_discount; ?>
-                    <tr style="background:rgba(0,0,0,0.035);font-weight:800;">
-                        <td style="border:1px solid #111;padding:5px;font-weight:800;">Total</td>
-                        <td style="border:1px solid #111;padding:5px;"></td>
-                        <td style="border:1px solid #111;padding:5px;text-align:center;"><?php echo number_format($grand_gross, 3); ?></td>
-                        <td style="border:1px solid #111;padding:5px;text-align:center;"><?php echo number_format($grand_nett, 3); ?></td>
-                        <td style="border:1px solid #111;padding:5px;"></td>
-                        <td style="border:1px solid #111;padding:5px;text-align:right;"><?php echo $last_making_charge_amount > 0 ? number_format($last_making_charge_amount, 2) : ''; ?></td>
-                        <td style="border:1px solid #111;padding:5px;text-align:right;"><?php echo $last_hallmark > 0 ? number_format($last_hallmark, 2) : ''; ?></td>
-                        <td style="border:1px solid #111;padding:5px;text-align:right;">₹<?php echo number_format($subtotal_before_tax, 2); ?></td>
-                    </tr>
-                    <?php if($last_cgst_amount > 0): ?>
-                    <tr>
-                        <td colspan="5" style="border:1px solid #888;padding:4px;"></td>
-                        <td colspan="2" style="border:1px solid #888;padding:4px;text-align:right;font-size:10px;">
-                            <strong>CGST@<?php echo $last_cgst_rate; ?>%</strong><br><strong>SGST@<?php echo $last_sgst_rate; ?>%</strong>
-                        </td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;font-size:10px;">
-                            <?php echo number_format($last_cgst_amount, 2); ?><br><?php echo number_format($last_sgst_amount, 2); ?>
-                        </td>
-                    </tr>
-                    <?php endif; ?>
-                    <?php if($last_discount > 0): ?>
-                    <tr>
-                        <td colspan="3" style="border:1px solid #888;padding:4px;font-size:10px;color:#555;">Less:</td>
-                        <td colspan="4" style="border:1px solid #888;padding:4px;text-align:right;font-size:10px;"><strong>Discount</strong></td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;font-size:10px;">(-) <?php echo number_format($last_discount, 2); ?></td>
-                    </tr>
-                    <?php endif; ?>
-                    <?php if(abs($last_round_off) > 0.001): ?>
-                    <tr>
-                        <td colspan="7" style="border:1px solid #888;padding:4px;text-align:right;font-size:10px;"><strong>Round Off</strong></td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;font-size:10px;"><?php echo ($last_round_off >= 0 ? '' : '(-) ') . number_format(abs($last_round_off), 2); ?></td>
-                    </tr>
-                    <?php endif; ?>
-                    <tr style="background:rgba(0,0,0,0.045);font-weight:bold;">
-                        <td colspan="3" style="border:1px solid #888;padding:6px;text-align:right;font-size:11px;">Total</td>
-                        <td style="border:1px solid #888;padding:6px;text-align:center;"><?php echo $last_total_quantity; ?> GMS</td>
-                        <td colspan="3" style="border:1px solid #888;padding:6px;"></td>
-                        <td style="border:1px solid #888;padding:6px;text-align:right;font-size:13px;"><strong>Rs <?php echo number_format($last_total, 2); ?></strong></td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <div style="font-size:11px;border:1px solid #888;border-top:none;padding:6px 8px;background:rgba(0,0,0,0.01);">
-                <strong>Amount Chargeable (in words)</strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<em>E. &amp; O.E</em>
-                <div style="margin-top:4px;"><strong>Indian Rupees <?php echo convertNumberToWords($last_total); ?></strong></div>
-            </div>
-
-            <?php if($last_cgst_amount > 0): ?>
-            <table style="width:100%;border-collapse:collapse;font-size:10px;margin-top:12px;">
-                <thead>
-                    <tr style="background:#f0f0f0;">
-                        <th style="border:1px solid #888;padding:4px;text-align:center;" rowspan="2">HSN/SAC</th>
-                        <th style="border:1px solid #888;padding:4px;text-align:center;" rowspan="2">Taxable Value</th>
-                        <th style="border:1px solid #888;padding:4px;text-align:center;" colspan="2">CGST</th>
-                        <th style="border:1px solid #888;padding:4px;text-align:center;" colspan="2">SGST/UTGST</th>
-                        <th style="border:1px solid #888;padding:4px;text-align:center;" rowspan="2">Total Tax</th>
-                    </tr>
-                    <tr style="background:#f0f0f0;">
-                        <th style="border:1px solid #888;padding:4px;text-align:center;">Rate</th>
-                        <th style="border:1px solid #888;padding:4px;text-align:center;">Amount</th>
-                        <th style="border:1px solid #888;padding:4px;text-align:center;">Rate</th>
-                        <th style="border:1px solid #888;padding:4px;text-align:center;">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    $hsn_groups = [];
-                    foreach($last_items as $item) {
-                        $hsn = !empty($item['hsn']) ? $item['hsn'] : '7108';
-                        if(!isset($hsn_groups[$hsn])) $hsn_groups[$hsn] = 0;
-                        $hsn_groups[$hsn] += floatval($item['total']);
-                    }
-                    $total_taxable=$total_cgst_sum=$total_sgst_sum=0;
-                    foreach($hsn_groups as $hsn => $taxable_val):
-                        $c = round($taxable_val * $last_cgst_rate / 100, 2);
-                        $s = round($taxable_val * $last_sgst_rate / 100, 2);
-                        $total_taxable += $taxable_val; $total_cgst_sum += $c; $total_sgst_sum += $s;
-                    ?>
-                    <tr>
-                        <td style="border:1px solid #888;padding:4px;text-align:center;"><?php echo htmlspecialchars($hsn); ?></td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo number_format($taxable_val,2); ?></td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo $last_cgst_rate; ?>%</td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo number_format($c,2); ?></td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo $last_sgst_rate; ?>%</td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo number_format($s,2); ?></td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo number_format($c+$s,2); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                    <tr style="font-weight:bold;background:#f5f5f5;">
-                        <td style="border:1px solid #888;padding:4px;text-align:right;">Total</td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo number_format($total_taxable,2); ?></td>
-                        <td style="border:1px solid #888;padding:4px;"></td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo number_format($total_cgst_sum,2); ?></td>
-                        <td style="border:1px solid #888;padding:4px;"></td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo number_format($total_sgst_sum,2); ?></td>
-                        <td style="border:1px solid #888;padding:4px;text-align:right;"><?php echo number_format($total_cgst_sum+$total_sgst_sum,2); ?></td>
-                    </tr>
-                </tbody>
-            </table>
-            <div style="font-size:11px;margin-top:6px;padding:4px 0;">
-                <strong>Tax Amount (in words):</strong> <strong>Indian Rupees <?php echo convertNumberToWords($last_cgst_amount + $last_sgst_amount); ?></strong>
-            </div>
-            <?php endif; ?>
-
-            <div style="font-size:10px;margin-top:10px;border-top:1px solid #ccc;padding-top:6px;">
-                <strong>Declaration</strong><br>
-                We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
-            </div>
-
-            <!-- Payment stamp -->
-            <div style="margin-top:12px;display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;">
-                <?php if($last_payment_status === 'paid' && $last_is_split): ?>
-                <div style="border:3px solid #16a34a;border-radius:8px;padding:8px 16px;transform:rotate(-5deg);">
-                    <div style="color:#16a34a;font-size:14px;font-weight:900;">&#10003; PAID (Split)</div>
-                    <div style="color:#065f46;font-size:10px;margin-top:3px;">
-                        Cash: <strong>&#8377;<?php echo number_format($last_cash_paid,2); ?></strong> &nbsp;
-                        UPI: <strong>&#8377;<?php echo number_format($last_upi_paid,2); ?></strong>
-                    </div>
-                </div>
-                <?php elseif($last_payment_status === 'paid'): ?>
-                <div style="border:3px solid #16a34a;border-radius:8px;padding:6px 18px;transform:rotate(-5deg);">
-                    <div style="color:#16a34a;font-size:18px;font-weight:900;letter-spacing:2px;">&#10003; PAID</div>
-                    <div style="color:#16a34a;font-size:9px;text-align:center;">Full Payment Received</div>
-                </div>
-                <?php elseif($last_payment_status === 'part'): ?>
-                <div style="border:3px solid #d97706;border-radius:8px;padding:6px 18px;transform:rotate(-5deg);">
-                    <div style="color:#d97706;font-size:15px;font-weight:900;">&#9203; PART PAID</div>
-                    <div style="color:#d97706;font-size:10px;">Paid: <strong>&#8377;<?php echo number_format($last_paid_amount,2); ?></strong></div>
-                    <div style="color:#dc2626;font-size:10px;">Balance: <strong>&#8377;<?php echo number_format($last_balance_amount,2); ?></strong></div>
-                    <?php $dd = $_POST['due_date'] ?? ''; if(!empty($dd)): ?>
-                    <div style="color:#7a4e0a;font-size:10px;margin-top:2px;">Due: <strong><?php echo date('d-M-Y', strtotime($dd)); ?></strong></div>
-                    <?php endif; ?>
-                </div>
-                <?php else: ?>
-                <div style="border:3px solid #dc2626;border-radius:8px;padding:6px 18px;transform:rotate(-5deg);">
-                    <div style="color:#dc2626;font-size:16px;font-weight:900;letter-spacing:2px;">&#10007; UNPAID</div>
-                    <div style="color:#dc2626;font-size:9px;">Balance: &#8377;<?php echo number_format($last_total,2); ?></div>
-                </div>
-                <?php endif; ?>
-                <div style="font-size:10px;color:#555;margin-top:4px;">
-                    <strong>Payment Mode:</strong> <?php echo htmlspecialchars($last_payment_method); ?><br>
-                    <strong>Date:</strong> <?php echo date('d-M-Y'); ?>
-                </div>
-            </div>
-
-            <div style="display:flex;justify-content:space-between;margin-top:28px;font-size:11px;">
-                <div>Customer's Seal and Signature</div>
-                <div style="text-align:right;">for MOTI JEWELLERS<br><br><br>Authorised Signatory</div>
-            </div>
-            <div style="font-size:10px;text-align:center;margin-top:15px;padding-top:10px;border-top:1px solid #ddd;">
-                SUBJECT TO PASCHIM MEDINIPUR JURISDICTION<br>This is a Computer Generated Invoice
-            </div>
-        </div>
-    </div>
-    <div style="text-align:center;margin-top:20px;" class="no-print">
-        <button onclick="window.print()"
-            style="background:linear-gradient(135deg,#800020,#d68b16);color:#fff;border:none;padding:12px 36px;border-radius:8px;cursor:pointer;font-weight:bold;font-size:15px;letter-spacing:1px;">
-            &#128424;&#65039; Print Invoice
-        </button>
-    </div>
-</div>
-<?php endif; ?>
 
 <!-- JAVASCRIPT -->
 <script>
 const ALL_PRODUCTS = <?php echo json_encode($all_products, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const itemTypeOptions = <?php echo json_encode($itemTypeOptions, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 const defaultItemTypeOptions = {
-    'Gold 22K': ['Chur','Bala','Churi','Single Loket','Double Loket','Pearl Choker','JhulaDul','Bauti chur','Soket Bauti','Necklace','Gold Choker','Chain','Jhumka','Tops','Ladies Ring','Gents Ring','Gents Breslet','Ladies Breslet','Pearl sitahar','Tika','Takti','Mantasa','Loket','Mangal Sutra','Moti Chokey','Nosepin','Sankha','Pola','Baby Ring','Baby Breslet','Bali','Pitaring','Breslet Noya','Stell Noya','Other'],
-    'Gold 18K': ['Chur','Bala','Churi','Single Loket','Double Loket','Pearl Choker','JhulaDul','Bauti chur','Soket Bauti','Necklace','Gold Choker','Chain','Jhumka','Tops','Ladies Ring','Gents Ring','Gents Breslet','Ladies Breslet','Pearl sitahar','Tika','Takti','Mantasa','Loket','Mangal Sutra','Moti Chokey','Nosepin','Sankha','Pola','Baby Ring','Baby Breslet','Bali','Pitaring','Breslet Noya','Stell Noya','Other'],
-    'Silver':   ['Chur','Bala','Churi','Necklace','Chain','Jhumka','Tops','Ladies Ring','Gents Ring','Breslet','Tika','Loket','Mankha','Payel','Bicha','Nosering','Baby Ring','Pat (Gross)','S- (Gross)','Nosepin (Gross)','Sankha','Pola','Silver Thali','Silver Bati','silver Glass','Silver Spoon','Silver showpiece','B.B.C Silver','Mix Silver','Other'],
+    'Gold 22K': ['Necklace','Chur','Bala','Chain','Tops','Single Loket','Double Loket','Churi','Jhuladul','Jhumka','Ladies Ring','Gold Choker','Gents Ring','Gents Breslet','Ladies Breslet','Tika','Takti','Mantasa','Pearl Choker','Bauti Chur','Soket Bauti','Breslet Noya','Stell Noya','Baby Ring','Bali','Pitaring','Baby Breslet','Pearl Sitahar','Nose Pin','Other'],
+    'Gold 18K': ['Necklace','Chur','Bala','Chain','Tops','Single Loket','Double Loket','Churi','Jhuladul','Jhumka','Ladies Ring','Gold Choker','Gents Ring','Gents Breslet','Ladies Breslet','Tika','Takti','Mantasa','Pearl Choker','Bauti Chur','Soket Bauti','Breslet Noya','Stell Noya','Baby Ring','Bali','Pitaring','Baby Breslet','Pearl Sitahar','Nose Pin','Other'],
+    'Silver':   ['Thali','Bati','Glass','Spoon','Showpiece','B.B.C Silver','Mix Silver','Other'],
     'Stone':    ['Natural Pearl','Gomed','Red Coral','Nila','Panna','Jerkon','Amethist','Cats Eye','Other'],
-    'Diamond':  ['Ladies Ring','Gents Ring','Tops','Mangal Sutra','Nose pin','Necklace','Other'],
-    // 'Others':   ['Shankha','Pala','Mala','Moti Mala','Trasel','Branch Fram','Braslate Pala','parl Mala','Gala','Reparing','Stamp Charg','Chur','Bala','Churi','Necklace','Chain','Jhumka','Jhumkolol','Tops','Ladies Ring','Gents Ring','Chokey','Breslet','Ladies Breslet','Tika','Takti','Mantasa','Loket','Mangal Sutra','Moti Chokey','Nosepin','Sankha','Pola','Baby Ring','Bali','Pitaring','Breslet Nova','Steu Nova','Other']
+    'Diamond':  ['Ladies Ring','Gents Ring','Tops','Mangal Sutra','Nose Pin','Necklace','Other'],
 };
 const mergedItemTypeOptions = {};
 Object.keys(defaultItemTypeOptions).forEach(category => {
@@ -2032,305 +1805,763 @@ Object.keys(itemTypeOptions).forEach(category => {
 });
 
 let items = [];
-let currentTab = 'stock';
+let currentMainTab = 'gram'; // 'gram' or 'qty'
+let currentGramSource = 'stock'; // 'stock', 'category', 'manual'
+let currentQtySource = 'stock'; // 'stock', 'category', 'manual'
 
 // Tab switching
-function switchTab(tab) {
-    currentTab = tab;
-    const tabLabels = { stock: '📦 Add Stock Item', category: '🏷️ Add Category Item', manual: '✏️ Add Manual Item' };
-    ['stock','category','manual'].forEach(t => {
-        document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
-        document.getElementById('panel' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
-    });
-    const lbl = document.getElementById('unifiedAddBtnLabel');
-    if(lbl) lbl.textContent = tabLabels[tab] || 'Add Item to Bill';
+function switchMainTab(tab) {
+    currentMainTab = tab;
+    document.querySelectorAll('.add-mode-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.add-mode-panel').forEach(p => p.classList.add('hidden'));
+    
+    if (tab === 'gram') {
+        document.getElementById('tabGram').classList.add('active');
+        document.getElementById('panelGram').classList.remove('hidden');
+    } else {
+        document.getElementById('tabQty').classList.add('active');
+        document.getElementById('panelQty').classList.remove('hidden');
+    }
+    resetItemCharges();
 }
 
-// Serial / name filter for stock select
-function filterProductSelect(query) {
-    const select = document.getElementById('productSelect');
-    const infoDiv = document.getElementById('selectedProductInfo');
+function switchSource(tab, source) {
+    if (tab === 'gram') {
+        currentGramSource = source;
+        document.getElementById('gramSourceStock').classList.add('hidden');
+        document.getElementById('gramSourceCategory').classList.add('hidden');
+        document.getElementById('gramSourceManual').classList.add('hidden');
+        
+        if (source === 'stock') {
+            document.getElementById('gramSourceStock').classList.remove('hidden');
+        } else if (source === 'category') {
+            document.getElementById('gramSourceCategory').classList.remove('hidden');
+        } else {
+            document.getElementById('gramSourceManual').classList.remove('hidden');
+        }
+    } else {
+        currentQtySource = source;
+        document.getElementById('qtySourceStock').classList.add('hidden');
+        document.getElementById('qtySourceCategory').classList.add('hidden');
+        document.getElementById('qtySourceManual').classList.add('hidden');
+        
+        if (source === 'stock') {
+            document.getElementById('qtySourceStock').classList.remove('hidden');
+        } else if (source === 'category') {
+            document.getElementById('qtySourceCategory').classList.remove('hidden');
+        } else {
+            document.getElementById('qtySourceManual').classList.remove('hidden');
+        }
+    }
+    resetItemCharges();
+}
+
+// ==================== ⚖️ GRAM FORM LOGIC ====================
+
+// Stock search & filter with floating suggestions
+function filterGramStock(query) {
+    const select = document.getElementById('gramStockProduct');
+    const infoDiv = document.getElementById('gramStockProductInfo');
+    const suggDiv = document.getElementById('gramStockSuggestions');
     query = query.trim().toLowerCase();
     infoDiv.classList.add('hidden');
     while(select.options.length > 1) select.remove(1);
+    
     const filtered = query.length > 0
         ? ALL_PRODUCTS.filter(p =>
-            (p.serial_no || '').toLowerCase().includes(query) ||
-            (p.huid_code || '').toLowerCase().includes(query) ||
-            (p.name || '').toLowerCase().includes(query) ||
-            (p.item_name || '').toLowerCase().includes(query) ||
-            (p.category || '').toLowerCase().includes(query)
+            ((p.serial_no || '').toLowerCase().includes(query) ||
+             (p.name || '').toLowerCase().includes(query) ||
+             (p.item_name || '').toLowerCase().includes(query) ||
+             (p.category || '').toLowerCase().includes(query))
           )
         : ALL_PRODUCTS;
-    if(filtered.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = ''; opt.disabled = true;
-        opt.textContent = query ? 'No match — try Manual Entry tab' : 'No products in stock';
-        select.appendChild(opt);
-        return;
-    }
+        
     filtered.forEach(p => {
+        const isOutOfStock = (parseFloat(p.quantity) <= 0);
+        const stockText = isOutOfStock ? 'OUT OF STOCK' : (p.quantity + ' pcs');
+        const display = (p.item_name || p.name) + ' | SN:' + (p.serial_no || '—') + ' | Stock: ' + stockText;
         const opt = document.createElement('option');
         opt.value = p.id;
-        opt.dataset.price    = p.price;
-        opt.dataset.name     = p.name;
-        opt.dataset.serial   = p.serial_no;
-        opt.dataset.huid     = p.huid_code || '';
+        opt.textContent = display;
+        opt.dataset.price = p.price;
+        opt.dataset.name = p.name;
+        opt.dataset.serial = p.serial_no;
         opt.dataset.category = p.category;
         opt.dataset.itemName = p.item_name || p.name;
-        opt.dataset.qty      = p.quantity;
-        const label = (p.item_name ? p.item_name + ' (' + p.name + ')' : p.name) +
-            ' | SN: ' + (p.serial_no || '-') +
-            (p.huid_code ? ' | HUID: ' + p.huid_code : '') +
-            ' | \u20B9' + parseFloat(p.price).toFixed(2) +
-            ' | Stock: ' + p.quantity;
-        opt.textContent = label;
+        opt.dataset.qty = p.quantity;
+        if (isOutOfStock) opt.style.color = '#dc2626';
         select.appendChild(opt);
     });
-    if(filtered.length === 1) {
-        select.value = filtered[0].id;
-        onProductSelectChange();
+
+    if (suggDiv) {
+        suggDiv.innerHTML = '';
+        if (query.length > 0 && filtered.length > 0) {
+            filtered.slice(0, 8).forEach(p => {
+                const isOut = (parseFloat(p.quantity) <= 0);
+                const item = document.createElement('div');
+                item.className = 'autocomplete-suggestion-item';
+                item.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;background:#fff;';
+                item.innerHTML = '<div><strong style="color:#022c22;">' + (p.item_name || p.name) + '</strong> <span style="font-size:11px;color:#059669;">(' + p.category + ')</span></div><div style="font-size:11px;color:' + (isOut?'#dc2626':'#7a4e0a') + ';">SN: ' + (p.serial_no || '—') + ' | ' + (isOut ? 'OUT OF STOCK' : (p.quantity + ' pcs')) + '</div>';
+                item.onmouseover = function() { this.style.background = '#f5ead0'; };
+                item.onmouseout = function() { this.style.background = '#fff'; };
+                item.onclick = function() {
+                    select.value = p.id;
+                    document.getElementById('gramStockSearch').value = (p.item_name || p.name);
+                    suggDiv.classList.add('hidden');
+                    onGramStockChange();
+                };
+                suggDiv.appendChild(item);
+            });
+            suggDiv.classList.remove('hidden');
+        } else {
+            suggDiv.classList.add('hidden');
+        }
     }
 }
 
-function clearSerialSearch() {
-    document.getElementById('serialSearch').value = '';
-    document.getElementById('serialSearchResult').classList.add('hidden');
-    document.getElementById('selectedProductInfo').classList.add('hidden');
-    filterProductSelect('');
+function clearGramStockSearch() {
+    document.getElementById('gramStockSearch').value = '';
+    const suggDiv = document.getElementById('gramStockSuggestions');
+    if (suggDiv) suggDiv.classList.add('hidden');
+    filterGramStock('');
 }
 
-function searchBySerial() {
-    const query = document.getElementById('serialSearch').value.trim();
-    if(!query) return;
-    filterProductSelect(query);
-    const result = document.getElementById('serialSearchResult');
-    const select = document.getElementById('productSelect');
-    if(select.options.length > 1) {
-        result.textContent = '\u2705 Found ' + (select.options.length - 1) + ' result(s). Select and enter GMS.';
-        result.style.color = '#059669';
-    } else {
-        result.textContent = '\u274C No product found for "' + query + '". Use Manual Entry tab.';
-        result.style.color = '#dc2626';
-    }
-    result.classList.remove('hidden');
-}
-
-function onProductSelectChange() {
-    const select = document.getElementById('productSelect');
-    const infoDiv = document.getElementById('selectedProductInfo');
+function onGramStockChange() {
+    const select = document.getElementById('gramStockProduct');
+    const infoDiv = document.getElementById('gramStockProductInfo');
+    const rateInput = document.getElementById('gramRate');
+    const weightInput = document.getElementById('gramWeight');
     const opt = select.options[select.selectedIndex];
-    if(!opt || !opt.value) { infoDiv.classList.add('hidden'); return; }
-    const name  = opt.dataset.itemName || opt.dataset.name;
-    const price = parseFloat(opt.dataset.price) || 0;
-    const stock = parseFloat(opt.dataset.qty)   || 0;
-    const cat   = opt.dataset.category || '';
-    const huid  = opt.dataset.huid || '';
-    const shopRatePerGram = getShopRateForCategory(cat);
-    infoDiv.innerHTML = '<strong>' + name + '</strong> &middot; SN: ' + opt.dataset.serial + (huid ? ' &middot; HUID: ' + huid : '') + ' &middot; Category: ' + cat + '<br>' +
-        'Rate: \u20B9' + price.toFixed(2) + '/gm (DB) ' + (shopRatePerGram > 0 ? '&middot; Shop Rate: \u20B9' + shopRatePerGram.toFixed(2) + '/gm' : '') + '<br>' +
-        'Available Stock: <strong>' + stock + ' GMS</strong>';
-    infoDiv.classList.remove('hidden');
-}
-
-function addStockItem() {
-    const select = document.getElementById('productSelect');
-    const productId = select.value;
-    const qty = parseFloat(document.getElementById('stockQty').value) || 0;
-    if(!productId) { alert('Please select a product from the list.'); return; }
-    if(qty <= 0)   { alert('Please enter a valid weight / quantity (GMS).'); return; }
-    const opt = select.options[select.selectedIndex];
-    const stock = parseFloat(opt.dataset.qty || 0);
-    if(stock <= 0) {
-        if(!confirm('This item shows 0 or negative stock. Add anyway?')) return;
-    } else if(qty > stock) {
-        if(!confirm('Quantity (' + qty + ') exceeds stock (' + stock + '). Continue?')) return;
-    }
-    const name     = opt.dataset.itemName || opt.dataset.name;
-    const cat      = opt.dataset.category || '';
-    const dbPrice  = parseFloat(opt.dataset.price) || 0;
-    const shopRate = getShopRateForCategory(cat);
-    const finalRate = shopRate > 0 ? shopRate : dbPrice;
-    const stockBaseAmount = parseFloat((finalRate * qty).toFixed(2));
     
-    const imc = parseFloat(document.getElementById('itemMakingCharge').value) || 0;
+    if (!opt || !opt.value) {
+        infoDiv.classList.add('hidden');
+        return;
+    }
+    
+    const price    = parseFloat(opt.dataset.price) || 0;    // DB: total item value
+    const qty      = parseFloat(opt.dataset.qty) || 0;      // DB: pieces in stock
+    const name     = opt.dataset.itemName;
+    const category = opt.dataset.category || '';
+
+    // Use shop rate (per 10g) for this category — the correct billing rate
+    const shopRatePerGram = getShopRateForCategory(category); // returns per-gram from shop rates
+    const shopRate10g     = shopRatePerGram * 10;             // convert back to per-10g for the field
+
+    if (qty <= 0) {
+        rateInput.value = '';
+        weightInput.value = '';
+        infoDiv.innerHTML = '<strong style="color:#dc2626;">' + name + '</strong> | <strong style="color:#dc2626;">❌ OUT OF STOCK (0 pcs available)</strong>';
+    } else if (shopRate10g > 0) {
+        rateInput.value = shopRate10g.toFixed(0);
+        const hint = document.getElementById('gramRatePerGramHint');
+        if(hint) hint.textContent = '\u2248 \u20B9' + shopRatePerGram.toLocaleString('en-IN', {maximumFractionDigits:2}) + ' per gram (shop rate used in billing)';
+        infoDiv.innerHTML = '<strong>' + name + '</strong> | Shop Rate: \u20B9' + shopRatePerGram.toLocaleString('en-IN', {maximumFractionDigits:2}) + '/g | Stock Value: \u20B9' + price.toLocaleString('en-IN') + ' | Available Stock: <strong style="color:#059669;">' + qty + ' pcs</strong>';
+        weightInput.value = '';
+    } else {
+        rateInput.value = '';
+        const hint = document.getElementById('gramRatePerGramHint');
+        if(hint) hint.textContent = '\u26A0 Set shop rate for ' + (category || 'this category') + ' in the panel on the right first!';
+        if(hint) hint.style.color = '#dc2626';
+        infoDiv.innerHTML = '<strong>' + name + '</strong> | Stock Value: \u20B9' + price.toLocaleString('en-IN') + ' | Available Stock: <strong style="color:#059669;">' + qty + ' pcs</strong> | \u26A0 Set shop rate first!';
+        weightInput.value = '';
+    }
+
+    infoDiv.classList.remove('hidden');
+    autoGramTotal();
+}
+
+function updateGramItemTypes() {
+    const category = document.getElementById('gramCatSelect').value;
+    const itemTypeSelect = document.getElementById('gramItemType');
+    itemTypeSelect.innerHTML = '<option value="">-- Select Item Type --</option>';
+    if (!category) {
+        onGramItemTypeChange();
+        return;
+    }
+    
+    const options = mergedItemTypeOptions[category] || [];
+    
+    // Group matching products from ALL_PRODUCTS stock array
+    const categoryStock = ALL_PRODUCTS.filter(p => {
+        const catName = (p.category || '').toLowerCase();
+        const targetCat = category.toLowerCase();
+        return catName.includes(targetCat) || targetCat.includes(catName);
+    });
+
+    options.forEach(item => {
+        const matchingItems = categoryStock.filter(p => {
+            const pName = (p.item_name || p.name || '').toLowerCase();
+            const itName = item.toLowerCase();
+            return pName.includes(itName) || itName.includes(pName);
+        });
+
+        let totalQty = 0;
+        matchingItems.forEach(p => {
+            totalQty += parseFloat(p.quantity) || 0;
+        });
+
+        const opt = document.createElement('option');
+        opt.value = item;
+        if (totalQty > 0) {
+            opt.textContent = item + ' (In Stock: ' + totalQty + ' pcs)';
+            opt.dataset.inStock = 'true';
+            opt.dataset.stockQty = totalQty;
+        } else {
+            opt.textContent = item + ' (Out of Stock)';
+            opt.dataset.inStock = 'false';
+            opt.dataset.stockQty = 0;
+            opt.style.color = '#dc2626';
+        }
+        itemTypeSelect.appendChild(opt);
+    });
+    
+    const shopRate = getShopRateForCategory(category);
+    const rateInput = document.getElementById('gramRate');
+    const rateBadge = document.getElementById('gramCatLiveRateBadge');
+    const rateText = document.getElementById('gramCatLiveRateText');
+    
+    const per10g = shopRate * 10;
+    if (per10g > 0) {
+        rateInput.value = per10g.toFixed(0);
+        const hint = document.getElementById('gramRatePerGramHint');
+        if(hint) hint.textContent = '\u2248 \u20B9' + shopRate.toFixed(2) + ' per gram (used in billing)';
+        rateText.innerHTML = '<strong>Shop Rate:</strong> \u20B9' + per10g.toLocaleString('en-IN') + '/10g = \u20B9' + shopRate.toFixed(2) + '/g';
+        rateBadge.classList.remove('hidden');
+    } else {
+        rateInput.value = '';
+        const hint = document.getElementById('gramRatePerGramHint');
+        if(hint) hint.textContent = '';
+        rateBadge.classList.add('hidden');
+    }
+    autoGramTotal();
+    onGramItemTypeChange();
+}
+
+function onGramItemTypeChange() {
+    const itemTypeSelect = document.getElementById('gramItemType');
+    const statusDiv = document.getElementById('gramCatStockStatus');
+    if (!statusDiv) return;
+
+    const opt = itemTypeSelect.options[itemTypeSelect.selectedIndex];
+    if (!opt || !opt.value) {
+        statusDiv.classList.add('hidden');
+        return;
+    }
+
+    const inStock = (opt.dataset.inStock === 'true');
+    const stockQty = parseFloat(opt.dataset.stockQty) || 0;
+
+    if (inStock && stockQty > 0) {
+        statusDiv.innerHTML = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-800 border border-green-300">✅ In Stock (' + stockQty + ' pcs available in inventory)</span>';
+    } else {
+        statusDiv.innerHTML = '<span class="px-2 py-0.5 rounded text-xs font-bold bg-red-100 text-red-800 border border-red-300">❌ Out of Stock (0 items available in inventory)</span>';
+    }
+    statusDiv.classList.remove('hidden');
+}
+
+function updateMakingChargeHint() {
+    const hintEl = document.getElementById('itemMakingChargeHint');
+    if(!hintEl) return;
+    const imcPct = parseFloat(document.getElementById('itemMakingCharge').value) || 0;
+    
+    let baseAmount = 0;
+    if (typeof currentMainTab === 'undefined' || currentMainTab === 'gram') {
+        const checkedRadio = document.querySelector('input[name="gram_source"]:checked');
+        const source = checkedRadio ? checkedRadio.value : (typeof currentGramSource !== 'undefined' ? currentGramSource : 'stock');
+        let weight = 0;
+        if (source === 'stock') weight = parseFloat(document.getElementById('gramWeight')?.value) || 0;
+        else if (source === 'category') weight = parseFloat(document.getElementById('gramWeightCat')?.value) || 0;
+        else weight = parseFloat(document.getElementById('gramWeightManual')?.value) || 0;
+        const rate10g = parseFloat(document.getElementById('gramRate')?.value) || 0;
+        const qty = parseFloat(document.getElementById('gramQty')?.value) || 1;
+        baseAmount = weight * (rate10g / 10) * qty;
+    } else {
+        const checkedRadio = document.querySelector('input[name="qty_source"]:checked');
+        const source = checkedRadio ? checkedRadio.value : (typeof currentQtySource !== 'undefined' ? currentQtySource : 'stock');
+        let qty = 0;
+        if (source === 'stock') qty = parseFloat(document.getElementById('qtyCount')?.value) || 0;
+        else if (source === 'category') qty = parseFloat(document.getElementById('qtyCountCat')?.value) || 0;
+        else qty = parseFloat(document.getElementById('qtyCountManual')?.value) || 0;
+        const rate = parseFloat(document.getElementById('qtyRate')?.value) || 0;
+        baseAmount = qty * rate;
+    }
+    
+    if (imcPct > 0 && baseAmount > 0) {
+        const mcAmt = baseAmount * (imcPct / 100);
+        hintEl.textContent = '= \u20B9' + mcAmt.toFixed(2);
+        hintEl.style.display = 'block';
+    } else {
+        hintEl.textContent = '';
+        hintEl.style.display = 'none';
+    }
+}
+
+function autoGramTotal() {
+    const checkedRadio = document.querySelector('input[name="gram_source"]:checked');
+    const source = checkedRadio ? checkedRadio.value : (typeof currentGramSource !== 'undefined' ? currentGramSource : 'stock');
+    currentGramSource = source;
+
+    let weight = 0;
+    if (source === 'stock') {
+        weight = parseFloat(document.getElementById('gramWeight').value) || 0;
+    } else if (source === 'category') {
+        weight = parseFloat(document.getElementById('gramWeightCat').value) || 0;
+    } else {
+        weight = parseFloat(document.getElementById('gramWeightManual').value) || 0;
+    }
+    
+    const rate10g = parseFloat(document.getElementById('gramRate').value) || 0;
+    const qty = parseFloat(document.getElementById('gramQty')?.value) || 1;
+    let total = 0;
+    const hint = document.getElementById('gramRatePerGramHint');
+    
+    if (weight > 0) {
+        const ratePerGram = rate10g / 10;
+        total = parseFloat((weight * ratePerGram * qty).toFixed(2));
+        if(hint && rate10g > 0) hint.textContent = '\u2248 \u20B9' + ratePerGram.toLocaleString('en-IN', {maximumFractionDigits:2}) + '/g \u00D7 ' + qty + ' pcs';
+        else if(hint) hint.textContent = '';
+    } else if (qty > 0 && rate10g > 0) {
+        total = parseFloat((qty * rate10g).toFixed(2));
+        if(hint) hint.textContent = '\u2248 \u20B9' + rate10g.toLocaleString('en-IN', {maximumFractionDigits:2}) + ' per piece \u00D7 ' + qty + ' pcs';
+    } else if(hint) {
+        hint.textContent = '';
+    }
+    
+    const previewRow = document.getElementById('gramTotalPreviewRow');
+    const previewEl = document.getElementById('gramTotalPreview');
+    
+    if (total > 0) {
+        previewEl.textContent = '\u20B9' + total.toLocaleString('en-IN', {minimumFractionDigits: 2});
+        previewRow.style.display = '';
+    } else {
+        previewRow.style.display = 'none';
+    }
+    updateMakingChargeHint();
+}
+
+function submitGramItem() {
+    const checkedRadio = document.querySelector('input[name="gram_source"]:checked');
+    const source = checkedRadio ? checkedRadio.value : (typeof currentGramSource !== 'undefined' ? currentGramSource : 'stock');
+    currentGramSource = source;
+
+    let productId = 'other';
+    let name = '';
+    let itemType = '';
+    let hsn = '7108';
+    let weight = 0;
+    const rate10g = parseFloat(document.getElementById('gramRate').value) || 0;
+    const qty = parseFloat(document.getElementById('gramQty')?.value) || 1;
+    
+    if (source === 'stock') {
+        const select = document.getElementById('gramStockProduct');
+        const opt = select.options[select.selectedIndex];
+        if (!opt || !opt.value) { alert('Please select a product from stock.'); return; }
+        productId = opt.value;
+        name = opt.dataset.itemName;
+        hsn = '7108';
+        weight = parseFloat(document.getElementById('gramWeight').value) || 0;
+
+        // Stock pcs validation check
+        const stockQty = parseFloat(opt.dataset.qty) || 0;
+        let existingPcs = 0;
+        items.forEach(it => {
+            if (String(it.product_id) === String(productId)) {
+                existingPcs += (parseFloat(it.pcs) || 1);
+            }
+        });
+        const totalReqPcs = existingPcs + qty;
+        if (stockQty <= 0) {
+            alert('❌ Out of Stock!\n"' + name + '" is currently out of stock (0 pcs available).');
+            return;
+        }
+        if (totalReqPcs > stockQty) {
+            alert('❌ Exceeds Available Stock!\nOnly ' + stockQty + ' pcs available in stock for "' + name + '", but ' + totalReqPcs + ' pcs requested.');
+            return;
+        }
+    } else if (source === 'category') {
+        const cat = document.getElementById('gramCatSelect').value;
+        const typeSelect = document.getElementById('gramItemType');
+        const type = typeSelect.value;
+        if (!cat) { alert('Please select a category.'); return; }
+        if (!type) { alert('Please select an item type.'); return; }
+
+        const opt = typeSelect.options[typeSelect.selectedIndex];
+        const inStock = opt ? (opt.dataset.inStock === 'true') : true;
+        const stockQty = opt ? (parseFloat(opt.dataset.stockQty) || 0) : 0;
+
+        if (!inStock || stockQty <= 0) {
+            alert('❌ Item Out of Stock!\n"' + type + '" is currently not available in your stock inventory.');
+            return;
+        }
+
+        productId = 'other';
+        name = type;  // e.g. "Jhumka"
+        itemType = type;
+        hsn = '7108';
+        weight = parseFloat(document.getElementById('gramWeightCat').value) || 0;
+    } else {
+        name = document.getElementById('gramManualName').value.trim();
+        hsn = document.getElementById('gramManualHsn').value.trim() || '7108';
+        weight = parseFloat(document.getElementById('gramWeightManual').value) || 0;
+        if (!name) { alert('Please enter an item description.'); return; }
+    }
+    
+    if (rate10g <= 0) { alert('Please enter rate / price.'); return; }
+    if (qty <= 0) { alert('Please enter quantity.'); return; }
+    
+    let baseAmount = 0;
+    let unit = 'g';
+    let itemPrice = 0;
+    
+    if (weight > 0) {
+        let ratePerGram = rate10g / 10;
+        baseAmount = parseFloat((weight * ratePerGram * qty).toFixed(2));
+        unit = 'g';
+        itemPrice = ratePerGram;
+    } else {
+        baseAmount = parseFloat((qty * rate10g).toFixed(2));
+        unit = 'pcs';
+        itemPrice = rate10g;
+    }
+    
+    const imcPct = parseFloat(document.getElementById('itemMakingCharge').value) || 0;
+    const imc = parseFloat((baseAmount * (imcPct / 100)).toFixed(2));
     const ihm = parseFloat(document.getElementById('itemHallmark').value) || 0;
     const idisc = parseFloat(document.getElementById('itemDiscount').value) || 0;
     const igst = document.getElementById('itemGstType').value;
-    const itemTotal = parseFloat((stockBaseAmount + imc + ihm - idisc).toFixed(2));
-
+    const itemTotal = parseFloat((baseAmount + imc + ihm - idisc).toFixed(2));
+    
     items.push({
         product_id: productId,
-        name: name,
-        item_type: '',
-        hsn: '7108',
-        serial_no: opt.dataset.serial || '',
-        huid_code: opt.dataset.huid || '',
-        quantity: qty,
-        price: finalRate,
-        base_amount: stockBaseAmount,
+        name: name + (qty > 1 && weight > 0 ? ' (' + qty + ' pcs)' : ''),
+        item_type: itemType,
+        hsn: hsn,
+        quantity: weight > 0 ? weight : qty,
+        unit: unit,
+        pcs: qty,
+        stock_deduct: qty,
+        price: itemPrice,
+        base_amount: baseAmount,
+        making_charge_pct: imcPct,
         making_charge: imc,
         hallmark: ihm,
         discount: idisc,
         total: itemTotal,
-        gst_type: igst
+        gst_type: igst,
+        is_manual: (source === 'manual'),
+        is_item_only: (source === 'category'),
+        serial_no: (source === 'stock') ? document.getElementById('gramStockProduct').options[document.getElementById('gramStockProduct').selectedIndex].dataset.serial : ''
     });
+    
     updateItemsList();
     calculateTotal();
     resetItemCharges();
-    document.getElementById('stockQty').value = '';
-    document.getElementById('selectedProductInfo').classList.add('hidden');
-    showNotif('\u2705 Added: ' + name + ' (' + qty + ' GMS)', 'success');
+    
+    // Reset fields
+    document.getElementById('gramWeight').value = '';
+    document.getElementById('gramWeightCat').value = '';
+    document.getElementById('gramWeightManual').value = '';
+    document.getElementById('gramRate').value = '';
+    document.getElementById('gramManualName').value = '';
+    if (document.getElementById('gramQty')) document.getElementById('gramQty').value = '1';
+    
+    if (source === 'stock') {
+        document.getElementById('gramStockProduct').value = '';
+        document.getElementById('gramStockProductInfo').classList.add('hidden');
+        filterGramStock('');
+    } else if (source === 'category') {
+        document.getElementById('gramCatSelect').value = '';
+        document.getElementById('gramItemType').value = '';
+        document.getElementById('gramCatLiveRateBadge').classList.add('hidden');
+    } else if (source === 'manual') {
+        document.getElementById('gramManualName').value = '';
+    }
+    document.getElementById('gramTotalPreviewRow').style.display = 'none';
+    showNotif('✅ Added Item: ' + name, 'success');
 }
 
-function updateItemTypes() {
-    const category = document.getElementById('itemCategory').value;
-    const itemTypeSelect = document.getElementById('itemType');
+// ==================== 📦 QTY FORM LOGIC ====================
+
+// Stock search & filter with floating suggestions
+function filterQtyStock(query) {
+    const select = document.getElementById('qtyStockProduct');
+    const infoDiv = document.getElementById('qtyStockProductInfo');
+    const suggDiv = document.getElementById('qtyStockSuggestions');
+    query = query.trim().toLowerCase();
+    infoDiv.classList.add('hidden');
+    while(select.options.length > 1) select.remove(1);
+    
+    const filtered = query.length > 0
+        ? ALL_PRODUCTS.filter(p =>
+            ((p.serial_no || '').toLowerCase().includes(query) ||
+             (p.name || '').toLowerCase().includes(query) ||
+             (p.item_name || '').toLowerCase().includes(query) ||
+             (p.category || '').toLowerCase().includes(query))
+          )
+        : ALL_PRODUCTS;
+        
+    filtered.forEach(p => {
+        const isOutOfStock = (parseFloat(p.quantity) <= 0);
+        const stockText = isOutOfStock ? 'OUT OF STOCK' : (p.quantity + ' pcs');
+        const display = (p.item_name || p.name) + ' | SN:' + (p.serial_no || '—') + ' | Stock: ' + stockText;
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = display;
+        opt.dataset.price = p.price;
+        opt.dataset.name = p.name;
+        opt.dataset.serial = p.serial_no;
+        opt.dataset.category = p.category;
+        opt.dataset.itemName = p.item_name || p.name;
+        opt.dataset.qty = p.quantity;
+        if (isOutOfStock) opt.style.color = '#dc2626';
+        select.appendChild(opt);
+    });
+
+    if (suggDiv) {
+        suggDiv.innerHTML = '';
+        if (query.length > 0 && filtered.length > 0) {
+            filtered.slice(0, 8).forEach(p => {
+                const isOut = (parseFloat(p.quantity) <= 0);
+                const item = document.createElement('div');
+                item.className = 'autocomplete-suggestion-item';
+                item.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;background:#fff;';
+                item.innerHTML = '<div><strong style="color:#022c22;">' + (p.item_name || p.name) + '</strong> <span style="font-size:11px;color:#059669;">(' + p.category + ')</span></div><div style="font-size:11px;color:' + (isOut?'#dc2626':'#7a4e0a') + ';">SN: ' + (p.serial_no || '—') + ' | ' + (isOut ? 'OUT OF STOCK' : (p.quantity + ' pcs')) + '</div>';
+                item.onmouseover = function() { this.style.background = '#f5ead0'; };
+                item.onmouseout = function() { this.style.background = '#fff'; };
+                item.onclick = function() {
+                    select.value = p.id;
+                    document.getElementById('qtyStockSearch').value = (p.item_name || p.name);
+                    suggDiv.classList.add('hidden');
+                    onQtyStockChange();
+                };
+                suggDiv.appendChild(item);
+            });
+            suggDiv.classList.remove('hidden');
+        } else {
+            suggDiv.classList.add('hidden');
+        }
+    }
+}
+
+function clearQtyStockSearch() {
+    document.getElementById('qtyStockSearch').value = '';
+    const suggDiv = document.getElementById('qtyStockSuggestions');
+    if (suggDiv) suggDiv.classList.add('hidden');
+    filterQtyStock('');
+}
+
+function onQtyStockChange() {
+    const select = document.getElementById('qtyStockProduct');
+    const infoDiv = document.getElementById('qtyStockProductInfo');
+    const rateInput = document.getElementById('qtyRate');
+    const qtyInput = document.getElementById('qtyCount');
+    const opt = select.options[select.selectedIndex];
+    
+    if (!opt || !opt.value) {
+        infoDiv.classList.add('hidden');
+        return;
+    }
+    
+    const price = parseFloat(opt.dataset.price) || 0;
+    const qty = parseFloat(opt.dataset.qty) || 0;
+    const name = opt.dataset.itemName;
+    
+    rateInput.value = price.toFixed(2);
+    qtyInput.value = 1;
+    
+    if (qty <= 0) {
+        infoDiv.innerHTML = '<strong style="color:#dc2626;">' + name + '</strong> | <strong style="color:#dc2626;">❌ OUT OF STOCK (0 pcs available)</strong>';
+    } else {
+        infoDiv.innerHTML = '<strong>' + name + '</strong> Selected. Price per Piece: ₹' + price.toFixed(2) + ' | Available Stock: <strong style="color:#059669;">' + qty + ' pcs</strong>';
+    }
+    infoDiv.classList.remove('hidden');
+    
+    autoQtyTotal();
+}
+
+function updateQtyItemTypes() {
+    const category = document.getElementById('qtyCatSelect').value;
+    const itemTypeSelect = document.getElementById('qtyItemType');
     itemTypeSelect.innerHTML = '<option value="">-- Select Item Type --</option>';
-    if(!category) return;
+    if (!category) return;
+    
     const options = mergedItemTypeOptions[category] || [];
     options.forEach(item => {
         const opt = document.createElement('option');
-        opt.value = item; opt.textContent = item;
+        opt.value = item;
+        opt.textContent = item;
         itemTypeSelect.appendChild(opt);
     });
-    const ratePerGram = getShopRateForCategory(category);
-    const rateInput = document.getElementById('catRate');
-    const rateNote  = document.getElementById('catRateNote');
-    if(ratePerGram > 0) {
-        rateInput.value = ratePerGram.toFixed(2);
-        rateNote.textContent = '(auto from shop: \u20B9' + ratePerGram.toFixed(2) + '/gm)';
+    autoQtyTotal();
+}
+
+function autoQtyTotal() {
+    const checkedRadio = document.querySelector('input[name="qty_source"]:checked');
+    const source = checkedRadio ? checkedRadio.value : (typeof currentQtySource !== 'undefined' ? currentQtySource : 'stock');
+    currentQtySource = source;
+
+    let qty = 0;
+    if (source === 'stock') {
+        qty = parseInt(document.getElementById('qtyCount').value) || 0;
+    } else if (source === 'category') {
+        qty = parseInt(document.getElementById('qtyCountCat').value) || 0;
     } else {
-        rateInput.value = '';
-        rateNote.textContent = '(set shop rate or enter manually)';
+        qty = parseInt(document.getElementById('qtyCountManual').value) || 0;
     }
-    onItemTypeChange();
+    
+    const rate = parseFloat(document.getElementById('qtyRate').value) || 0;
+    const total = parseFloat((qty * rate).toFixed(2));
+    
+    const previewRow = document.getElementById('qtyTotalPreviewRow');
+    const previewEl = document.getElementById('qtyTotalPreview');
+    
+    if (total > 0) {
+        previewEl.textContent = '₹' + total.toLocaleString('en-IN', {minimumFractionDigits: 2});
+        previewRow.style.display = '';
+    } else {
+        previewRow.style.display = 'none';
+    }
+    updateMakingChargeHint();
 }
 
-function onItemTypeChange() {
-    const cat = document.getElementById('itemCategory').value;
-    const type = document.getElementById('itemType').value;
-    const rateInput = document.getElementById('catRate');
-    const rateNote  = document.getElementById('catRateNote');
-    if(!type) return;
-    const shopRate = getShopRateForCategory(cat);
-    if(shopRate > 0) {
-        rateInput.value = shopRate.toFixed(2);
-        rateNote.textContent = '(shop rate)';
+function submitQtyItem() {
+    const checkedRadio = document.querySelector('input[name="qty_source"]:checked');
+    const source = checkedRadio ? checkedRadio.value : (typeof currentQtySource !== 'undefined' ? currentQtySource : 'stock');
+    currentQtySource = source;
+
+    let productId = 'other';
+    let name = '';
+    let itemType = '';
+    let hsn = '7113';
+    let qty = 0;
+    let rate = parseFloat(document.getElementById('qtyRate').value) || 0;
+    
+    if (source === 'stock') {
+        const select = document.getElementById('qtyStockProduct');
+        const opt = select.options[select.selectedIndex];
+        if (!opt || !opt.value) { alert('Please select a product from stock.'); return; }
+        productId = opt.value;
+        name = opt.dataset.itemName;
+        hsn = '7113';
+        qty = parseInt(document.getElementById('qtyCount').value) || 0;
+
+        // Stock pcs validation check
+        const stockQty = parseFloat(opt.dataset.qty) || 0;
+        let existingPcs = 0;
+        items.forEach(it => {
+            if (String(it.product_id) === String(productId)) {
+                existingPcs += (parseFloat(it.pcs) || parseFloat(it.quantity) || 1);
+            }
+        });
+        const totalReqPcs = existingPcs + qty;
+        if (stockQty <= 0) {
+            alert('❌ Out of Stock!\n"' + name + '" is currently out of stock (0 pcs available).');
+            return;
+        }
+        if (totalReqPcs > stockQty) {
+            alert('❌ Exceeds Available Stock!\nOnly ' + stockQty + ' pcs available in stock for "' + name + '", but ' + totalReqPcs + ' pcs requested.');
+            return;
+        }
+    } else if (source === 'category') {
+        const cat = document.getElementById('qtyCatSelect').value;
+        const type = document.getElementById('qtyItemType').value;
+        if (!cat) { alert('Please select a category.'); return; }
+        if (!type) { alert('Please select an item type.'); return; }
+        productId = 'other';
+        name = type;  // e.g. "Jhumka"
+        itemType = type;
+        hsn = '7113';
+        qty = parseInt(document.getElementById('qtyCountCat').value) || 0;
+    } else {
+        name = document.getElementById('qtyManualName').value.trim();
+        hsn = document.getElementById('qtyManualHsn').value.trim() || '7113';
+        qty = parseInt(document.getElementById('qtyCountManual').value) || 0;
+        if (!name) { alert('Please enter an item description.'); return; }
     }
-}
-
-function addCategoryItem() {
-    const cat    = document.getElementById('itemCategory').value;
-    const type   = document.getElementById('itemType').value;
-    const qty    = parseFloat(document.getElementById('catQty').value) || 0;
-    const rate   = parseFloat(document.getElementById('catRate').value) || 0;
-    if(!cat)  { alert('Please select a product category.'); return; }
-    if(!type) { alert('Please select an item type.'); return; }
-    if(qty <= 0)  { alert('Please enter weight in GMS.'); return; }
-    if(rate <= 0) { alert('Please enter rate per gram (or save shop rates).'); return; }
-    const catBaseAmount = parseFloat((rate * qty).toFixed(2));
-
-    const imc = parseFloat(document.getElementById('itemMakingCharge').value) || 0;
+    
+    if (qty <= 0) { alert('Please enter quantity.'); return; }
+    if (rate <= 0) { alert('Please enter rate per piece.'); return; }
+    
+    const baseAmount = parseFloat((qty * rate).toFixed(2));
+    const imcPct = parseFloat(document.getElementById('itemMakingCharge').value) || 0;
+    const imc = parseFloat((baseAmount * (imcPct / 100)).toFixed(2));
     const ihm = parseFloat(document.getElementById('itemHallmark').value) || 0;
     const idisc = parseFloat(document.getElementById('itemDiscount').value) || 0;
     const igst = document.getElementById('itemGstType').value;
-    const itemTotal = parseFloat((catBaseAmount + imc + ihm - idisc).toFixed(2));
-
+    const itemTotal = parseFloat((baseAmount + imc + ihm - idisc).toFixed(2));
+    
     items.push({
-        product_id: 'other',
-        name: cat + ' \u2013 ' + type,
-        item_type: type,
-        hsn: '7108',
-        quantity: qty,
-        price: rate,
-        base_amount: catBaseAmount,
-        making_charge: imc,
-        hallmark: ihm,
-        discount: idisc,
-        total: itemTotal,
-        is_item_only: true,
-        gst_type: igst
-    });
-    updateItemsList();
-    calculateTotal();
-    resetItemCharges();
-    document.getElementById('catQty').value  = '';
-    document.getElementById('itemType').value = '';
-    showNotif('\u2705 Added: ' + cat + ' ' + type, 'success');
-}
-
-function calcManualTotal() {
-    const gms  = parseFloat(document.getElementById('manualGms').value)  || 0;
-    const rate = parseFloat(document.getElementById('manualRate').value) || 0;
-    if(gms > 0 && rate > 0) {
-        document.getElementById('manualTotal').value = (gms * rate).toFixed(2);
-    }
-    calculateTotal();
-}
-
-function addManualItem() {
-    const name  = document.getElementById('manualName').value.trim();
-    const gms   = parseFloat(document.getElementById('manualGms').value)   || 0;
-    const rate  = parseFloat(document.getElementById('manualRate').value)  || 0;
-    const total = parseFloat(document.getElementById('manualTotal').value) || 0;
-    const hsn   = document.getElementById('manualHsn').value.trim() || '7108';
-    if(!name)    { alert('Please enter an item description.'); return; }
-    if(total <= 0) { alert('Please enter a valid total amount (\u20B9).'); return; }
-
-    const imc = parseFloat(document.getElementById('itemMakingCharge').value) || 0;
-    const ihm = parseFloat(document.getElementById('itemHallmark').value) || 0;
-    const idisc = parseFloat(document.getElementById('itemDiscount').value) || 0;
-    const igst = document.getElementById('itemGstType').value;
-    const itemTotal = parseFloat((total + imc + ihm - idisc).toFixed(2));
-
-    items.push({
-        product_id: 'other',
+        product_id: productId,
         name: name,
-        item_type: '',
+        item_type: itemType,
         hsn: hsn,
-        quantity: gms > 0 ? gms : 0,
-        price: (gms > 0 && rate > 0) ? rate : 0,
-        base_amount: total,
+        quantity: qty,
+        unit: 'pcs',
+        pcs: qty,
+        stock_deduct: qty,
+        price: rate,
+        base_amount: baseAmount,
+        making_charge_pct: imcPct,
         making_charge: imc,
         hallmark: ihm,
         discount: idisc,
         total: itemTotal,
-        is_manual: true,
-        gst_type: igst
+        gst_type: igst,
+        is_manual: (source === 'manual'),
+        is_item_only: (source === 'category'),
+        serial_no: (source === 'stock') ? document.getElementById('qtyStockProduct').options[document.getElementById('qtyStockProduct').selectedIndex].dataset.serial : ''
     });
+    
     updateItemsList();
     calculateTotal();
     resetItemCharges();
-    document.getElementById('manualName').value  = '';
-    document.getElementById('manualGms').value   = '0';
-    document.getElementById('manualRate').value  = '0';
-    document.getElementById('manualTotal').value = '';
-    document.getElementById('manualHsn').value   = '7108';
-    showNotif('\u2705 Added: ' + name, 'success');
-}
-
-function addNewItem() {
-    if(currentTab === 'stock') {
-        addStockItem();
-    } else if(currentTab === 'category') {
-        addCategoryItem();
-    } else if(currentTab === 'manual') {
-        addManualItem();
+    
+    // Reset fields
+    document.getElementById('qtyCount').value = '';
+    document.getElementById('qtyCountCat').value = '';
+    document.getElementById('qtyCountManual').value = '';
+    document.getElementById('qtyRate').value = '';
+    document.getElementById('qtyManualName').value = '';
+    if (currentQtySource === 'stock') {
+        document.getElementById('qtyStockProduct').value = '';
+        document.getElementById('qtyStockProductInfo').classList.add('hidden');
+        filterQtyStock('');
+    } else if (currentQtySource === 'category') {
+        document.getElementById('qtyCatSelect').value = '';
+        document.getElementById('qtyItemType').value = '';
+    } else if (currentQtySource === 'manual') {
+        document.getElementById('qtyManualName').value = '';
     }
+    document.getElementById('qtyTotalPreviewRow').style.display = 'none';
+    showNotif('✅ Added Qty Item: ' + name, 'success');
 }
 
-function resetItemCharges() {
-    document.getElementById('itemMakingCharge').value = '0';
-    document.getElementById('itemHallmark').value = '0';
-    document.getElementById('itemDiscount').value = '0';
-    document.getElementById('itemGstType').value = 'non_gst';
+function populateStockSelects() {
+    filterGramStock('');
+    filterQtyStock('');
 }
+function resetItemCharges() {
+    document.getElementById('itemMakingCharge').value = '';
+    document.getElementById('itemHallmark').value = '';
+    document.getElementById('itemDiscount').value = '';
+    document.getElementById('itemGstType').value = 'non_gst';
+    const hint = document.getElementById('itemMakingChargeHint');
+    if(hint) { hint.textContent = ''; hint.style.display = 'none'; }
+}
+
+document.addEventListener('input', function(e) {
+    if (e.target && e.target.type === 'number') {
+        let val = e.target.value;
+        if (val.length > 1 && val.startsWith('0') && val[1] !== '.') {
+            e.target.value = val.replace(/^0+/, '');
+        }
+    }
+});
 
 function updateItemsList() {
     const tbody = document.getElementById('itemsList');
     if(items.length === 0) {
-        tbody.innerHTML = '<tr id="emptyRow"><td colspan="11" style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">No items added yet \u2014 use the tabs above to add products</td></tr>';
+        tbody.innerHTML = '<tr id="emptyRow"><td colspan="11" style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">No items added yet \u2014 enter details above to add products</td></tr>';
         return;
     }
     let html = '';
@@ -2343,10 +2574,18 @@ function updateItemsList() {
             '</select>';
         const badge = item.is_manual ? '<span style="color:#9ca3af;font-size:10px;">[Manual]</span>' :
                       item.is_item_only ? '<span style="color:#b5730e;font-size:10px;">[Category]</span>' : '';
-        const mc = item.making_charge || 0;
+        const base = (item.base_amount !== undefined) ? item.base_amount : (item.price * item.quantity);
+        let mcPct = item.making_charge_pct;
+        if (mcPct === undefined || mcPct === null) {
+            mcPct = (base > 0 && item.making_charge) ? parseFloat((item.making_charge / base * 100).toFixed(2)) : 0;
+        }
+        const mcAmt = item.making_charge || 0;
         const hm = item.hallmark || 0;
         const disc = item.discount || 0;
-        const chargeInputStyle = 'width:72px;padding:3px 4px;border:1px solid #e5c98a;border-radius:5px;font-size:11px;text-align:right;';
+        const mcValDisp = (mcPct > 0) ? mcPct : '';
+        const hmValDisp = (hm > 0) ? hm : '';
+        const discValDisp = (disc > 0) ? disc : '';
+        const chargeInputStyle = 'width:60px;padding:3px 4px;border:1px solid #e5c98a;border-radius:5px;font-size:11px;text-align:right;';
         html += '<tr>' +
             '<td class="px-2 py-2 text-xs text-center" style="color:#9ca3af;">' + (idx+1) + '</td>' +
             '<td class="px-2 py-2 text-xs" style="color:#374151;">' + icon + ' ' + htmlEsc(item.name) +
@@ -2354,10 +2593,13 @@ function updateItemsList() {
                 badge + '<div style="color:#9ca3af;font-size:10px;">HSN: ' + (item.hsn || '7108') + '</div></td>' +
             '<td class="px-2 py-2 text-center text-xs" style="color:#6b7280;">' + (item.quantity > 0 ? item.quantity : '\u2014') + '</td>' +
             '<td class="px-2 py-2 text-right text-xs" style="color:#374151;">' + (item.price > 0 ? '\u20B9' + item.price.toFixed(2) : '\u2014') + '</td>' +
-            '<td class="px-2 py-2 text-right text-xs" style="color:#374151;">\u20B9' + (item.base_amount !== undefined ? item.base_amount : item.total).toFixed(2) + '</td>' +
-            '<td class="px-2 py-2 text-right text-xs"><input type="number" min="0" step="1" value="' + mc + '" style="' + chargeInputStyle + '" onchange="updateItemCharge(' + idx + ',\'making_charge\',this.value)"></td>' +
-            '<td class="px-2 py-2 text-right text-xs"><input type="number" min="0" step="1" value="' + hm + '" style="' + chargeInputStyle + '" onchange="updateItemCharge(' + idx + ',\'hallmark\',this.value)"></td>' +
-            '<td class="px-2 py-2 text-right text-xs"><input type="number" min="0" step="1" value="' + disc + '" style="' + chargeInputStyle + '" onchange="updateItemCharge(' + idx + ',\'discount\',this.value)"></td>' +
+            '<td class="px-2 py-2 text-right text-xs" style="color:#374151;">\u20B9' + base.toFixed(2) + '</td>' +
+            '<td class="px-2 py-2 text-right text-xs">' +
+                '<input type="number" min="0" step="0.1" value="' + mcValDisp + '" placeholder="0" style="' + chargeInputStyle + '" onchange="updateItemCharge(' + idx + ',\'making_charge_pct\',this.value)">' +
+                '<div style="font-size:9.5px;color:#059669;font-weight:600;margin-top:1px;">(\u20B9' + mcAmt.toFixed(2) + ')</div>' +
+            '</td>' +
+            '<td class="px-2 py-2 text-right text-xs"><input type="number" min="0" step="1" value="' + hmValDisp + '" placeholder="0" style="' + chargeInputStyle + '" onchange="updateItemCharge(' + idx + ',\'hallmark\',this.value)"></td>' +
+            '<td class="px-2 py-2 text-right text-xs"><input type="number" min="0" step="1" value="' + discValDisp + '" placeholder="0" style="' + chargeInputStyle + '" onchange="updateItemCharge(' + idx + ',\'discount\',this.value)"></td>' +
             '<td class="px-2 py-2 text-right text-xs font-semibold" style="color:#7a4e0a;">\u20B9' + item.total.toFixed(2) + '</td>' +
             '<td class="px-2 py-2 text-center text-xs">' + gstSelect + '</td>' +
             '<td class="px-2 py-2"><button onclick="removeItem(' + idx + ')" class="remove-btn">\u2715</button></td>' +
@@ -2370,8 +2612,20 @@ function updateItemCharge(idx, field, value) {
     if(!items[idx]) return;
     let val = parseFloat(value);
     if(isNaN(val) || val < 0) val = 0;
-    items[idx][field] = val;
+    
     const base = (items[idx].base_amount !== undefined) ? items[idx].base_amount : (items[idx].price * items[idx].quantity);
+    
+    if (field === 'making_charge_pct') {
+        items[idx].making_charge_pct = val;
+        const imcAmt = parseFloat((base * (val / 100)).toFixed(2));
+        items[idx].making_charge = imcAmt;
+    } else if (field === 'making_charge') {
+        items[idx].making_charge = val;
+        items[idx].making_charge_pct = (base > 0) ? parseFloat((val / base * 100).toFixed(2)) : 0;
+    } else {
+        items[idx][field] = val;
+    }
+    
     const mc   = items[idx].making_charge || 0;
     const hm   = items[idx].hallmark || 0;
     const disc = items[idx].discount || 0;
@@ -2428,23 +2682,35 @@ function calculateTotal() {
     const discount  = items.reduce((sum, item) => sum + (item.discount || 0), 0);
     
     let cgst = 0, sgst = 0;
-    items.forEach(item => {
-        if (item.gst_type === 'gst_3') {
-            cgst += item.total * 0.015;
-            sgst += item.total * 0.015;
-        } else if (item.gst_type === 'gst_18') {
-            cgst += item.total * 0.09;
-            sgst += item.total * 0.09;
-        }
-    });
+    const gstinEl = document.getElementById('customerGstin');
+    const hasGstin = gstinEl && gstinEl.value.trim().length > 0;
+    
+    if (hasGstin) {
+        items.forEach(item => {
+            if (item.gst_type === 'gst_3') {
+                cgst += item.total * 0.015;
+                sgst += item.total * 0.015;
+            } else if (item.gst_type === 'gst_18') {
+                cgst += item.total * 0.09;
+                sgst += item.total * 0.09;
+            }
+        });
+    }
 
-    const grand = subtotal + cgst + sgst;
+    const oldGoldEl = document.getElementById('oldGoldAmountInput');
+    const oldGold = parseFloat(oldGoldEl?.value) || 0;
+
+    const grand = Math.max(0, subtotal + cgst + sgst - oldGold);
     
     const fmt = v => '\u20B9' + v.toFixed(2);
     document.getElementById('subtotal').textContent       = fmt(subtotal);
     document.getElementById('makingChargeAmount').textContent = fmt(makingAmt);
     document.getElementById('hallmarkAmount').textContent = fmt(hallmark);
     document.getElementById('discountAmount').textContent = '- ' + fmt(discount);
+    if(document.getElementById('oldGoldDisplayAmount')) {
+        document.getElementById('oldGoldDisplayAmount').textContent = '- ' + fmt(oldGold);
+        document.getElementById('oldGoldRow').style.display = (oldGold > 0) ? '' : 'none';
+    }
     document.getElementById('cgstAmount').textContent     = fmt(cgst);
     document.getElementById('sgstAmount').textContent     = fmt(sgst);
     document.getElementById('grandTotal').textContent     = fmt(grand);
@@ -2459,6 +2725,7 @@ function calculateTotal() {
     document.getElementById('hiddenMakingCharge').value = makingAmt;
     document.getElementById('hiddenHallmark').value  = hallmark;
     document.getElementById('hiddenDiscount').value  = discount;
+    if(document.getElementById('hiddenOldGold')) document.getElementById('hiddenOldGold').value = oldGold;
     if(document.getElementById('paymentMethod').value === 'Split') {
         document.getElementById('splitGrandTotal').textContent = fmt(grand);
         updateSplitDisplay();
@@ -2482,41 +2749,120 @@ function loadShopRates() {
         const val = localStorage.getItem('shopRate_' + k);
         if(val && parseFloat(val) > 0) {
             shopRates[k] = parseFloat(val);
-            document.getElementById(shopInputIds[k]).value = val;
-            document.getElementById(shopDisplayIds[k]).textContent = '\u20B9' + parseFloat(val).toLocaleString('en-IN');
+            const inputEl = document.getElementById(shopInputIds[k]);
+            const dispEl  = document.getElementById(shopDisplayIds[k]);
+            if(inputEl) inputEl.value = val;
+            if(dispEl) dispEl.textContent = '\u20B9' + parseFloat(val).toLocaleString('en-IN');
+            previewShopRate(k);
         }
     });
     const saved = localStorage.getItem('shopRateSavedAt');
     if(saved) {
-        document.getElementById('shopRateSaveStatus').textContent = '\u2714 Saved';
-        document.getElementById('shopRateLastSaved').textContent  = 'Last saved: ' + saved;
+        const statusEl = document.getElementById('shopRateSaveStatus');
+        const lastSavedEl = document.getElementById('shopRateLastSaved');
+        if(statusEl) statusEl.textContent = '\u2714 Saved';
+        if(lastSavedEl) lastSavedEl.textContent  = 'Last saved: ' + saved;
     }
     calcShopValue();
+    refreshActiveBillingRate();
+}
+
+function refreshActiveBillingRate() {
+    try {
+        if (typeof currentGramSource !== 'undefined') {
+            if (currentGramSource === 'stock') {
+                const select = document.getElementById('gramStockProduct');
+                if (select && select.value) onGramStockChange();
+            } else if (currentGramSource === 'category') {
+                const cat = document.getElementById('gramCatSelect');
+                if (cat && cat.value) updateGramItemTypes();
+            }
+        }
+    } catch(e) {}
 }
 
 function previewShopRate(key) {
     const val = parseFloat(document.getElementById(shopInputIds[key]).value) || 0;
     shopRates[key] = val;
     document.getElementById(shopDisplayIds[key]).textContent = val > 0 ? '\u20B9' + val.toLocaleString('en-IN') : '\u2014';
+    // Show per-gram equivalent
+    const perGramIds = { gold22:'shopGold22PerGram', gold18:'shopGold18PerGram', silver:'shopSilverPerGram', diamond:'shopDiamondPerGram' };
+    const pgEl = document.getElementById(perGramIds[key]);
+    if(pgEl) {
+        pgEl.textContent = val > 0 ? '\u2248 \u20B9' + (val/10).toLocaleString('en-IN', {maximumFractionDigits:2}) + ' per gram (used in billing)' : '';
+    }
+}
+
+// Auto-fill shop rates from live market data
+function autoFillShopFromLive() {
+    const liveMap = {
+        gold22: document.getElementById('shopGold22Input'),
+        gold18: null,  // no direct live 18K — compute as 22K * 18/22
+        silver: document.getElementById('shopSilverInput'),
+    };
+    // Gold 22K
+    const g22live = metalRates.gold22 * 10; // metalRates is per gram, convert to per 10g
+    const g18live = Math.round(g22live * 18 / 22);
+    const silvLive = metalRates.silver * 10;
+
+    if(g22live > 0) {
+        document.getElementById('shopGold22Input').value = Math.round(g22live);
+        previewShopRate('gold22');
+    }
+    if(g18live > 0) {
+        document.getElementById('shopGold18Input').value = g18live;
+        previewShopRate('gold18');
+    }
+    if(silvLive > 0) {
+        document.getElementById('shopSilverInput').value = Math.round(silvLive);
+        previewShopRate('silver');
+    }
+    if(g22live <= 0) alert('Live rates not loaded yet. Click the \u21BB refresh button on Live Metal Rates first.');
 }
 
 function saveShopRate(key) {
-    const val = parseFloat(document.getElementById(shopInputIds[key]).value) || 0;
-    if(val <= 0) { alert('Please enter a valid price!'); return; }
+    const inputEl = document.getElementById(shopInputIds[key]);
+    const val = parseFloat(inputEl ? inputEl.value : 0) || 0;
+    const labelNames = { gold22: 'Gold 22K', gold18: 'Gold 18K', silver: 'Silver', diamond: 'Diamond' };
+    const label = labelNames[key] || key;
+    
+    if (val <= 0) {
+        alert('Please enter a valid price for ' + label + ' before clicking Save!');
+        return;
+    }
+    
     shopRates[key] = val;
     localStorage.setItem('shopRate_' + key, val);
     const now = new Date().toLocaleString('en-IN');
     localStorage.setItem('shopRateSavedAt', now);
+    
     document.getElementById(shopDisplayIds[key]).textContent = '\u20B9' + val.toLocaleString('en-IN');
     document.getElementById('shopRateSaveStatus').textContent = '\u2714 Saved';
     document.getElementById('shopRateLastSaved').textContent  = 'Last saved: ' + now;
+    
+    if (inputEl && inputEl.nextElementSibling) {
+        const saveBtn = inputEl.nextElementSibling;
+        const origText = saveBtn.textContent;
+        saveBtn.textContent = '✓ Saved';
+        saveBtn.style.background = '#059669';
+        saveBtn.style.color = '#ffffff';
+        setTimeout(() => {
+            saveBtn.textContent = origText;
+            saveBtn.style.background = '';
+            saveBtn.style.color = '';
+        }, 2000);
+    }
+    
+    showNotif('✔ ' + label + ' shop rate saved: \u20B9' + val.toLocaleString('en-IN') + ' / 10g', 'success');
     calcShopValue();
+    refreshActiveBillingRate();
 }
 
 function saveAllShopRates() {
     let saved = 0;
     ['gold22','gold18','silver','diamond'].forEach(k => {
-        const val = parseFloat(document.getElementById(shopInputIds[k]).value) || 0;
+        const inputEl = document.getElementById(shopInputIds[k]);
+        const val = parseFloat(inputEl ? inputEl.value : 0) || 0;
         if(val > 0) {
             shopRates[k] = val;
             localStorage.setItem('shopRate_' + k, val);
@@ -2524,21 +2870,40 @@ function saveAllShopRates() {
             saved++;
         }
     });
-    if(saved === 0) { alert('Please enter at least one price!'); return; }
+    if(saved === 0) { alert('Please enter a price in at least one rate field before saving!'); return; }
     const now = new Date().toLocaleString('en-IN');
     localStorage.setItem('shopRateSavedAt', now);
     document.getElementById('shopRateSaveStatus').textContent = '\u2714 All Saved';
     document.getElementById('shopRateLastSaved').textContent  = 'Last saved: ' + now;
+    showNotif('✔ All Shop Rates Saved Successfully!', 'success');
     calcShopValue();
+    refreshActiveBillingRate();
 }
 
 function getShopRateForCategory(category) {
-    category = (category || '').trim();
-    const map = { 'Gold 22K':'gold22', 'Gold 18K':'gold18', 'Silver':'silver', 'Diamond':'diamond' };
-    const key = map[category];
-    if(!key) return 0;
-    const inputVal = parseFloat(document.getElementById(shopInputIds[key]).value) || 0;
-    if(inputVal > 0) shopRates[key] = inputVal;
+    const c = (category || '').trim().toLowerCase();
+    let key = '';
+    if (c.includes('22')) key = 'gold22';
+    else if (c.includes('18')) key = 'gold18';
+    else if (c.includes('silver')) key = 'silver';
+    else if (c.includes('diamond')) key = 'diamond';
+    else if (c.includes('gold')) key = 'gold22';
+    
+    if (!key) return 0;
+
+    const inputEl = document.getElementById(shopInputIds[key]);
+    const inputVal = inputEl ? (parseFloat(inputEl.value) || 0) : 0;
+    if (inputVal > 0) {
+        shopRates[key] = inputVal;
+    }
+    
+    if (!shopRates[key] || shopRates[key] <= 0) {
+        const saved = localStorage.getItem('shopRate_' + key);
+        if (saved && parseFloat(saved) > 0) {
+            shopRates[key] = parseFloat(saved);
+        }
+    }
+    
     return (shopRates[key] || 0) / 10;
 }
 
@@ -2992,6 +3357,37 @@ document.getElementById('billingForm').addEventListener('submit', function(e) {
     if(items.length === 0) { e.preventDefault(); alert('\u274C Please add at least one product!'); return false; }
     if(!document.getElementById('customerName').value.trim()) { e.preventDefault(); alert('\u274C Please enter customer name!'); return false; }
     if(!document.getElementById('customerMobile').value.trim()) { e.preventDefault(); alert('\u274C Please enter customer mobile number!'); return false; }
+
+    // Aggregate requested stock pieces per product_id
+    const reqPcsMap = {};
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.product_id && item.product_id !== 'other' && !isNaN(item.product_id)) {
+            const pid = String(item.product_id);
+            const reqPcs = parseFloat(item.pcs) || parseFloat(item.stock_deduct) || 1;
+            reqPcsMap[pid] = (reqPcsMap[pid] || 0) + reqPcs;
+        }
+    }
+
+    for (const pid in reqPcsMap) {
+        const reqPcs = reqPcsMap[pid];
+        const prod = ALL_PRODUCTS.find(p => String(p.id) === pid);
+        if (prod) {
+            const availQty = parseFloat(prod.quantity) || 0;
+            const pname = prod.item_name || prod.name;
+            if (availQty <= 0) {
+                e.preventDefault();
+                alert('\u274C Cannot complete invoice!\nProduct "' + pname + '" is OUT OF STOCK.');
+                return false;
+            }
+            if (reqPcs > availQty) {
+                e.preventDefault();
+                alert('\u274C Cannot complete invoice!\nProduct "' + pname + '" has only ' + availQty + ' pcs in stock, but ' + reqPcs + ' pcs requested across your items list.');
+                return false;
+            }
+        }
+    }
+
     if(document.getElementById('paymentMethod').value === 'Split') {
         const grand = parseFloat(document.getElementById('grandTotal').textContent.replace('\u20B9','').replace(/,/g,'')) || 0;
         const cash  = parseFloat(document.getElementById('cashAmount').value) || 0;
@@ -3041,3 +3437,6 @@ function convertNumberToWords($number) {
     return trim($result).' Rupees Only';
 }
 ?>
+
+
+

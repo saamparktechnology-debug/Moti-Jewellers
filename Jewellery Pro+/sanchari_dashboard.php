@@ -3,6 +3,22 @@ session_start();
 require_once 'config/database.php';
 if(!isset($_SESSION['user_id'])) { header('Location: login.php'); exit; }
 
+$logo_paths = ['logo.png', 'assets/images/logo.png', 'images/logo.png', 'assets/images/moti-removebg-preview.png'];
+
+// Ensure required columns exist on sanchari_payments
+$chk_bal = mysqli_query($conn, "SHOW COLUMNS FROM sanchari_payments LIKE 'balance_amount'");
+if ($chk_bal && mysqli_num_rows($chk_bal) == 0) {
+    mysqli_query($conn, "ALTER TABLE sanchari_payments ADD COLUMN balance_amount DECIMAL(10,2) DEFAULT 0");
+}
+$chk_paid = mysqli_query($conn, "SHOW COLUMNS FROM sanchari_payments LIKE 'paid_amount'");
+if ($chk_paid && mysqli_num_rows($chk_paid) == 0) {
+    mysqli_query($conn, "ALTER TABLE sanchari_payments ADD COLUMN paid_amount DECIMAL(10,2) DEFAULT 0");
+}
+$chk_st = mysqli_query($conn, "SHOW COLUMNS FROM sanchari_payments LIKE 'payment_status'");
+if ($chk_st && mysqli_num_rows($chk_st) == 0) {
+    mysqli_query($conn, "ALTER TABLE sanchari_payments ADD COLUMN payment_status VARCHAR(20) DEFAULT 'paid'");
+}
+
 // Handle payment update
 if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_payment'])) {
     $inv_id = (int)$_POST['inv_id'];
@@ -57,16 +73,16 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
 <!DOCTYPE html><html><head><meta charset="UTF-8"><title>Statement</title>
 <style>
   body{font-family:Arial,sans-serif;font-size:12px;margin:0;padding:20px;color:#222;}
-  h2{color:#c7522a;margin:0 0 4px;}
+  h2{color:#800020;margin:0 0 4px;}
   .info{margin-bottom:16px;border:1px solid #eee;padding:10px;border-radius:6px;}
   table{width:100%;border-collapse:collapse;margin-top:10px;}
-  th{background:#c7522a;color:#fff;padding:7px 8px;text-align:left;}
+  th{background:#800020;color:#fff;padding:7px 8px;text-align:left;}
   td{padding:6px 8px;border-bottom:1px solid #f0e8e0;}
   tr:nth-child(even) td{background:#fdf6f0;}
   .total{font-weight:bold;background:#fff8f4;}
   .footer{margin-top:20px;font-size:10px;color:#999;text-align:center;}
 </style></head><body>
-<h2>Moti Jewellers — Sanchari Statement</h2>
+<h2>Moti Jewellers — Swarna Sanchay Statement</h2>
 <div class="info">
   <strong><?= htmlspecialchars($cust['customer_name'] ?? '') ?></strong> &nbsp;|&nbsp;
   Book ID: <?= htmlspecialchars($cust['book_id'] ?? '') ?> &nbsp;|&nbsp;
@@ -85,10 +101,10 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
   </tbody>
 </table>
 <div class="footer">Generated on <?=date('d M Y H:i')?> | Moti Jewellers</div>
+<script>window.onload=()=>window.print();</script>
 </body></html>
 <?php
     $html = ob_get_clean();
-    header('Content-Type: text/html');
     echo $html;
     exit;
 }
@@ -96,399 +112,509 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Sanchari Dashboard | Moti Jewellers</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+  <title>Sanchay Scheme Dashboard - MOTI JEWELLERS</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
   <style>
-    :root { --gold:#c7522a; --gold-light:#f8ede6; --gold-mid:#e8a87c; }
-    body { background:#f5f0eb; font-family:'Segoe UI',sans-serif; }
-    .top-bar { background:#fff; border-bottom:3px solid var(--gold); padding:12px 24px; display:flex; align-items:center; justify-content:space-between; }
-    .top-bar h4 { color:var(--gold); margin:0; font-weight:700; letter-spacing:.5px; }
-    .nav-tabs .nav-link { color:#666; font-weight:500; border:none; border-bottom:3px solid transparent; padding:10px 18px; }
-    .nav-tabs .nav-link.active { color:var(--gold); border-bottom:3px solid var(--gold); background:transparent; font-weight:700; }
-    .stat-card { background:#fff; border-radius:12px; padding:20px 24px; border-left:5px solid var(--gold); box-shadow:0 2px 8px rgba(0,0,0,.06); }
-    .stat-card .icon { font-size:2rem; color:var(--gold-mid); }
-    .stat-card .val { font-size:1.7rem; font-weight:700; color:#222; }
-    .stat-card .lbl { font-size:.8rem; color:#888; text-transform:uppercase; letter-spacing:.5px; }
-    .card { border:0; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
-    .badge-active { background:#d4edda; color:#155724; }
-    .badge-completed { background:#cce5ff; color:#004085; }
-    .badge-closed { background:#f8d7da; color:#721c24; }
-    .badge-paid { background:#d4edda; color:#155724; }
-    .badge-partial { background:#fff3cd; color:#856404; }
-    .badge-pending { background:#f8d7da; color:#721c24; }
-    .tbl th { background:var(--gold-light); color:#555; font-size:.78rem; text-transform:uppercase; letter-spacing:.4px; }
-    .tbl td { vertical-align:middle; font-size:.9rem; }
-    .search-box { max-width:280px; }
-    .msg-toast { position:fixed; top:70px; right:20px; z-index:9999; }
-    @media print { .no-print { display:none!important; } }
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
+      * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
+      h1,h2,h3,.gold-font { font-family: 'Playfair Display', serif; }
+
+      /* SIDEBAR */
+      .sidebar {
+          position: fixed; top: 0; left: 0; width: 240px; height: 100vh;
+          background: linear-gradient(180deg, #011921 0%, #03373b 50%, #044e54 80%, #011921 100%);
+          z-index: 1000; display: flex; flex-direction: column;
+          box-shadow: 4px 0 24px rgba(0,0,0,0.25);
+          transition: transform 0.35s cubic-bezier(.4,0,.2,1);
+          overflow: hidden;
+      }
+      .sidebar-logo {
+          padding: 22px 18px 16px; border-bottom: 1px solid rgba(255,255,255,0.18);
+          display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+      }
+      .sidebar-logo img { width: 44px; height: 44px; object-fit: contain; border-radius: 50%; background: rgba(255,255,255,0.1); }
+      .sidebar-logo-text h2 { color: #fff; font-size: 13px; font-weight: 700; line-height: 1.3; font-family: 'Playfair Display', serif; }
+      .sidebar-logo-text p { color: rgba(255,255,255,0.65); font-size: 10px; margin-top: 1px; }
+      .sidebar-nav { flex: 1; padding: 10px 0; overflow-y: auto; overflow-x: hidden; }
+      .sidebar-section-label { padding: 10px 20px 4px; color: rgba(255,255,255,0.45); font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; position: sticky; top: 0; background: #011921; color: #f5c842; z-index: 10; }
+      .sidebar-nav a { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13px; font-weight: 500; transition: all 0.2s ease; border-left: 3px solid transparent; position: relative; }
+      .sidebar-nav a:hover { background: rgba(255,255,255,0.13); color: #fff; border-left-color: rgba(255,255,255,0.8); padding-left: 26px; }
+      .sidebar-nav a.active { background: rgba(255,255,255,0.22); color: #fff; border-left-color: #fff; font-weight: 700; }
+      .sidebar-nav a i { width: 18px; text-align: center; font-size: 14px; flex-shrink: 0; }
+      .sidebar-divider { height: 1px; background: rgba(255,255,255,0.12); margin: 6px 16px; }
+      .sidebar-user { padding: 14px 16px 18px; border-top: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.12); flex-shrink: 0; }
+      .sidebar-user-info { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+      .sidebar-user-info i { color: rgba(255,255,255,0.9); font-size: 26px; }
+      .sidebar-user-info .user-details p { color: #fff; font-size: 12px; font-weight: 600; }
+      .sidebar-user-info .user-details span { color: rgba(255,255,255,0.55); font-size: 10px; }
+      .sidebar-logout { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 14px; background: rgba(239,68,68,0.75); color: #fff; border-radius: 8px; font-size: 12px; font-weight: 600; text-decoration: none; transition: background 0.2s; }
+      .sidebar-logout:hover { background: #ef4444; color: #fff; }
+      .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; backdrop-filter: blur(2px); }
+      .sidebar-overlay.active { display: block; }
+      .page-wrapper { margin-left: 240px; min-height: 100vh; transition: margin-left 0.35s ease; }
+      nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important; border-bottom: 2.5px solid #ffd700; box-shadow: 0 0 12px rgba(255, 215, 0, 0.5) !important; transition: margin-left 0.35s ease; }
+
+      /* BURGER MENU */
+      .burger-menu { width: 28px; height: 20px; position: relative; cursor: pointer; }
+      .burger-menu span { display: block; position: absolute; height: 3px; width: 100%; background: #fff; border-radius: 3px; transition: all 0.3s ease; }
+      .burger-menu span:nth-child(1) { top: 0; }
+      .burger-menu span:nth-child(2) { top: 9px; }
+      .burger-menu span:nth-child(3) { top: 18px; }
+      .burger-menu.active span:nth-child(1) { top: 9px; transform: rotate(135deg); }
+      .burger-menu.active span:nth-child(2) { opacity: 0; left: -20px; }
+      .burger-menu.active span:nth-child(3) { top: 9px; transform: rotate(-135deg); }
+
+      /* CARDS & BUTTONS */
+      .jewel-card { background: linear-gradient(145deg, #fdf6e3, #f5ead0); border-radius: 20px; border: 1px solid rgba(181,115,14,0.25); box-shadow: 0 8px 30px rgba(181,115,14,0.1); }
+      .stat-gem {
+          background: rgba(255, 255, 255, 0.7) !important;
+          backdrop-filter: blur(12px) !important;
+          border: 1px solid rgba(181,115,14,0.25) !important;
+          border-radius: 18px; padding: 16px; text-align: center;
+          transition: all 0.3s ease; box-shadow: 0 6px 20px rgba(181,115,14,0.06) !important;
+      }
+      .stat-gem:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(181,115,14,0.15) !important; border-color: #d68b16 !important; }
+
+      .btn-jewel {
+          background: linear-gradient(135deg, #800020, #d68b16);
+          border: none; border-radius: 50px; padding: 10px 24px;
+          font-weight: 700; color: #fff; transition: all 0.3s ease;
+          display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-size: 13px;
+      }
+      .btn-jewel:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(214,139,22,0.4); color: #fff; }
+      .btn-gold {
+          background: linear-gradient(135deg, #d68b16, #b5730e);
+          border: none; border-radius: 50px; padding: 10px 24px;
+          font-weight: 700; color: #fff; transition: all 0.3s ease;
+          display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-size: 13px;
+      }
+      .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(214,139,22,0.4); color: #fff; }
+
+      /* TABS */
+      .nav-tab-gold { display: flex; gap: 8px; border-bottom: 2px solid rgba(181,115,14,0.2); margin-bottom: 24px; flex-wrap: wrap; }
+      .tab-item { padding: 10px 18px; font-size: 13px; font-weight: 600; color: #7a4e0a; text-decoration: none; border-radius: 12px 12px 0 0; transition: all 0.2s ease; border: 1px solid transparent; border-bottom: none; }
+      .tab-item:hover { background: rgba(214,139,22,0.1); color: #800020; }
+      .tab-item.active { background: linear-gradient(135deg, #7a4e0a, #d68b16); color: #fff; font-weight: 700; border-color: #d68b16; }
+
+      /* TABLES */
+      .jewel-table { border-collapse: collapse; width: 100%; }
+      .jewel-table thead tr { background: linear-gradient(135deg, #7a4e0a, #d68b16); }
+      .jewel-table thead th { color: #fff; font-size: 11px; padding: 12px 10px; text-align: left; }
+      .jewel-table tbody tr { border-bottom: 1px solid rgba(181,115,14,0.12); }
+      .jewel-table tbody tr:hover { background: rgba(214,139,22,0.06); }
+
+      .form-input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid rgba(181,115,14,0.3); background: #fff; color: #3a1f00; outline: none; transition: all 0.2s ease; font-size: 13px; }
+      .form-input:focus { border-color: #d68b16; box-shadow: 0 0 0 3px rgba(214,139,22,0.15); }
+
+      @media (max-width: 768px) {
+          .sidebar { transform: translateX(-100%); }
+          .sidebar.open { transform: translateX(0); }
+          .page-wrapper { margin-left: 0 !important; }
+          nav.nav-gold { margin-left: 0 !important; }
+          .mobile-burger { display: block !important; }
+      }
+      @media (min-width: 769px) { .mobile-burger { display: none !important; } }
   </style>
 </head>
-<body>
+<body class="light-theme" style="background:#F5F5F5;">
 
-<!-- Top Bar -->
-<div class="top-bar no-print">
-  <div class="d-flex align-items-center gap-3">
-    <i class="bi bi-gem fs-4" style="color:var(--gold)"></i>
-    <h4>Sanchari Dashboard</h4>
-  </div>
-  <div class="d-flex gap-2">
-    <a href="sanchari_register.php" class="btn btn-sm btn-outline-warning">+ Register Customer</a>
-    <a href="sanchari_payment.php" class="btn btn-sm btn-warning text-white">+ Add Payment</a>
-    <a href="index.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-house"></i></a>
-  </div>
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="mainSidebar">
+    <div class="sidebar-logo">
+        <?php
+        $logo_found = false;
+        foreach($logo_paths as $path) {
+            if(file_exists($path)) {
+                echo '<img src="'.$path.'" alt="Logo">';
+                $logo_found = true; break;
+            }
+        }
+        if(!$logo_found) echo '<i class="fas fa-gem" style="color:#fff;font-size:30px;flex-shrink:0;"></i>';
+        ?>
+        <div class="sidebar-logo-text">
+            <h2>MOTI JEWELLERS</h2>
+            <p>Premium Since 2026</p>
+        </div>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="sidebar-section-label">Main Menu</div>
+
+        <a href="index.php">
+            <i class="fas fa-home"></i> HOME
+        </a>
+        <a href="billing.php">
+            <i class="fas fa-receipt"></i> BILLING
+        </a>
+        <a href="stock.php">
+            <i class="fas fa-boxes"></i> STOCK
+        </a>
+        <a href="customers.php">
+            <i class="fas fa-users"></i> CUSTOMERS
+        </a>
+        <a href="sanchari_dashboard.php" class="active">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
+
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section-label">Analytics</div>
+
+        <a href="reports.php">
+            <i class="fas fa-chart-bar"></i> REPORTS
+        </a>
+        <a href="due_list.php">
+            <i class="fas fa-hourglass-half"></i> DUE LIST
+        </a>
+        <a href="income_expenses.php">
+            <i class="fas fa-chart-line"></i> INCOME & EXP
+        </a>
+
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-section-label">Tools</div>
+
+        <a href="whatsapp_automation.php">
+            <i class="fab fa-whatsapp"></i> WHATSAPP
+        </a>
+        <a href="purchase.php">
+            <i class="fas fa-book"></i> PURCHASE
+        </a>
+        <a href="contacts.php">
+            <i class="fas fa-address-book"></i> CONTACTS
+        </a>
+        <a href="accounts.php">
+            <i class="fas fa-calculator"></i> ACCOUNTS
+        </a>
+    </nav>
+    <div class="sidebar-user">
+        <div class="sidebar-user-info">
+            <i class="fas fa-user-circle"></i>
+            <div class="user-details">
+                <p><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Admin'); ?></p>
+                <span><?php echo htmlspecialchars($_SESSION['user_mobile'] ?? 'Admin'); ?></span>
+            </div>
+        </div>
+        <a href="logout.php" class="sidebar-logout"><i class="fas fa-sign-out-alt"></i> LOGOUT</a>
+    </div>
 </div>
 
-<!-- Toast -->
-<?php if(isset($_GET['msg'])): ?>
-<div class="msg-toast no-print">
-  <div class="alert alert-success alert-dismissible shadow" role="alert">
-    <i class="bi bi-check-circle me-2"></i> <?= $_GET['msg']==='updated' ? 'Updated successfully!' : 'Done!' ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-  </div>
+<!-- TOP NAVBAR -->
+<nav class="nav-gold shadow-lg sticky top-0 z-50" style="margin-left:240px;">
+    <div class="container mx-auto px-4 sm:px-6 py-3">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="mobile-burger" style="display:none;">
+                    <div class="burger-menu" id="burgerMenu" onclick="toggleSidebar()">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
+                <span class="font-bold text-white text-xs sm:text-sm" style="font-family:'Playfair Display',serif;">
+                    <i class="fas fa-piggy-bank mr-2"></i>MOTI JEWELLERS — Swarna Sanchay Scheme
+                </span>
+            </div>
+            <div class="flex items-center gap-2 sm:gap-3">
+                <a href="sanchari_register.php" class="text-xs bg-white/20 hover:bg-white/30 text-white px-2.5 py-1.5 rounded-lg transition-all font-semibold hidden sm:inline-flex">
+                    <i class="fas fa-user-plus mr-1"></i> Register
+                </a>
+                <a href="sanchari_payment.php" class="text-xs bg-amber-500 hover:bg-amber-600 text-white px-2.5 py-1.5 rounded-lg transition-all font-semibold shadow hidden sm:inline-flex">
+                    <i class="fas fa-coins mr-1"></i> Payment
+                </a>
+                <span class="text-xs sm:text-sm font-medium text-white hidden md:inline">
+                    <i class="fas fa-user mr-1"></i>
+                    <?php echo htmlspecialchars($_SESSION['user_name'] ?? 'Admin'); ?>
+                </span>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- PAGE WRAPPER -->
+<div class="page-wrapper">
+<div class="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+
+    <!-- Header Title & Action Buttons -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+            <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
+                🏆 Swarna Sanchay Gold Scheme
+            </h2>
+            <p class="text-xs sm:text-sm mt-1" style="color:#7a4e0a;">Manage advance gold bookings, monthly installments, passbooks, and redemptions</p>
+        </div>
+        <div class="flex flex-wrap gap-2 sm:gap-3 w-full md:w-auto">
+            <a href="sanchari_register.php" class="btn-jewel flex-1 md:flex-initial text-center justify-center"><i class="fas fa-user-plus"></i> NEW CUSTOMER</a>
+            <a href="sanchari_payment.php" class="btn-gold flex-1 md:flex-initial text-center justify-center"><i class="fas fa-coins"></i> PAYMENT ENTRY</a>
+            <a href="sanchari_redemption.php" class="btn-jewel flex-1 md:flex-initial text-center justify-center" style="background:linear-gradient(135deg,#011921,#03373b);"><i class="fas fa-gem"></i> REDEMPTION</a>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <?php if(isset($_GET['msg'])): ?>
+    <div class="mb-6 p-4 rounded-xl flex items-center justify-between shadow-sm text-xs sm:text-sm" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;">
+        <div class="flex items-center gap-2 font-semibold">
+            <i class="fas fa-check-circle text-lg"></i>
+            <?= $_GET['msg']==='updated' ? 'Record updated successfully!' : ($_GET['msg']==='registered' ? 'New customer registered successfully!' : 'Payment recorded successfully!') ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- STATS CARDS GRID -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-8">
+        <div class="stat-gem">
+            <i class="fas fa-users text-xl sm:text-2xl mb-1 sm:mb-2 text-yellow-900"></i>
+            <h3 class="text-lg sm:text-xl font-bold" style="color:#800020;"><?=$total_customers?></h3>
+            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">Total Customers</p>
+        </div>
+        <div class="stat-gem">
+            <i class="fas fa-user-check text-xl sm:text-2xl mb-1 sm:mb-2 text-green-600"></i>
+            <h3 class="text-lg sm:text-xl font-bold text-green-800"><?=$active_customers?></h3>
+            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">Active Schemes</p>
+        </div>
+        <div class="stat-gem">
+            <i class="fas fa-coins text-xl sm:text-2xl mb-1 sm:mb-2 text-yellow-600"></i>
+            <h3 class="text-lg sm:text-xl font-bold" style="color:#800020;">₹<?=number_format($total_collected,0)?></h3>
+            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">Total Collection</p>
+        </div>
+        <div class="stat-gem">
+            <i class="fas fa-calendar-alt text-xl sm:text-2xl mb-1 sm:mb-2 text-blue-600"></i>
+            <h3 class="text-lg sm:text-xl font-bold text-blue-900">₹<?=number_format($this_month,0)?></h3>
+            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">This Month</p>
+        </div>
+        <div class="stat-gem">
+            <i class="fas fa-gem text-xl sm:text-2xl mb-1 sm:mb-2 text-purple-600"></i>
+            <h3 class="text-lg sm:text-xl font-bold text-purple-900"><?=number_format($total_weight,3)?> g</h3>
+            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">Gold Accumulated</p>
+        </div>
+        <div class="stat-gem" style="border-color:#fca5a5 !important;">
+            <i class="fas fa-exclamation-circle text-xl sm:text-2xl mb-1 sm:mb-2 text-red-600"></i>
+            <h3 class="text-lg sm:text-xl font-bold text-red-700">₹<?=number_format($pending_balance,0)?></h3>
+            <p class="text-[9px] sm:text-[10px] font-bold uppercase text-red-600">Pending Dues</p>
+        </div>
+    </div>
+
+    <!-- NAVIGATION TABS -->
+    <div class="nav-tab-gold">
+        <a class="tab-item <?=$tab==='overview'?'active':''?>" href="?tab=overview"><i class="fas fa-chart-line mr-1.5"></i>Overview</a>
+        <a class="tab-item <?=$tab==='customers'?'active':''?>" href="?tab=customers"><i class="fas fa-users mr-1.5"></i>Customers</a>
+        <a class="tab-item <?=$tab==='payments'?'active':''?>" href="?tab=payments"><i class="fas fa-receipt mr-1.5"></i>Payments</a>
+        <a class="tab-item <?=$tab==='update'?'active':''?>" href="?tab=update"><i class="fas fa-edit mr-1.5"></i>Update</a>
+        <a class="tab-item <?=$tab==='reports'?'active':''?>" href="?tab=reports"><i class="fas fa-file-alt mr-1.5"></i>Reports</a>
+    </div>
+
+    <!-- TAB 1: OVERVIEW -->
+    <?php if($tab==='overview'): ?>
+    <div class="jewel-card p-4 sm:p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-base sm:text-lg font-bold" style="color:#800020;">
+                <i class="fas fa-history mr-2" style="color:#d68b16;"></i> Recent Installment Payments
+            </h3>
+            <a href="sanchari_payment.php" class="btn-gold text-xs px-3 py-1.5"><i class="fas fa-plus"></i> New Entry</a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="jewel-table">
+                <thead>
+                    <tr>
+                        <th>Payment ID</th>
+                        <th>Customer Name</th>
+                        <th>Date</th>
+                        <th>Amount (₹)</th>
+                        <th>Gold Weight</th>
+                        <th>Mode</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $recent = mysqli_query($conn,"SELECT * FROM sanchari_payments ORDER BY id DESC LIMIT 15");
+                    if($recent && mysqli_num_rows($recent) > 0):
+                        while($r=mysqli_fetch_assoc($recent)):
+                    ?>
+                    <tr>
+                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=htmlspecialchars($r['payment_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs font-semibold"><?=htmlspecialchars($r['customer_name'])?></td>
+                        <td class="px-3 py-2.5 text-xs"><?=htmlspecialchars($r['payment_date'])?></td>
+                        <td class="px-3 py-2.5 text-xs font-bold text-green-700">₹<?=number_format($r['amount'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=number_format($r['weight'],3)?> g</td>
+                        <td class="px-3 py-2.5 text-xs"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-900"><?=htmlspecialchars($r['payment_mode'])?></span></td>
+                        <td class="px-3 py-2.5 text-xs text-center">
+                            <a href="?pdf=1&cid=<?=urlencode($r['customer_id'])?>" target="_blank" class="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded font-semibold text-[11px] transition-all">
+                                <i class="fas fa-file-pdf mr-1"></i> Statement
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endwhile; ?>
+                    <?php else: ?>
+                    <tr><td colspan="7" class="text-center py-6 text-gray-500">No recent payments recorded.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 2: CUSTOMERS -->
+    <?php elseif($tab==='customers'): ?>
+    <div class="jewel-card p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+            <h3 class="text-base sm:text-lg font-bold" style="color:#800020;">
+                <i class="fas fa-users mr-2" style="color:#d68b16;"></i> Sanchay Customers Directory
+            </h3>
+            <a href="sanchari_register.php" class="btn-jewel text-xs px-3 py-1.5"><i class="fas fa-user-plus"></i> Register Customer</a>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="jewel-table">
+                <thead>
+                    <tr>
+                        <th>Customer ID</th>
+                        <th>Book ID</th>
+                        <th>Name</th>
+                        <th>Mobile</th>
+                        <th>Monthly (₹)</th>
+                        <th>Total Paid (₹)</th>
+                        <th>Installments</th>
+                        <th>Status</th>
+                        <th class="text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if($customers_data && mysqli_num_rows($customers_data) > 0): ?>
+                    <?php while($c=mysqli_fetch_assoc($customers_data)): ?>
+                    <tr>
+                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=htmlspecialchars($c['customer_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs font-mono"><?=htmlspecialchars($c['book_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs font-semibold"><?=htmlspecialchars($c['customer_name'])?></td>
+                        <td class="px-3 py-2.5 text-xs"><?=htmlspecialchars($c['mobile'])?></td>
+                        <td class="px-3 py-2.5 text-xs font-bold">₹<?=number_format($c['monthly_amount'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs font-bold text-green-700">₹<?=number_format($c['total_paid'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs font-bold text-center"><?=htmlspecialchars($c['installments'])?></td>
+                        <td class="px-3 py-2.5 text-xs"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-800"><?=htmlspecialchars($c['status'])?></span></td>
+                        <td class="px-3 py-2.5 text-xs text-center">
+                            <a href="?pdf=1&cid=<?=urlencode($c['customer_id'])?>" target="_blank" class="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded font-semibold text-[11px]">
+                                <i class="fas fa-file-pdf"></i> Statement
+                            </a>
+                        </td>
+                    </tr>
+                    <?php endwhile; ?>
+                    <?php else: ?>
+                    <tr><td colspan="9" class="text-center py-6 text-gray-500">No customers registered yet.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 3: PAYMENTS -->
+    <?php elseif($tab==='payments'): ?>
+    <div class="jewel-card p-4 sm:p-6">
+        <h3 class="text-base sm:text-lg font-bold mb-4" style="color:#800020;">
+            <i class="fas fa-receipt mr-2" style="color:#d68b16;"></i> Complete Installment Payment Logs
+        </h3>
+
+        <div class="overflow-x-auto">
+            <table class="jewel-table">
+                <thead>
+                    <tr>
+                        <th>Payment ID</th>
+                        <th>Customer ID</th>
+                        <th>Name</th>
+                        <th>Installment #</th>
+                        <th>Date</th>
+                        <th>Amount (₹)</th>
+                        <th>Gold Rate</th>
+                        <th>Weight (g)</th>
+                        <th>Mode</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if($payments_data && mysqli_num_rows($payments_data) > 0): ?>
+                    <?php while($p=mysqli_fetch_assoc($payments_data)): ?>
+                    <tr>
+                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=htmlspecialchars($p['payment_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs font-mono"><?=htmlspecialchars($p['customer_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs font-semibold"><?=htmlspecialchars($p['customer_name'])?></td>
+                        <td class="px-3 py-2.5 text-xs font-bold text-center"><?=htmlspecialchars($p['installment_no'])?></td>
+                        <td class="px-3 py-2.5 text-xs"><?=htmlspecialchars($p['payment_date'])?></td>
+                        <td class="px-3 py-2.5 text-xs font-bold text-green-700">₹<?=number_format($p['amount'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs">₹<?=number_format($p['gold_rate'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=number_format($p['weight'],3)?> g</td>
+                        <td class="px-3 py-2.5 text-xs"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-900"><?=htmlspecialchars($p['payment_mode'])?></span></td>
+                    </tr>
+                    <?php endwhile; ?>
+                    <?php else: ?>
+                    <tr><td colspan="9" class="text-center py-6 text-gray-500">No payment records found.</td></tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 4: UPDATE -->
+    <?php elseif($tab==='update'): ?>
+    <div class="jewel-card p-4 sm:p-6 max-w-2xl mx-auto">
+        <h3 class="text-base sm:text-lg font-bold mb-4" style="color:#800020;">
+            <i class="fas fa-edit mr-2" style="color:#d68b16;"></i> Update Payment &amp; Status
+        </h3>
+
+        <form method="post" action="sanchari_dashboard.php">
+            <input type="hidden" name="update_payment" value="1">
+            <div class="space-y-4">
+                <div>
+                    <label class="form-label">Payment Entry ID</label>
+                    <input type="number" name="inv_id" class="form-input" placeholder="Enter Internal Payment ID" required>
+                </div>
+                <div>
+                    <label class="form-label">Paid Amount (₹)</label>
+                    <input type="number" step="0.01" name="paid_amount" class="form-input" required>
+                </div>
+                <div>
+                    <label class="form-label">Payment Mode</label>
+                    <select name="payment_mode" class="form-input">
+                        <option value="Cash">Cash</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Bank">Bank Transfer</option>
+                        <option value="Card">Card</option>
+                    </select>
+                </div>
+                <div class="pt-2 text-right">
+                    <button type="submit" class="btn-gold"><i class="fas fa-save"></i> Save Changes</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- TAB 5: REPORTS -->
+    <?php elseif($tab==='reports'): ?>
+    <div class="jewel-card p-4 sm:p-6">
+        <h3 class="text-base sm:text-lg font-bold mb-4" style="color:#800020;">
+            <i class="fas fa-file-alt mr-2" style="color:#d68b16;"></i> Sanchay Scheme Audit &amp; Status Report
+        </h3>
+        <p class="text-xs sm:text-sm text-gray-700 mb-4">Click below to open full reports and update customer account statuses.</p>
+        <a href="sanchari_reports.php" class="btn-jewel"><i class="fas fa-external-link-alt"></i> Open Full Reports Page</a>
+    </div>
+    <?php endif; ?>
+
 </div>
-<?php endif; ?>
+</div>
 
-<div class="container-fluid py-4 px-4">
-
-  <!-- Tabs -->
-  <ul class="nav nav-tabs mb-4 no-print" id="mainTabs">
-    <li class="nav-item"><a class="nav-link <?=$tab==='overview'?'active':''?>" href="?tab=overview"><i class="bi bi-speedometer2 me-1"></i>Overview</a></li>
-    <li class="nav-item"><a class="nav-link <?=$tab==='customers'?'active':''?>" href="?tab=customers"><i class="bi bi-people me-1"></i>Customers</a></li>
-    <li class="nav-item"><a class="nav-link <?=$tab==='payments'?'active':''?>" href="?tab=payments"><i class="bi bi-cash-stack me-1"></i>Payment History</a></li>
-    <li class="nav-item"><a class="nav-link <?=$tab==='update'?'active':''?>" href="?tab=update"><i class="bi bi-pencil-square me-1"></i>Update Payment</a></li>
-    <li class="nav-item"><a class="nav-link <?=$tab==='reports'?'active':''?>" href="?tab=reports"><i class="bi bi-bar-chart me-1"></i>Reports</a></li>
-  </ul>
-
-  <!-- ═══ OVERVIEW ═══════════════════════════════════════════════════════ -->
-  <?php if($tab==='overview'): ?>
-  <div class="row g-3 mb-4">
-    <div class="col-6 col-md-2">
-      <div class="stat-card">
-        <div class="icon"><i class="bi bi-people"></i></div>
-        <div class="val"><?=$total_customers?></div>
-        <div class="lbl">Total Customers</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="stat-card">
-        <div class="icon"><i class="bi bi-person-check"></i></div>
-        <div class="val"><?=$active_customers?></div>
-        <div class="lbl">Active</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="stat-card">
-        <div class="icon"><i class="bi bi-cash"></i></div>
-        <div class="val">₹<?=number_format($total_collected,0)?></div>
-        <div class="lbl">Total Collected</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="stat-card">
-        <div class="icon"><i class="bi bi-calendar-month"></i></div>
-        <div class="val">₹<?=number_format($this_month,0)?></div>
-        <div class="lbl">This Month</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="stat-card">
-        <div class="icon"><i class="bi bi-currency-bitcoin"></i></div>
-        <div class="val"><?=number_format($total_weight,3)?>g</div>
-        <div class="lbl">Gold Accumulated</div>
-      </div>
-    </div>
-    <div class="col-6 col-md-2">
-      <div class="stat-card" style="border-left-color:#e74c3c">
-        <div class="icon" style="color:#e74c3c"><i class="bi bi-exclamation-triangle"></i></div>
-        <div class="val" style="color:#e74c3c">₹<?=number_format($pending_balance,0)?></div>
-        <div class="lbl">Pending Balance</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Recent Payments -->
-  <div class="card">
-    <div class="card-body">
-      <h6 class="mb-3" style="color:var(--gold)"><i class="bi bi-clock-history me-2"></i>Recent Payments</h6>
-      <div class="table-responsive">
-        <table class="table tbl table-hover mb-0">
-          <thead><tr><th>Payment ID</th><th>Customer</th><th>Date</th><th>Amount</th><th>Weight</th><th>Mode</th></tr></thead>
-          <tbody>
-          <?php
-          $recent = mysqli_query($conn,"SELECT * FROM sanchari_payments ORDER BY id DESC LIMIT 10");
-          while($r=mysqli_fetch_assoc($recent)):
-          ?>
-          <tr>
-            <td><span class="badge bg-light text-dark"><?=htmlspecialchars($r['payment_id'])?></span></td>
-            <td><?=htmlspecialchars($r['customer_name'])?></td>
-            <td><?=htmlspecialchars($r['payment_date'])?></td>
-            <td><strong>₹<?=number_format($r['amount'],2)?></strong></td>
-            <td><?=number_format($r['weight'],3)?>g</td>
-            <td><span class="badge bg-light text-dark"><?=htmlspecialchars($r['payment_mode'])?></span></td>
-          </tr>
-          <?php endwhile; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ CUSTOMERS ══════════════════════════════════════════════════════ -->
-  <?php elseif($tab==='customers'): ?>
-  <div class="card">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 style="color:var(--gold)" class="mb-0"><i class="bi bi-people me-2"></i>Customer List</h6>
-        <input type="text" id="custSearch" class="form-control form-control-sm search-box" placeholder="Search name / mobile…">
-      </div>
-      <div class="table-responsive">
-        <table class="table tbl table-hover" id="custTable">
-          <thead><tr><th>Customer ID</th><th>Book ID</th><th>Name</th><th>Mobile</th><th>Monthly</th><th>Joined</th><th>Installments</th><th>Total Paid</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-          <?php while($r=mysqli_fetch_assoc($customers_data)): ?>
-          <tr>
-            <td><?=htmlspecialchars($r['customer_id'])?></td>
-            <td><?=htmlspecialchars($r['book_id'])?></td>
-            <td><strong><?=htmlspecialchars($r['customer_name'])?></strong></td>
-            <td><?=htmlspecialchars($r['mobile'])?></td>
-            <td>₹<?=number_format($r['monthly_amount'],2)?></td>
-            <td><?=htmlspecialchars($r['joining_date'])?></td>
-            <td><?=$r['installments']?></td>
-            <td>₹<?=number_format($r['total_paid'],2)?></td>
-            <td><span class="badge badge-<?=strtolower($r['status'])?>"><?=$r['status']?></span></td>
-            <td>
-              <div class="d-flex gap-1 flex-wrap">
-                <form method="post" class="d-flex gap-1">
-                  <input type="hidden" name="update_status" value="1">
-                  <input type="hidden" name="customer_id" value="<?=htmlspecialchars($r['customer_id'])?>">
-                  <select name="status" class="form-select form-select-sm" style="min-width:100px">
-                    <option <?=$r['status']==='Active'?'selected':''?>>Active</option>
-                    <option <?=$r['status']==='Completed'?'selected':''?>>Completed</option>
-                    <option <?=$r['status']==='Closed'?'selected':''?>>Closed</option>
-                  </select>
-                  <button class="btn btn-sm btn-warning text-white" title="Save">✓</button>
-                </form>
-                <a href="?tab=customers&pdf=1&cid=<?=urlencode($r['customer_id'])?>" target="_blank" class="btn btn-sm btn-outline-secondary" title="Statement PDF"><i class="bi bi-file-pdf"></i></a>
-              </div>
-            </td>
-          </tr>
-          <?php endwhile; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ PAYMENT HISTORY ════════════════════════════════════════════════ -->
-  <?php elseif($tab==='payments'): ?>
-  <div class="card">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h6 style="color:var(--gold)" class="mb-0"><i class="bi bi-cash-stack me-2"></i>Payment History</h6>
-        <input type="text" id="paySearch" class="form-control form-control-sm search-box" placeholder="Search customer / ID…">
-      </div>
-      <div class="table-responsive">
-        <table class="table tbl table-hover" id="payTable">
-          <thead><tr><th>Payment ID</th><th>Customer ID</th><th>Name</th><th>Installment</th><th>Date</th><th>Amount</th><th>Gold Rate</th><th>Weight</th><th>Mode</th><th>Remarks</th></tr></thead>
-          <tbody>
-          <?php while($r=mysqli_fetch_assoc($payments_data)): ?>
-          <tr>
-            <td><span class="badge bg-light text-dark"><?=htmlspecialchars($r['payment_id'])?></span></td>
-            <td><?=htmlspecialchars($r['customer_id'])?></td>
-            <td><?=htmlspecialchars($r['customer_name'])?></td>
-            <td class="text-center"><?=$r['installment_no']?></td>
-            <td><?=htmlspecialchars($r['payment_date'])?></td>
-            <td><strong>₹<?=number_format($r['amount'],2)?></strong></td>
-            <td>₹<?=number_format($r['gold_rate'],2)?></td>
-            <td><?=number_format($r['weight'],3)?>g</td>
-            <td><?=htmlspecialchars($r['payment_mode'])?></td>
-            <td><small class="text-muted"><?=htmlspecialchars($r['remarks'])?></small></td>
-          </tr>
-          <?php endwhile; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ UPDATE PAYMENT ════════════════════════════════════════════════ -->
-  <?php elseif($tab==='update'): ?>
-  <div class="card mx-auto" style="max-width:750px">
-    <div class="card-body p-4">
-      <h6 class="mb-4" style="color:var(--gold)"><i class="bi bi-pencil-square me-2"></i>Update Payment Record</h6>
-      <?php
-      $upd_payments = mysqli_query($conn,"SELECT sp.*, sc.monthly_amount FROM sanchari_payments sp LEFT JOIN sanchari_customers sc ON sp.customer_id=sc.customer_id ORDER BY sp.id DESC LIMIT 100");
-      ?>
-      <div class="table-responsive">
-        <table class="table tbl table-hover">
-          <thead><tr><th>Payment ID</th><th>Customer</th><th>Installment</th><th>Payment Date</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Status</th><th>Edit</th></tr></thead>
-          <tbody>
-          <?php while($r=mysqli_fetch_assoc($upd_payments)): ?>
-          <tr>
-            <td><?=htmlspecialchars($r['payment_id'])?></td>
-            <td><?=htmlspecialchars($r['customer_name'])?></td>
-            <td class="text-center"><?=$r['installment_no']?></td>
-            <td><strong><?=date('d M Y', strtotime($r['payment_date']))?></strong></td>
-            <td>₹<?=number_format($r['amount'],2)?></td>
-            <td>₹<?=number_format($r['paid_amount'] ?? $r['amount'],2)?></td>
-            <td>₹<?=number_format($r['balance_amount'] ?? 0,2)?></td>
-            <td><span class="badge badge-<?=$r['payment_status']??'paid'?>"><?=$r['payment_status']??'paid'?></span></td>
-            <td>
-              <button class="btn btn-sm btn-outline-warning" onclick="openEdit(<?=$r['id']?>,<?=$r['amount']?>,<?=$r['paid_amount']??$r['amount']?>,'<?=htmlspecialchars($r['payment_mode']??'Cash')?>','<?=$r['payment_date']?>')">
-                <i class="bi bi-pencil"></i>
-              </button>
-            </td>
-          </tr>
-          <?php endwhile; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- Edit Modal -->
-  <div class="modal fade" id="editModal" tabindex="-1">
-    <div class="modal-dialog modal-sm">
-      <form method="post" class="modal-content">
-        <input type="hidden" name="update_payment" value="1">
-        <input type="hidden" name="inv_id" id="modal_id">
-        <div class="modal-header" style="background:var(--gold-light)">
-          <h6 class="modal-title" style="color:var(--gold)">Update Payment</h6>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label">Payment Date</label>
-            <input id="modal_date_show" class="form-control" disabled>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Total Amount</label>
-            <input id="modal_total" class="form-control" disabled>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Paid Amount</label>
-            <input type="number" step="0.01" name="paid_amount" id="modal_paid" class="form-control" required>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Payment Mode</label>
-            <select name="payment_mode" id="modal_mode" class="form-select">
-              <option>Cash</option><option>UPI</option><option>Bank</option><option>Card</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-warning text-white w-100">Save Changes</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- ═══ REPORTS ════════════════════════════════════════════════════════ -->
-  <?php elseif($tab==='reports'): ?>
-  <?php
-  $rpt_customers = mysqli_query($conn,"SELECT sc.customer_id, sc.customer_name, sc.book_id, sc.mobile, sc.monthly_amount, sc.scheme_duration, sc.joining_date, sc.status, COALESCE(SUM(sp.amount),0) total_paid, COALESCE(SUM(sp.weight),0) total_weight, COUNT(sp.id) installments FROM sanchari_customers sc LEFT JOIN sanchari_payments sp ON sc.customer_id=sp.customer_id GROUP BY sc.id ORDER BY sc.customer_name ASC");
-  $all_rows = [];
-  while($r = mysqli_fetch_assoc($rpt_customers)) $all_rows[] = $r;
-  $grand_amount = array_sum(array_column($all_rows,'total_paid'));
-  $grand_weight = array_sum(array_column($all_rows,'total_weight'));
-  ?>
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <h6 style="color:var(--gold)" class="mb-0"><i class="bi bi-bar-chart me-2"></i>Summary Report</h6>
-    <button onclick="window.print()" class="btn btn-sm btn-outline-secondary no-print"><i class="bi bi-printer me-1"></i>Print</button>
-  </div>
-  <!-- Summary Row -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-3">
-      <div class="stat-card">
-        <div class="val">₹<?=number_format($grand_amount,2)?></div>
-        <div class="lbl">Grand Total Collected</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="stat-card">
-        <div class="val"><?=number_format($grand_weight,3)?>g</div>
-        <div class="lbl">Total Gold Accumulated</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="stat-card">
-        <div class="val"><?=count($all_rows)?></div>
-        <div class="lbl">Total Members</div>
-      </div>
-    </div>
-    <div class="col-md-3">
-      <div class="stat-card">
-        <div class="val"><?=count(array_filter($all_rows,fn($r)=>$r['status']==='Active'))?></div>
-        <div class="lbl">Active Members</div>
-      </div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-body">
-      <div class="table-responsive">
-        <table class="table tbl table-hover">
-          <thead><tr><th>Customer ID</th><th>Name</th><th>Book ID</th><th>Mobile</th><th>Monthly</th><th>Joined</th><th>Installments</th><th>Total Paid</th><th>Gold Wt.</th><th>Status</th><th>Statement</th></tr></thead>
-          <tbody>
-          <?php foreach($all_rows as $r): ?>
-          <tr>
-            <td><?=htmlspecialchars($r['customer_id'])?></td>
-            <td><strong><?=htmlspecialchars($r['customer_name'])?></strong></td>
-            <td><?=htmlspecialchars($r['book_id'])?></td>
-            <td><?=htmlspecialchars($r['mobile'])?></td>
-            <td>₹<?=number_format($r['monthly_amount'],2)?></td>
-            <td><?=htmlspecialchars($r['joining_date'])?></td>
-            <td class="text-center"><?=$r['installments']?></td>
-            <td><strong>₹<?=number_format($r['total_paid'],2)?></strong></td>
-            <td><?=number_format($r['total_weight'],3)?>g</td>
-            <td><span class="badge badge-<?=strtolower($r['status'])?>"><?=$r['status']?></span></td>
-            <td><a href="?tab=reports&pdf=1&cid=<?=urlencode($r['customer_id'])?>" target="_blank" class="btn btn-sm btn-outline-danger"><i class="bi bi-file-pdf"></i> PDF</a></td>
-          </tr>
-          <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <?php endif; ?>
-
-</div><!-- /container -->
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// Search filter
-function liveSearch(inputId, tableId) {
-  const inp = document.getElementById(inputId);
-  if(!inp) return;
-  inp.addEventListener('keyup', function(){
-    const q = this.value.toLowerCase();
-    document.querySelectorAll('#'+tableId+' tbody tr').forEach(tr=>{
-      tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
-  });
+function toggleSidebar() {
+    const sidebar = document.getElementById('mainSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const burger  = document.getElementById('burgerMenu');
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('active');
+    if(burger) burger.classList.toggle('active');
 }
-liveSearch('custSearch','custTable');
-liveSearch('paySearch','payTable');
-
-// Edit modal
-function openEdit(id, total, paid, mode, date) {
-  document.getElementById('modal_id').value = id;
-  document.getElementById('modal_total').value = '₹' + parseFloat(total).toFixed(2);
-  document.getElementById('modal_paid').value = parseFloat(paid).toFixed(2);
-  // Format date nicely
-  if(date) {
-    const d = new Date(date);
-    document.getElementById('modal_date_show').value = d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
-  }
-  const sel = document.getElementById('modal_mode');
-  for(let o of sel.options) o.selected = o.value===mode;
-  new bootstrap.Modal(document.getElementById('editModal')).show();
+function closeSidebar() {
+    document.getElementById('mainSidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('active');
+    const burger  = document.getElementById('burgerMenu');
+    if(burger) burger.classList.remove('active');
 }
-
-// Auto-dismiss toast
-setTimeout(()=>{ document.querySelectorAll('.msg-toast .alert').forEach(a=>a.remove()); }, 3000);
 </script>
 </body>
 </html>

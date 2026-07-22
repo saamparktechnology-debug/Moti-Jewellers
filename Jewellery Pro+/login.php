@@ -183,7 +183,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
             padding: 4px;
         }
         .brand-top-text h2 {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Poppins', serif;
             font-size: 14px; font-weight: 700;
             color: #fff; line-height: 1.3;
             text-shadow: 0 2px 8px rgba(0,0,0,0.6);
@@ -196,7 +196,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
 
         .left-bottom { }
         .left-bottom h3 {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Poppins', serif;
             font-size: 22px; font-weight: 700;
             color: #fff; line-height: 1.3;
             text-shadow: 0 2px 12px rgba(0,0,0,0.7);
@@ -236,8 +236,8 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
             text-align: center; margin-bottom: 24px;
         }
         .form-logo img {
-            width: 68px; height: 68px; object-fit: contain;
-            filter: drop-shadow(0 4px 12px rgba(214,139,22,0.3));
+            width: 120px; height: 120px; object-fit: contain;
+            filter: drop-shadow(0 4px 12px rgba(214,139,22,0.35));
             animation: logoFloat 3s ease-in-out infinite;
         }
         @keyframes logoFloat {
@@ -245,7 +245,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
             50%      { transform: translateY(-6px); }
         }
         .form-logo h1 {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Poppins', serif;
             font-size: 22px; font-weight: 700;
             color: var(--crimson); margin-top: 10px;
             line-height: 1.2;
@@ -254,7 +254,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
 
         /* ── Form section title ── */
         .form-title {
-            font-family: 'Playfair Display', serif;
+            font-family: 'Poppins', serif;
             font-size: 20px; font-weight: 700;
             color: var(--crimson); margin-bottom: 20px;
             display: flex; align-items: center; gap: 8px;
@@ -359,7 +359,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
         .otp-box {
             width: 44px; height: 52px;
             text-align: center; font-size: 20px; font-weight: 700;
-            font-family: 'Playfair Display', serif;
+            font-family: 'Poppins', serif;
             background: var(--cream);
             border: 2px solid rgba(181,115,14,0.3);
             border-radius: 12px; color: var(--crimson);
@@ -477,8 +477,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
         <div class="left-content">
             <!-- Brand top -->
             <div class="brand-top">
-                <img src="assets/images/moti-removebg-preview.png" alt="Logo"
-                     onerror="this.style.display='none'">
+                <img src="logo.png" alt="Logo" onerror="this.src='assets/images/moti-removebg-preview.png'">
                 <div class="brand-top-text">
                     <h2>MOTI JEWELLERS</h2>
                     <p>Premium Since 2011</p>
@@ -513,7 +512,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
 
         <!-- Logo -->
         <div class="form-logo">
-            <img src="assets/images/moti-removebg-preview.png" alt="Logo" onerror="this.style.display='none'">
+            <img src="logo.png" alt="Logo" onerror="this.src='assets/images/moti-removebg-preview.png'">
             <h1>MOTI JEWELLERS</h1>
             <p>Premium Jewellery Management System</p>
         </div>
@@ -583,7 +582,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
             <div class="otp-shield"><i class="fas fa-shield-alt"></i></div>
 
             <div style="text-align:center;margin-bottom:20px;">
-                <h3 style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--crimson);margin-bottom:6px;">Verify OTP</h3>
+                <h3 style="font-family:'Poppins',serif;font-size:20px;font-weight:700;color:var(--crimson);margin-bottom:6px;">Verify OTP</h3>
                 <p style="font-size:12px;color:#6b7280;line-height:1.6;">
                     A 6-digit OTP has been sent to<br>
                     <strong style="color:var(--crimson);"> motijewellers9635985848@gmail.com</strong>
