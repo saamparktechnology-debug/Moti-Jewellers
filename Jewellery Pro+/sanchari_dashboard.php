@@ -45,6 +45,18 @@ if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['update_status'])) {
     exit;
 }
 
+// Handle customer delete
+if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['delete_customer'])) {
+    $cid = mysqli_real_escape_string($conn, trim($_POST['customer_id']));
+    if($cid !== '') {
+        mysqli_query($conn, "DELETE FROM sanchari_payments WHERE customer_id='$cid'");
+        mysqli_query($conn, "DELETE FROM sanchari_redemptions WHERE customer_id='$cid'");
+        mysqli_query($conn, "DELETE FROM sanchari_customers WHERE customer_id='$cid'");
+    }
+    header('Location: sanchari_dashboard.php?tab=customers&msg=deleted');
+    exit;
+}
+
 $tab = $_GET['tab'] ?? 'overview';
 
 // ── Stats ──────────────────────────────────────────────────────────────────
@@ -79,7 +91,7 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
   th{background:#800020;color:#fff;padding:7px 8px;text-align:left;}
   td{padding:6px 8px;border-bottom:1px solid #f0e8e0;}
   tr:nth-child(even) td{background:#fdf6f0;}
-  .total{font-weight:bold;background:#fff8f4;}
+  .total{font-weight:normal;background:#fff8f4;}
   .footer{margin-top:20px;font-size:10px;color:#999;text-align:center;}
 </style></head><body>
 <h2>Moti Jewellers — Swarna Sanchay Statement</h2>
@@ -203,12 +215,18 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
       /* TABLES */
       .jewel-table { border-collapse: collapse; width: 100%; }
       .jewel-table thead tr { background: linear-gradient(135deg, #7a4e0a, #d68b16); }
-      .jewel-table thead th { color: #fff; font-size: 11px; padding: 12px 10px; text-align: left; }
+      .jewel-table thead th { color: #fff; font-size: 11px; padding: 12px 10px; text-align: left; font-weight: normal; }
       .jewel-table tbody tr { border-bottom: 1px solid rgba(181,115,14,0.12); }
       .jewel-table tbody tr:hover { background: rgba(214,139,22,0.06); }
 
       .form-input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1.5px solid rgba(181,115,14,0.3); background: #fff; color: #3a1f00; outline: none; transition: all 0.2s ease; font-size: 13px; }
       .form-input:focus { border-color: #d68b16; box-shadow: 0 0 0 3px rgba(214,139,22,0.15); }
+
+      /* NORMAL WEIGHT VALUES */
+      .val-normal {
+          font-weight: normal !important;
+          font-family: 'Poppins', sans-serif !important;
+      }
 
       @media (max-width: 768px) {
           .sidebar { transform: translateX(-100%); }
@@ -356,7 +374,7 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
     <div class="mb-6 p-4 rounded-xl flex items-center justify-between shadow-sm text-xs sm:text-sm" style="background:#f0fdf4;border:1px solid #86efac;color:#166534;">
         <div class="flex items-center gap-2 font-semibold">
             <i class="fas fa-check-circle text-lg"></i>
-            <?= $_GET['msg']==='updated' ? 'Record updated successfully!' : ($_GET['msg']==='registered' ? 'New customer registered successfully!' : 'Payment recorded successfully!') ?>
+            <?= $_GET['msg']==='updated' ? 'Record updated successfully!' : ($_GET['msg']==='registered' ? 'New customer registered successfully!' : ($_GET['msg']==='deleted' ? 'Customer deleted successfully!' : 'Payment recorded successfully!')) ?>
         </div>
     </div>
     <?php endif; ?>
@@ -365,33 +383,33 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-8">
         <div class="stat-gem">
             <i class="fas fa-users text-xl sm:text-2xl mb-1 sm:mb-2 text-yellow-900"></i>
-            <h3 class="text-lg sm:text-xl font-bold" style="color:#800020;"><?=$total_customers?></h3>
-            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">Total Customers</p>
+            <h3 class="text-lg sm:text-xl val-normal" style="color:#800020;"><?=$total_customers?></h3>
+            <p class="text-[9px] sm:text-[10px] uppercase" style="color:#7a4e0a;">Total Customers</p>
         </div>
         <div class="stat-gem">
             <i class="fas fa-user-check text-xl sm:text-2xl mb-1 sm:mb-2 text-green-600"></i>
-            <h3 class="text-lg sm:text-xl font-bold text-green-800"><?=$active_customers?></h3>
-            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">Active Schemes</p>
+            <h3 class="text-lg sm:text-xl val-normal text-green-800"><?=$active_customers?></h3>
+            <p class="text-[9px] sm:text-[10px] uppercase" style="color:#7a4e0a;">Active Schemes</p>
         </div>
         <div class="stat-gem">
             <i class="fas fa-coins text-xl sm:text-2xl mb-1 sm:mb-2 text-yellow-600"></i>
-            <h3 class="text-lg sm:text-xl font-bold" style="color:#800020;">₹<?=number_format($total_collected,0)?></h3>
-            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">Total Collection</p>
+            <h3 class="text-lg sm:text-xl val-normal" style="color:#800020;">₹<?=number_format($total_collected,0)?></h3>
+            <p class="text-[9px] sm:text-[10px] uppercase" style="color:#7a4e0a;">Total Collection</p>
         </div>
         <div class="stat-gem">
             <i class="fas fa-calendar-alt text-xl sm:text-2xl mb-1 sm:mb-2 text-blue-600"></i>
-            <h3 class="text-lg sm:text-xl font-bold text-blue-900">₹<?=number_format($this_month,0)?></h3>
-            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">This Month</p>
+            <h3 class="text-lg sm:text-xl val-normal text-blue-900">₹<?=number_format($this_month,0)?></h3>
+            <p class="text-[9px] sm:text-[10px] uppercase" style="color:#7a4e0a;">This Month</p>
         </div>
         <div class="stat-gem">
             <i class="fas fa-gem text-xl sm:text-2xl mb-1 sm:mb-2 text-purple-600"></i>
-            <h3 class="text-lg sm:text-xl font-bold text-purple-900"><?=number_format($total_weight,3)?> g</h3>
-            <p class="text-[9px] sm:text-[10px] font-bold uppercase" style="color:#7a4e0a;">Gold Accumulated</p>
+            <h3 class="text-lg sm:text-xl val-normal text-purple-900"><?=number_format($total_weight,3)?> g</h3>
+            <p class="text-[9px] sm:text-[10px] uppercase" style="color:#7a4e0a;">Gold Accumulated</p>
         </div>
         <div class="stat-gem" style="border-color:#fca5a5 !important;">
             <i class="fas fa-exclamation-circle text-xl sm:text-2xl mb-1 sm:mb-2 text-red-600"></i>
-            <h3 class="text-lg sm:text-xl font-bold text-red-700">₹<?=number_format($pending_balance,0)?></h3>
-            <p class="text-[9px] sm:text-[10px] font-bold uppercase text-red-600">Pending Dues</p>
+            <h3 class="text-lg sm:text-xl val-normal text-red-700">₹<?=number_format($pending_balance,0)?></h3>
+            <p class="text-[9px] sm:text-[10px] uppercase text-red-600">Pending Dues</p>
         </div>
     </div>
 
@@ -434,14 +452,14 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
                         while($r=mysqli_fetch_assoc($recent)):
                     ?>
                     <tr>
-                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=htmlspecialchars($r['payment_id'])?></td>
-                        <td class="px-3 py-2.5 text-xs font-semibold"><?=htmlspecialchars($r['customer_name'])?></td>
-                        <td class="px-3 py-2.5 text-xs"><?=htmlspecialchars($r['payment_date'])?></td>
-                        <td class="px-3 py-2.5 text-xs font-bold text-green-700">₹<?=number_format($r['amount'],2)?></td>
-                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=number_format($r['weight'],3)?> g</td>
-                        <td class="px-3 py-2.5 text-xs"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-900"><?=htmlspecialchars($r['payment_mode'])?></span></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-yellow-900"><?=htmlspecialchars($r['payment_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal"><?=htmlspecialchars($r['customer_name'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal"><?=htmlspecialchars($r['payment_date'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-green-700">₹<?=number_format($r['amount'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-yellow-900"><?=number_format($r['weight'],3)?> g</td>
+                        <td class="px-3 py-2.5 text-xs"><span class="px-2 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-900 val-normal"><?=htmlspecialchars($r['payment_mode'])?></span></td>
                         <td class="px-3 py-2.5 text-xs text-center">
-                            <a href="?pdf=1&cid=<?=urlencode($r['customer_id'])?>" target="_blank" class="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded font-semibold text-[11px] transition-all">
+                            <a href="?pdf=1&cid=<?=urlencode($r['customer_id'])?>" target="_blank" class="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-[11px] transition-all val-normal">
                                 <i class="fas fa-file-pdf mr-1"></i> Statement
                             </a>
                         </td>
@@ -484,18 +502,27 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
                     <?php if($customers_data && mysqli_num_rows($customers_data) > 0): ?>
                     <?php while($c=mysqli_fetch_assoc($customers_data)): ?>
                     <tr>
-                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=htmlspecialchars($c['customer_id'])?></td>
-                        <td class="px-3 py-2.5 text-xs font-mono"><?=htmlspecialchars($c['book_id'])?></td>
-                        <td class="px-3 py-2.5 text-xs font-semibold"><?=htmlspecialchars($c['customer_name'])?></td>
-                        <td class="px-3 py-2.5 text-xs"><?=htmlspecialchars($c['mobile'])?></td>
-                        <td class="px-3 py-2.5 text-xs font-bold">₹<?=number_format($c['monthly_amount'],2)?></td>
-                        <td class="px-3 py-2.5 text-xs font-bold text-green-700">₹<?=number_format($c['total_paid'],2)?></td>
-                        <td class="px-3 py-2.5 text-xs font-bold text-center"><?=htmlspecialchars($c['installments'])?></td>
-                        <td class="px-3 py-2.5 text-xs"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-800"><?=htmlspecialchars($c['status'])?></span></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-yellow-900"><?=htmlspecialchars($c['customer_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal font-mono"><?=htmlspecialchars($c['book_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal"><?=htmlspecialchars($c['customer_name'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal"><?=htmlspecialchars($c['mobile'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal">₹<?=number_format($c['monthly_amount'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-green-700">₹<?=number_format($c['total_paid'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-center"><?=htmlspecialchars($c['installments'])?></td>
+                        <td class="px-3 py-2.5 text-xs"><span class="px-2 py-0.5 rounded text-[10px] bg-green-100 text-green-800 val-normal"><?=htmlspecialchars($c['status'])?></span></td>
                         <td class="px-3 py-2.5 text-xs text-center">
-                            <a href="?pdf=1&cid=<?=urlencode($c['customer_id'])?>" target="_blank" class="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded font-semibold text-[11px]">
-                                <i class="fas fa-file-pdf"></i> Statement
-                            </a>
+                            <div class="flex items-center justify-center gap-2">
+                                <a href="?pdf=1&cid=<?=urlencode($c['customer_id'])?>" target="_blank" class="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-[11px] val-normal">
+                                    <i class="fas fa-file-pdf"></i> Statement
+                                </a>
+                                <form method="post" action="sanchari_dashboard.php?tab=customers" onsubmit="return confirm('Are you sure you want to delete customer <?=htmlspecialchars(addslashes($c['customer_name']))?>? This will delete all payments and redemptions.');" style="display:inline-block;">
+                                    <input type="hidden" name="delete_customer" value="1">
+                                    <input type="hidden" name="customer_id" value="<?=htmlspecialchars($c['customer_id'])?>">
+                                    <button type="submit" class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] transition-all val-normal">
+                                        <i class="fas fa-trash-alt"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     <?php endwhile; ?>
@@ -533,15 +560,15 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
                     <?php if($payments_data && mysqli_num_rows($payments_data) > 0): ?>
                     <?php while($p=mysqli_fetch_assoc($payments_data)): ?>
                     <tr>
-                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=htmlspecialchars($p['payment_id'])?></td>
-                        <td class="px-3 py-2.5 text-xs font-mono"><?=htmlspecialchars($p['customer_id'])?></td>
-                        <td class="px-3 py-2.5 text-xs font-semibold"><?=htmlspecialchars($p['customer_name'])?></td>
-                        <td class="px-3 py-2.5 text-xs font-bold text-center"><?=htmlspecialchars($p['installment_no'])?></td>
-                        <td class="px-3 py-2.5 text-xs"><?=htmlspecialchars($p['payment_date'])?></td>
-                        <td class="px-3 py-2.5 text-xs font-bold text-green-700">₹<?=number_format($p['amount'],2)?></td>
-                        <td class="px-3 py-2.5 text-xs">₹<?=number_format($p['gold_rate'],2)?></td>
-                        <td class="px-3 py-2.5 text-xs font-bold text-yellow-900"><?=number_format($p['weight'],3)?> g</td>
-                        <td class="px-3 py-2.5 text-xs"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-100 text-yellow-900"><?=htmlspecialchars($p['payment_mode'])?></span></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-yellow-900"><?=htmlspecialchars($p['payment_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal font-mono"><?=htmlspecialchars($p['customer_id'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal"><?=htmlspecialchars($p['customer_name'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-center"><?=htmlspecialchars($p['installment_no'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal"><?=htmlspecialchars($p['payment_date'])?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-green-700">₹<?=number_format($p['amount'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal">₹<?=number_format($p['gold_rate'],2)?></td>
+                        <td class="px-3 py-2.5 text-xs val-normal text-yellow-900"><?=number_format($p['weight'],3)?> g</td>
+                        <td class="px-3 py-2.5 text-xs"><span class="px-2 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-900 val-normal"><?=htmlspecialchars($p['payment_mode'])?></span></td>
                     </tr>
                     <?php endwhile; ?>
                     <?php else: ?>

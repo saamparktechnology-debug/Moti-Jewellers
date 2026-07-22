@@ -5,12 +5,25 @@ if(!isset($_SESSION['user_id'])) { header('Location: login.php'); exit; }
 
 $logo_paths = ['logo.png', 'assets/images/logo.png', 'images/logo.png', 'assets/images/moti-removebg-preview.png'];
 
+// Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     $customer_id = mysqli_real_escape_string($conn, trim($_POST['customer_id']));
     $status = mysqli_real_escape_string($conn, trim($_POST['status']));
     if ($customer_id !== '' && in_array($status, ['Active', 'Completed', 'Closed'], true)) {
         mysqli_query($conn, "UPDATE sanchari_customers SET status='" . $status . "' WHERE customer_id='" . $customer_id . "'");
     }
+}
+
+// Handle customer delete
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_customer'])) {
+    $customer_id = mysqli_real_escape_string($conn, trim($_POST['customer_id']));
+    if ($customer_id !== '') {
+        mysqli_query($conn, "DELETE FROM sanchari_payments WHERE customer_id='$customer_id'");
+        mysqli_query($conn, "DELETE FROM sanchari_redemptions WHERE customer_id='$customer_id'");
+        mysqli_query($conn, "DELETE FROM sanchari_customers WHERE customer_id='$customer_id'");
+    }
+    header('Location: sanchari_reports.php?msg=deleted');
+    exit;
 }
 
 $customers = mysqli_query($conn, "SELECT * FROM sanchari_customers ORDER BY id DESC");
@@ -81,6 +94,11 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
       .jewel-table thead th { color: #fff; font-size: 11px; padding: 10px 8px; text-align: left; }
       .jewel-table tbody tr { border-bottom: 1px solid rgba(181,115,14,0.12); }
       .jewel-table tbody tr:hover { background: rgba(214,139,22,0.05); }
+
+      .val-normal {
+          font-weight: normal !important;
+          font-family: 'Poppins', sans-serif !important;
+      }
 
       @media (max-width: 768px) {
           .sidebar { transform: translateX(-100%); }
@@ -185,11 +203,11 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
                     </div>
                 </div>
                 <span class="font-bold text-white text-xs sm:text-sm" style="font-family:'Playfair Display',serif;">
-                    <i class="fas fa-file-alt mr-2"></i>MOTI JEWELLERS — Sanchay Reports
+                    <i class="fas fa-piggy-bank mr-2"></i>MOTI JEWELLERS — Swarna Sanchay Scheme Reports
                 </span>
             </div>
-            <div class="flex items-center gap-3">
-                <a href="sanchari_dashboard.php" class="text-xs bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 rounded-lg transition-all font-semibold">
+            <div class="flex items-center gap-2">
+                <a href="sanchari_dashboard.php" class="text-xs bg-white/20 hover:bg-white/30 text-white px-2.5 py-1.5 rounded-lg transition-all font-semibold">
                     <i class="fas fa-arrow-left mr-1"></i> Dashboard
                 </a>
             </div>
@@ -197,24 +215,31 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
     </div>
 </nav>
 
-<!-- PAGE WRAPPER -->
 <div class="page-wrapper">
-<div class="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+<div class="container mx-auto px-4 sm:px-6 py-8">
 
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
-                📊 Sanchay Scheme Reports & Audits
-            </h2>
-            <p class="text-xs sm:text-sm mt-1" style="color:#7a4e0a;">Customer account register and installment payment logs</p>
-        </div>
+    <div class="mb-6">
+        <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
+            📈 Sanchay Audit &amp; Status Reports
+        </h2>
+        <p class="text-xs sm:text-sm mt-1" style="color:#7a4e0a;">Complete list of registered accounts and recent transaction journals</p>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
-        <!-- Customer Report -->
+    <!-- Toast Notification -->
+    <?php if(isset($_GET['msg']) && $_GET['msg'] === 'deleted'): ?>
+    <div class="mb-6 p-4 rounded-xl flex items-center justify-between shadow-sm text-xs sm:text-sm" style="background:#fdf2f2;border:1px solid #fca5a5;color:#991b1b;">
+        <div class="flex items-center gap-2 font-semibold">
+            <i class="fas fa-trash-alt text-lg"></i>
+            Customer deleted successfully.
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Registered Customers List -->
         <div class="jewel-card p-4 sm:p-6">
             <h3 class="text-base sm:text-lg font-bold mb-4" style="color:#800020;">
-                <i class="fas fa-users mr-2" style="color:#d68b16;"></i> Sanchay Customers Register
+                <i class="fas fa-users mr-2" style="color:#d68b16;"></i> Customer Scheme Ledger
             </h3>
             <div class="overflow-x-auto">
                 <table class="jewel-table">
@@ -224,33 +249,43 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
                             <th>Name</th>
                             <th>Book ID</th>
                             <th>Status</th>
-                            <th>Action</th>
+                            <th>Update Status</th>
+                            <th class="text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php if($customers && mysqli_num_rows($customers) > 0): ?>
                         <?php while($r=mysqli_fetch_assoc($customers)): ?>
                         <tr>
-                            <td class="px-2 py-2 text-xs font-bold text-yellow-900"><?= htmlspecialchars($r['customer_id']) ?></td>
-                            <td class="px-2 py-2 text-xs font-semibold"><?= htmlspecialchars($r['customer_name']) ?></td>
-                            <td class="px-2 py-2 text-xs font-mono"><?= htmlspecialchars($r['book_id']) ?></td>
-                            <td class="px-2 py-2 text-xs"><span class="px-2 py-0.5 rounded font-bold text-[10px] bg-yellow-100 text-yellow-900"><?= htmlspecialchars($r['status']) ?></span></td>
+                            <td class="px-2 py-2 text-xs val-normal text-yellow-900"><?= htmlspecialchars($r['customer_id']) ?></td>
+                            <td class="px-2 py-2 text-xs val-normal"><?= htmlspecialchars($r['customer_name']) ?></td>
+                            <td class="px-2 py-2 text-xs val-normal font-mono"><?= htmlspecialchars($r['book_id']) ?></td>
+                            <td class="px-2 py-2 text-xs"><span class="px-2 py-0.5 rounded text-[10px] bg-yellow-100 text-yellow-900 val-normal"><?= htmlspecialchars($r['status']) ?></span></td>
                             <td class="px-2 py-2 text-xs">
                                 <form method="post" class="flex gap-1">
                                     <input type="hidden" name="update_status" value="1">
                                     <input type="hidden" name="customer_id" value="<?= htmlspecialchars($r['customer_id']) ?>">
-                                    <select name="status" class="text-xs p-1 border rounded bg-white" style="min-width:90px;">
+                                    <select name="status" class="text-xs p-1 border rounded bg-white val-normal" style="min-width:80px;">
                                         <option value="Active" <?= ($r['status']=='Active'?'selected':'') ?>>Active</option>
                                         <option value="Completed" <?= ($r['status']=='Completed'?'selected':'') ?>>Completed</option>
                                         <option value="Closed" <?= ($r['status']=='Closed'?'selected':'') ?>>Closed</option>
                                     </select>
-                                    <button class="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs font-semibold" type="submit">Save</button>
+                                    <button class="px-2 py-1 bg-yellow-600 hover:bg-yellow-700 text-white rounded text-xs val-normal" type="submit">Save</button>
+                                </form>
+                            </td>
+                            <td class="px-2 py-2 text-xs text-center">
+                                <form method="post" onsubmit="return confirm('Are you sure you want to delete customer <?=htmlspecialchars(addslashes($r['customer_name']))?>? This will delete all payments and redemptions.');" style="display:inline-block;">
+                                    <input type="hidden" name="delete_customer" value="1">
+                                    <input type="hidden" name="customer_id" value="<?=htmlspecialchars($r['customer_id'])?>">
+                                    <button type="submit" class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs val-normal">
+                                        <i class="fas fa-trash-alt"></i> Delete
+                                    </button>
                                 </form>
                             </td>
                         </tr>
                         <?php endwhile; ?>
                         <?php else: ?>
-                        <tr><td colspan="5" class="text-center py-4 text-gray-500">No customer records found.</td></tr>
+                        <tr><td colspan="6" class="text-center py-4 text-gray-500">No customer records found.</td></tr>
                         <?php endif; ?>
                     </tbody>
                 </table>
@@ -276,10 +311,10 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
                         <?php if($payments && mysqli_num_rows($payments) > 0): ?>
                         <?php while($r=mysqli_fetch_assoc($payments)): ?>
                         <tr>
-                            <td class="px-2 py-2 text-xs font-bold text-yellow-900"><?= htmlspecialchars($r['payment_id']) ?></td>
-                            <td class="px-2 py-2 text-xs font-semibold"><?= htmlspecialchars($r['customer_name']) ?></td>
-                            <td class="px-2 py-2 text-xs font-bold text-green-700">₹<?= number_format($r['amount'],2) ?></td>
-                            <td class="px-2 py-2 text-xs font-bold text-yellow-900"><?= number_format($r['weight'],3) ?> g</td>
+                            <td class="px-2 py-2 text-xs val-normal text-yellow-900"><?= htmlspecialchars($r['payment_id']) ?></td>
+                            <td class="px-2 py-2 text-xs val-normal"><?= htmlspecialchars($r['customer_name']) ?></td>
+                            <td class="px-2 py-2 text-xs val-normal text-green-700">₹<?= number_format($r['amount'],2) ?></td>
+                            <td class="px-2 py-2 text-xs val-normal text-yellow-900"><?= number_format($r['weight'],3) ?> g</td>
                         </tr>
                         <?php endwhile; ?>
                         <?php else: ?>
