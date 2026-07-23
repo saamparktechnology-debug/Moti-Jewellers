@@ -5,7 +5,7 @@ mysqli_report(MYSQLI_REPORT_OFF);
 // Try Hostinger VPS Database configuration first
 $host = '127.0.0.1';
 $user = 'root';
-$password = '123456';
+$password = 'RootPass123';
 $database = 'moti';
 
 $conn = @mysqli_connect($host, $user, $password, $database);
