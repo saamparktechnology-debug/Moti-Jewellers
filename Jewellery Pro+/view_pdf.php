@@ -64,16 +64,18 @@ if($items_res) {
     while($row = mysqli_fetch_assoc($items_res)) $items[] = $row;
 }
 
-$gst_total= floatval($inv['gst_amount'] ?? 0);
-$is_gst   = ($gst_total > 0 || ($inv['gst_type'] ?? '') === 'gst') && !empty($inv['customer_gstin']);
+$gst_total = floatval($inv['gst_amount'] ?? 0);
+$is_gst    = ($gst_total > 0 || strpos(($inv['gst_type'] ?? ''), 'gst') === 0);
+
+$subtotal  = floatval($inv['subtotal'] ?? 0);
+$calc_pct  = ($is_gst && $subtotal > 0 && $gst_total > 0) ? round(($gst_total / $subtotal) * 100) : 3;
+$half_pct  = ($calc_pct > 0) ? ($calc_pct / 2) : 1.5;
 
 // Exact CGST & SGST 50/50 Split
 $cgst_amount = $is_gst ? round($gst_total / 2, 2) : 0;
 $sgst_amount = $is_gst ? round($gst_total / 2, 2) : 0;
-$cgst_rate   = $is_gst ? 1.5 : 0;
-$sgst_rate   = $is_gst ? 1.5 : 0;
-
-$subtotal = floatval($inv['subtotal'] ?? 0);
+$cgst_rate   = $is_gst ? $half_pct : 0;
+$sgst_rate   = $is_gst ? $half_pct : 0;
 $discount = floatval($inv['discount'] ?? 0);
 $old_gold = floatval($inv['old_gold_amount'] ?? 0);
 $raw_total= floatval($inv['total_amount']);
@@ -511,7 +513,8 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                             $net_wt   = floatval($it['quantity']);
                             $rate     = floatval($it['price']);
                             $amt      = floatval($it['total']);
-                            $tax_amt  = $is_gst ? round($amt * 0.03, 2) : 0;
+                            $item_tax_pct = ($calc_pct > 0) ? $calc_pct : 3;
+                            $tax_amt  = $is_gst ? round($amt * ($item_tax_pct / 100), 2) : 0;
                         ?>
                         <tr>
                             <td class="center"><?php echo $idx + 1; ?></td>
@@ -529,7 +532,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                             <td class="right">₹<?php echo number_format($rate, 2); ?></td>
                             <td class="right">
                                 <?php if($is_gst && $tax_amt > 0): ?>
-                                ₹<?php echo number_format($tax_amt, 2); ?><br><span style="font-size:9px;color:#64748b;">(3%)</span>
+                                ₹<?php echo number_format($tax_amt, 2); ?><br><span style="font-size:9px;color:#64748b;">(<?php echo $item_tax_pct; ?>%)</span>
                                 <?php else: ?>
                                 <span style="color:#94a3b8;">0%</span>
                                 <?php endif; ?>
