@@ -751,7 +751,7 @@ const descMap = {Gold:'Pour Gold',Silver:'Silver Bar',Diamond:'Diamond (Natural)
 
 function selectMat(mat) {
     document.getElementById('material_type').value = mat;
-    document.getElementById('hsn_field').value   = hsnMap[mat];
+    document.getElementById('hsn_field').value   = "";
     document.getElementById('desc_field').value  = descMap[mat];
     const us = document.getElementById('unit_field');
     for(let i=0;i<us.options.length;i++){if(us.options[i].value===unitMap[mat]){us.selectedIndex=i;break;}}
