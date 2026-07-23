@@ -155,6 +155,7 @@ created_by INT,
 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )";
 mysqli_query($conn, $create_invoices);
+@mysqli_query($conn, "ALTER TABLE invoices MODIFY COLUMN gst_type VARCHAR(50) DEFAULT 'non_gst'");
 
 // Ensure all required columns exist on invoices table
 $columns_to_ensure = [

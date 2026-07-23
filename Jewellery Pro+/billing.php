@@ -337,17 +337,20 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
     $customer_address = mysqli_real_escape_string($conn, $_POST['customer_address'] ?? '');
     $customer_email   = mysqli_real_escape_string($conn, $_POST['customer_email'] ?? '');
     $raw_gst_type     = strtolower(trim($_POST['gst_type'] ?? 'non_gst'));
-    if ($raw_gst_type === 'non_gst') {
+    if ($raw_gst_type === 'non_gst' || empty($raw_gst_type)) {
         $raw_items = json_decode($_POST['items'] ?? '[]', true);
         if (is_array($raw_items)) {
             foreach ($raw_items as $it) {
                 $gt = strtolower(trim($it['gst_type'] ?? ''));
                 if ($gt === 'gst_3' || $gt === 'gst_18' || $gt === '3%' || $gt === '18%') {
-                    $raw_gst_type = (strpos($gt, '18') !== false) ? 'gst_18' : 'gst_3';
+                    $raw_gst_type = 'gst';
                     break;
                 }
             }
         }
+    }
+    if ($raw_gst_type === 'gst_3' || $raw_gst_type === 'gst_18') {
+        $raw_gst_type = 'gst';
     }
     $gst_type         = mysqli_real_escape_string($conn, $raw_gst_type);
     $subtotal         = floatval($_POST['subtotal']);
