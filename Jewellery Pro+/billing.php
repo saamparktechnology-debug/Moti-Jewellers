@@ -337,6 +337,18 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
     $customer_address = mysqli_real_escape_string($conn, $_POST['customer_address'] ?? '');
     $customer_email   = mysqli_real_escape_string($conn, $_POST['customer_email'] ?? '');
     $raw_gst_type     = strtolower(trim($_POST['gst_type'] ?? 'non_gst'));
+    if ($raw_gst_type === 'non_gst') {
+        $raw_items = json_decode($_POST['items'] ?? '[]', true);
+        if (is_array($raw_items)) {
+            foreach ($raw_items as $it) {
+                $gt = strtolower(trim($it['gst_type'] ?? ''));
+                if ($gt === 'gst_3' || $gt === 'gst_18' || $gt === '3%' || $gt === '18%') {
+                    $raw_gst_type = (strpos($gt, '18') !== false) ? 'gst_18' : 'gst_3';
+                    break;
+                }
+            }
+        }
+    }
     $gst_type         = mysqli_real_escape_string($conn, $raw_gst_type);
     $subtotal         = floatval($_POST['subtotal']);
     $making_charge    = floatval($_POST['making_charge'] ?? 0);
@@ -1480,6 +1492,7 @@ function submitPayment() {
                     <!-- Hidden form fields -->
                     <input type="hidden" name="subtotal" id="hiddenSubtotal" value="0">
                     <input type="hidden" name="gst_amount" id="hiddenGst" value="0">
+                    <input type="hidden" name="gst_type" id="hiddenGstType" value="non_gst">
                     <input type="hidden" name="total_amount" id="hiddenTotal" value="0">
                     <input type="hidden" name="items" id="hiddenItems" value="[]">
                     <input type="hidden" name="making_charge" id="hiddenMakingCharge" value="0">
@@ -2673,20 +2686,19 @@ function calculateTotal() {
     const discount  = items.reduce((sum, item) => sum + (item.discount || 0), 0);
     
     let cgst = 0, sgst = 0;
-    const gstinEl = document.getElementById('customerGstin');
-    const hasGstin = gstinEl && gstinEl.value.trim().length > 0;
+    let computedGstType = 'non_gst';
     
-    if (hasGstin) {
-        items.forEach(item => {
-            if (item.gst_type === 'gst_3') {
-                cgst += item.total * 0.015;
-                sgst += item.total * 0.015;
-            } else if (item.gst_type === 'gst_18') {
-                cgst += item.total * 0.09;
-                sgst += item.total * 0.09;
-            }
-        });
-    }
+    items.forEach(item => {
+        if (item.gst_type === 'gst_3') {
+            cgst += item.total * 0.015;
+            sgst += item.total * 0.015;
+            if (computedGstType === 'non_gst') computedGstType = 'gst_3';
+        } else if (item.gst_type === 'gst_18') {
+            cgst += item.total * 0.09;
+            sgst += item.total * 0.09;
+            computedGstType = 'gst_18';
+        }
+    });
 
     const oldGoldEl = document.getElementById('oldGoldAmountInput');
     const oldGold = parseFloat(oldGoldEl?.value) || 0;
@@ -2711,6 +2723,9 @@ function calculateTotal() {
     
     document.getElementById('hiddenSubtotal').value  = subtotal;
     document.getElementById('hiddenGst').value       = cgst + sgst;
+    if(document.getElementById('hiddenGstType')) {
+        document.getElementById('hiddenGstType').value = computedGstType;
+    }
     document.getElementById('hiddenTotal').value     = grand;
     document.getElementById('hiddenItems').value     = JSON.stringify(buildItemsForSubmit());
     document.getElementById('hiddenMakingCharge').value = makingAmt;
