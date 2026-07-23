@@ -1,15 +1,27 @@
 <?php
-$host = 'localhost';
+// Disable temporary exception throwing to handle fallback connection gracefully
+mysqli_report(MYSQLI_REPORT_OFF);
+
+// Try Hostinger VPS Database configuration first
+$host = '127.0.0.1';
 $user = 'root';
-$password = '';
+$password = '123456';
 $database = 'moti';
 
+$conn = @mysqli_connect($host, $user, $password, $database);
 
+// If it fails, fall back to local development (empty password)
+if (!$conn) {
+    $host = 'localhost';
+    $password = '';
+    $conn = @mysqli_connect($host, $user, $password, $database);
+}
 
-$conn = mysqli_connect($host, $user, $password, $database);
+// Re-enable exceptions for standard behavior
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-if(!$conn) {
-die("Connection failed: " . mysqli_connect_error());
+if (!$conn) {
+    die("Connection failed: " . mysqli_connect_error());
 }
 
 // Set timezone
