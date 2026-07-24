@@ -527,8 +527,8 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                                 <div class="item-sub">HUID: <strong><?php echo $huid; ?></strong></div>
                                 <?php endif; ?>
                             </td>
-                            <td class="right"><strong><?php echo ($unit === 'Qty') ? number_format($gross_wt, 0) : number_format($gross_wt, 3); ?></strong> <?php echo $unit; ?></td>
-                            <td class="right"><strong><?php echo ($unit === 'Qty') ? number_format($net_wt, 0) : number_format($net_wt, 3); ?></strong> <?php echo $unit; ?></td>
+                            <td class="right"><strong><?php echo (in_array(strtolower($unit), ['qty','pcs','piece','pieces'])) ? number_format($gross_wt, 0).' Pcs' : number_format($gross_wt, 3).' g'; ?></strong></td>
+                            <td class="right"><strong><?php echo (in_array(strtolower($unit), ['qty','pcs','piece','pieces'])) ? number_format($net_wt, 0).' Pcs' : number_format($net_wt, 3).' g'; ?></strong></td>
                             <td class="right">₹<?php echo number_format($rate, 2); ?></td>
                             <td class="right">
                                 <?php if($is_gst && $tax_amt > 0): ?>

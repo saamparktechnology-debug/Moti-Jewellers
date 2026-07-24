@@ -1025,12 +1025,12 @@ function generatePDF(){
     doc.setTextColor(...white);
     doc.setFont('helvetica','bold');
     doc.setFontSize(18);
-    doc.text('MOTI JEWELLERS',pw/2,11,{align:'center'});
+    doc.text('<?= addslashes($COMPANY['name'] ?? "MOTI JEWELLERS") ?>',pw/2,11,{align:'center'});
     doc.setFontSize(8);
     doc.setFont('helvetica','normal');
     doc.text('Purchase Tax Invoice',pw/2,18,{align:'center'});
     doc.setFontSize(7);
-    doc.text('Krishnapriya, Midnapore (W), West Bengal - 721440',pw/2,24,{align:'center'});
+    doc.text('<?= addslashes(trim(($COMPANY['address_line1'] ?? "").", ".($COMPANY['address_line2'] ?? "").", ".($COMPANY['state'] ?? "")." - ".($COMPANY['state_code'] ?? ""), ", ")) ?>',pw/2,24,{align:'center'});
 
     let y=34;
 
@@ -1126,12 +1126,17 @@ function generatePDF(){
     const total=Math.round((sub+gstTot)*100)/100;
 
     // Table header
-    const cols=[['Description',60],['HSN/SAC',22],['Qty',18],['Rate',28],['Per',12],['Amount',28]];
+    const cols=[['Description',65],['HSN/SAC',24],['Qty',20],['Rate',32],['Per',13],['Amount',28]];
     doc.setFillColor(...dark);
     doc.rect(ml,y,cw,8,'F');
     doc.setTextColor(...white);doc.setFont('helvetica','bold');doc.setFontSize(7.5);
     let cx=ml;
-    cols.forEach(([h,w])=>{doc.text(h,cx+w/2,y+5.5,{align:'center'});cx+=w;});
+    cols.forEach(([h,w], i)=>{
+        const align = (i === 3 || i === 5) ? 'right' : (i === 0 ? 'left' : 'center');
+        const pos = align === 'right' ? cx + w - 2 : (align === 'left' ? cx + 2 : cx + w/2);
+        doc.text(h, pos, y+5.5, {align: align});
+        cx+=w;
+    });
 
     // Table rows for all items
     y+=8;
@@ -1142,7 +1147,9 @@ function generatePDF(){
         const descText = it.description + ' (' + it.material_type + ')' + (it.huid_code ? ' HUID:' + it.huid_code : '');
         const vals=[descText, it.hsn_sac||'7108', it.qty.toFixed(4), fmt(it.rate_per_unit), it.unit, fmt(it.subtotal)];
         cols.forEach(([,w],i)=>{
-            doc.text(vals[i],i===0?cx+2:cx+w/2,y+7.5,{align:i===0?'left':'center'});
+            const align = (i === 3 || i === 5) ? 'right' : (i === 0 ? 'left' : 'center');
+            const pos = align === 'right' ? cx + w - 2 : (align === 'left' ? cx + 2 : cx + w/2);
+            doc.text(vals[i], pos, y+7.5, {align: align});
             cx+=w;
         });
         y+=12;
@@ -1158,7 +1165,9 @@ function generatePDF(){
         doc.setFillColor(...lgray);doc.rect(ml,y,cw,6,'F');
         cx=ml;
         cols.forEach(([,w],i)=>{
-            doc.text(row[i],i===0?cx+2:cx+w/2,y+4.5,{align:i===0?'left':'center'});
+            const align = (i === 3 || i === 5) ? 'right' : (i === 0 ? 'left' : 'center');
+            const pos = align === 'right' ? cx + w - 2 : (align === 'left' ? cx + 2 : cx + w/2);
+            doc.text(row[i], pos, y+4.5, {align: align});
             cx+=w;
         });
         y+=6;
@@ -1199,7 +1208,7 @@ function generatePDF(){
     // Signature
     doc.setFillColor(...lgray);doc.rect(pw-ml-55,y,55,20,'F');
     doc.setTextColor(...dark);doc.setFont('helvetica','bold');doc.setFontSize(8);
-    doc.text('For MOTI JEWELLERS',pw-ml-52,y+7);
+    doc.text('For <?= addslashes($COMPANY['name'] ?? "MOTI JEWELLERS") ?>',pw-ml-52,y+7);
     doc.setFont('helvetica','normal');doc.setFontSize(7);
     doc.text('Authorised Signatory',pw-ml-48,y+17);
 
