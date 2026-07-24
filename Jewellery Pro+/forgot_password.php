@@ -15,11 +15,12 @@ $step = $_SESSION['fp_step'] ?? 'email';
 
 // ── STEP 1: Send OTP ─────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
-    $email = mysqli_real_escape_string($conn, trim($_POST['email']));
+    $input = mysqli_real_escape_string($conn, trim($_POST['email']));
 
-    $check = mysqli_query($conn, "SELECT id, name FROM users WHERE email = '$email'");
-    if (mysqli_num_rows($check) > 0) {
+    $check = mysqli_query($conn, "SELECT id, name, email FROM users WHERE email = '$input' OR mobile = '$input'");
+    if ($check && mysqli_num_rows($check) > 0) {
         $user = mysqli_fetch_assoc($check);
+        $email = !empty($user['email']) ? $user['email'] : $input;
 
         $otp        = sprintf("%06d", mt_rand(100000, 999999));
         $expires_at = date('Y-m-d H:i:s', strtotime('+10 minutes'));
@@ -62,9 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
                 $mail->AltBody = "Your MOTI JEWELLERS Password Reset OTP: $otp (valid for 10 minutes)";
                 $mail->send();
 
-                $_SESSION['fp_step']  = 'otp';
-                $_SESSION['fp_email'] = $email;
-                $_SESSION['fp_name']  = $user['name'];
+                $_SESSION['fp_step']    = 'otp';
+                $_SESSION['fp_email']   = $email;
+                $_SESSION['fp_name']    = $user['name'];
+                $_SESSION['fp_user_id'] = $user['id'];
                 $step    = 'otp';
                 $success = "OTP sent to <strong>$email</strong>. Please check your inbox.";
 
@@ -76,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
             $error = "Failed to generate OTP. Please try again.";
         }
     } else {
-        $error = "Email address not found!";
+        $error = "Email address or Mobile number not found!";
     }
 }
 
@@ -108,7 +110,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['verify_otp'])) {
 
 // ── STEP 3: Reset Password ───────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['reset_password'])) {
-    $email = $_SESSION['fp_email'] ?? '';
+    $email   = $_SESSION['fp_email'] ?? '';
+    $user_id = $_SESSION['fp_user_id'] ?? 0;
 
     if (empty($email) || empty($_SESSION['fp_otp_verified'])) {
         $error = "Session expired. Please start again.";
@@ -127,11 +130,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['reset_password'])) {
         } else {
             $hashed    = password_hash($new_pass, PASSWORD_DEFAULT);
             $email_esc = mysqli_real_escape_string($conn, $email);
-            $upd = mysqli_query($conn, "UPDATE users SET password='$hashed' WHERE email='$email_esc'");
+
+            if ($user_id > 0) {
+                $upd = mysqli_query($conn, "UPDATE users SET password='$hashed' WHERE id=$user_id");
+            } else {
+                $upd = mysqli_query($conn, "UPDATE users SET password='$hashed' WHERE email='$email_esc'");
+            }
 
             if ($upd) {
                 unset($_SESSION['fp_step'], $_SESSION['fp_email'],
-                      $_SESSION['fp_name'], $_SESSION['fp_otp_verified']);
+                      $_SESSION['fp_name'], $_SESSION['fp_otp_verified'], $_SESSION['fp_user_id']);
                 $step    = 'done';
                 $success = "Password reset successful! You can now login with your new password.";
             } else {

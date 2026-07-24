@@ -20,6 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
         'invoices',
         'products',
         'customers',
+        'advance_customers',
+        'due_update_history',
         'purchase_entries',
         'stock_metal',
         'sanchari_payments',
@@ -30,6 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
         'contacts',
         'due_list',
         'accounts',
+        'otp_logins',
+        'password_resets',
+        'whatsapp_logs',
     ];
 
     $errors = [];

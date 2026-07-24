@@ -7,24 +7,35 @@ $success = '';
 
 // ─── LOGIN ───────────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
-    $email    = mysqli_real_escape_string($conn, trim($_POST['email']));
+    $input    = mysqli_real_escape_string($conn, trim($_POST['email']));
     $password = $_POST['password'];
 
-    $check = mysqli_query($conn, "SELECT * FROM users WHERE email = '$email'");
-    if (mysqli_num_rows($check) > 0) {
+    $check = mysqli_query($conn, "SELECT * FROM users WHERE email = '$input' OR mobile = '$input'");
+    if ($check && mysqli_num_rows($check) > 0) {
         $row = mysqli_fetch_assoc($check);
+        $pass_valid = false;
+
         if (password_verify($password, $row['password'])) {
+            $pass_valid = true;
+        } elseif ($row['password'] === $password) {
+            $pass_valid = true;
+            // Upgrade plain-text password to hash automatically
+            $new_hash = password_hash($password, PASSWORD_DEFAULT);
+            mysqli_query($conn, "UPDATE users SET password = '$new_hash' WHERE id = {$row['id']}");
+        }
+
+        if ($pass_valid) {
             $_SESSION['user_id']     = $row['id'];
             $_SESSION['user_name']   = $row['name'];
             $_SESSION['user_mobile'] = $row['mobile'];
-            $_SESSION['user_email']  = $email;
+            $_SESSION['user_email']  = $row['email'];
             header("Location: index.php");
             exit();
         } else {
-            $error = "Email or Password is incorrect!";
+            $error = "Email/Mobile or Password is incorrect!";
         }
     } else {
-        $error = "Email or Password is incorrect!";
+        $error = "Email/Mobile or Password is incorrect!";
     }
 }
 
@@ -542,10 +553,10 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
 
             <form method="POST" action="">
                 <div class="input-group">
-                    <label class="input-label">Email Address</label>
+                    <label class="input-label">Email or Mobile Number</label>
                     <div class="input-wrap">
-                        <i class="fas fa-envelope input-icon"></i>
-                        <input type="email" name="email" required placeholder="your@email.com" class="jewel-field">
+                        <i class="fas fa-user input-icon"></i>
+                        <input type="text" name="email" required placeholder="Email or Mobile Number" class="jewel-field">
                     </div>
                 </div>
 

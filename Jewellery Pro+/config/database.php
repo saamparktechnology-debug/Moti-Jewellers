@@ -223,7 +223,7 @@ if ($chk_qty && mysqli_num_rows($chk_qty) > 0) {
 }
 
 
-// Always ensure required admin accounts exist with exact password hash for 123456
+// Ensure required admin accounts exist if not already created
 $admin_pass_hash = password_hash('123456', PASSWORD_DEFAULT);
 $required_admins = [
     ['motijewellers9635985848@gmail.com', '9635985848', 'Moti Admin'],
@@ -237,9 +237,7 @@ foreach ($required_admins as $adm) {
     $adm_name  = $adm[2];
     
     $chk_adm = mysqli_query($conn, "SELECT id FROM users WHERE email = '$adm_email' OR mobile = '$adm_mob'");
-    if ($chk_adm && mysqli_num_rows($chk_adm) > 0) {
-        mysqli_query($conn, "UPDATE users SET password = '$admin_pass_hash', email = '$adm_email', mobile = '$adm_mob' WHERE email = '$adm_email' OR mobile = '$adm_mob'");
-    } else {
+    if (!$chk_adm || mysqli_num_rows($chk_adm) == 0) {
         mysqli_query($conn, "INSERT INTO users (name, mobile, email, password) VALUES ('$adm_name', '$adm_mob', '$adm_email', '$admin_pass_hash')");
     }
 }
