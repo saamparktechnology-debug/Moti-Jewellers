@@ -10,28 +10,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
     $input    = mysqli_real_escape_string($conn, trim($_POST['email']));
     $password = $_POST['password'];
 
-    $check = mysqli_query($conn, "SELECT * FROM users WHERE email = '$input' OR mobile = '$input'");
+    $check = mysqli_query($conn, "SELECT * FROM users WHERE email = '$input' OR mobile = '$input' OR LOWER(email) = LOWER('$input')");
     if ($check && mysqli_num_rows($check) > 0) {
-        $row = mysqli_fetch_assoc($check);
-        $pass_valid = false;
+        $logged_in = false;
+        while ($row = mysqli_fetch_assoc($check)) {
+            $pass_valid = false;
+            if (password_verify($password, $row['password'])) {
+                $pass_valid = true;
+            } elseif ($row['password'] === $password) {
+                $pass_valid = true;
+                // Upgrade plain-text password to hash automatically
+                $new_hash = password_hash($password, PASSWORD_DEFAULT);
+                mysqli_query($conn, "UPDATE users SET password = '$new_hash' WHERE id = {$row['id']}");
+            }
 
-        if (password_verify($password, $row['password'])) {
-            $pass_valid = true;
-        } elseif ($row['password'] === $password) {
-            $pass_valid = true;
-            // Upgrade plain-text password to hash automatically
-            $new_hash = password_hash($password, PASSWORD_DEFAULT);
-            mysqli_query($conn, "UPDATE users SET password = '$new_hash' WHERE id = {$row['id']}");
+            if ($pass_valid) {
+                $_SESSION['user_id']     = $row['id'];
+                $_SESSION['user_name']   = $row['name'];
+                $_SESSION['user_mobile'] = $row['mobile'];
+                $_SESSION['user_email']  = $row['email'];
+                $logged_in = true;
+                header("Location: index.php");
+                exit();
+            }
         }
-
-        if ($pass_valid) {
-            $_SESSION['user_id']     = $row['id'];
-            $_SESSION['user_name']   = $row['name'];
-            $_SESSION['user_mobile'] = $row['mobile'];
-            $_SESSION['user_email']  = $row['email'];
-            header("Location: index.php");
-            exit();
-        } else {
+        if (!$logged_in) {
             $error = "Email/Mobile or Password is incorrect!";
         }
     } else {

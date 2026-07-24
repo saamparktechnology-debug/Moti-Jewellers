@@ -82,6 +82,70 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
     }
 }
 
+// ── RESEND OTP ──────────────────────────────────────────────────────────────
+if (($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['resend_otp'])) || (isset($_GET['resend']) && $_GET['resend'] == '1')) {
+    $email = $_SESSION['fp_email'] ?? '';
+    $name  = $_SESSION['fp_name'] ?? 'User';
+
+    if (empty($email)) {
+        $error = "Session expired. Please enter your email or mobile again.";
+        $_SESSION['fp_step'] = 'email';
+        $step = 'email';
+    } else {
+        $otp        = sprintf("%06d", mt_rand(100000, 999999));
+        $expires_at = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+
+        mysqli_query($conn, "DELETE FROM otp_logins WHERE email = '$email' AND is_used = 0");
+        $ins = "INSERT INTO otp_logins (email, otp, expires_at) VALUES ('$email', '$otp', '$expires_at')";
+
+        if (mysqli_query($conn, $ins)) {
+            $mail = new PHPMailer(true);
+            try {
+                $mail->isSMTP();
+                $mail->Host       = 'smtp.gmail.com';
+                $mail->SMTPAuth   = true;
+                $mail->Username   = 'motijewellers9635985848@gmail.com';
+                $mail->Password   = 'fbkjcuiduiaozyee';
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587;
+                $mail->CharSet    = 'UTF-8';
+
+                $mail->setFrom('motijewellers9635985848@gmail.com', 'MOTI JEWELLERS');
+                $mail->addAddress($email, $name);
+                $mail->isHTML(true);
+                $mail->Subject = 'Password Reset OTP - MOTI JEWELLERS';
+                $mail->Body    = '<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;">
+                <div style="max-width:480px;margin:auto;border:1px solid #ddd;border-radius:10px;overflow:hidden;">
+                  <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:20px;text-align:center;">
+                    <h2 style="color:#fff;margin:0;">MOTI JEWELLERS</h2>
+                    <p style="color:#fff;margin:4px 0 0;font-size:13px;">Password Reset OTP</p>
+                  </div>
+                  <div style="padding:24px;text-align:center;">
+                    <p style="color:#374151;">Dear <strong>' . htmlspecialchars($name) . '</strong>,</p>
+                    <p style="color:#374151;">Use this OTP to reset your password:</p>
+                    <div style="font-size:36px;font-weight:800;letter-spacing:10px;color:#764ba2;margin:16px 0;">' . $otp . '</div>
+                    <p style="color:#6b7280;font-size:13px;">Valid for <strong>10 minutes</strong>. Do not share with anyone.</p>
+                  </div>
+                  <div style="background:#f9fafb;padding:12px;text-align:center;font-size:11px;color:#9ca3af;">
+                    MOTI JEWELLERS &mdash; Contact: +91 9635985848
+                  </div>
+                </div></body></html>';
+                $mail->AltBody = "Your MOTI JEWELLERS Password Reset OTP: $otp (valid for 10 minutes)";
+                $mail->send();
+
+                $_SESSION['fp_step'] = 'otp';
+                $step    = 'otp';
+                $success = "A new OTP has been sent successfully to <strong>" . htmlspecialchars($email) . "</strong>. Please check your inbox!";
+            } catch (Exception $e) {
+                $error = "OTP send failed. Error: " . $mail->ErrorInfo;
+            }
+        } else {
+            $error = "Failed to generate new OTP. Please try again.";
+            $step  = 'otp';
+        }
+    }
+}
+
 // ── STEP 2: Verify OTP ───────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['verify_otp'])) {
     $otp   = mysqli_real_escape_string($conn, trim($_POST['otp']));
@@ -130,12 +194,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['reset_password'])) {
         } else {
             $hashed    = password_hash($new_pass, PASSWORD_DEFAULT);
             $email_esc = mysqli_real_escape_string($conn, $email);
+            $uid_esc   = intval($user_id);
 
-            if ($user_id > 0) {
-                $upd = mysqli_query($conn, "UPDATE users SET password='$hashed' WHERE id=$user_id");
-            } else {
-                $upd = mysqli_query($conn, "UPDATE users SET password='$hashed' WHERE email='$email_esc'");
+            $where_cond = "1=0";
+            if ($uid_esc > 0) {
+                $where_cond .= " OR id=$uid_esc";
             }
+            if (!empty($email_esc)) {
+                $where_cond .= " OR email='$email_esc' OR mobile='$email_esc' OR LOWER(email)=LOWER('$email_esc')";
+            }
+
+            $upd = mysqli_query($conn, "UPDATE users SET password='$hashed' WHERE $where_cond");
 
             if ($upd) {
                 unset($_SESSION['fp_step'], $_SESSION['fp_email'],
@@ -285,9 +354,11 @@ $step = $_SESSION['fp_step'] ?? $step;
                 </button>
             </form>
             <div class="text-center mt-3">
-                <a href="forgot_password.php" class="text-purple-600 text-xs hover:underline">
-                    <i class="fas fa-redo-alt mr-1"></i>Resend OTP
-                </a>
+                <form method="POST" style="display:inline;">
+                    <button type="submit" name="resend_otp" class="text-purple-600 text-xs hover:underline focus:outline-none bg-transparent border-0 cursor-pointer p-0">
+                        <i class="fas fa-redo-alt mr-1"></i>Resend OTP
+                    </button>
+                </form>
             </div>
 
             <?php elseif ($step === 'reset'): ?>

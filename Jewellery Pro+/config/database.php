@@ -2,26 +2,79 @@
 // Disable temporary exception throwing to handle fallback connection gracefully
 mysqli_report(MYSQLI_REPORT_OFF);
 
-// Try Hostinger VPS Database configuration first
-$host = '127.0.0.1';
-$user = 'root';
-$password = 'RootPass123';
-$database = 'moti';
+// Configure your Database Credentials here:
+$db_name = 'moti';
 
-$conn = @mysqli_connect($host, $user, $password, $database);
+// List of credential sets to attempt (aaPanel VPS, Hostinger, XAMPP Local)
+$credentials = [
+    // [Host, User, Password]
+    ['127.0.0.1', 'root', 'RootPass123'], // Hostinger / aaPanel VPS default
+    ['localhost', 'root', 'RootPass123'],
+    ['127.0.0.1', 'root', ''],            // XAMPP Local default (empty password)
+    ['localhost', 'root', ''],
+];
 
-// If it fails, fall back to local development (empty password)
-if (!$conn) {
-    $host = 'localhost';
-    $password = '';
-    $conn = @mysqli_connect($host, $user, $password, $database);
+$conn = false;
+$connection_errors = [];
+
+foreach ($credentials as $cred) {
+    list($h, $u, $p) = $cred;
+    
+    // 1. Attempt connecting directly to target database
+    $c = @mysqli_connect($h, $u, $p, $db_name);
+    if ($c) {
+        $conn = $c;
+        $host = $h;
+        $user = $u;
+        $password = $p;
+        $database = $db_name;
+        break;
+    } 
+    
+    // 2. If database doesn't exist yet, attempt connecting to MySQL server to create database automatically
+    $c_nodb = @mysqli_connect($h, $u, $p);
+    if ($c_nodb) {
+        @mysqli_query($c_nodb, "CREATE DATABASE IF NOT EXISTS `$db_name` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
+        if (@mysqli_select_db($c_nodb, $db_name)) {
+            $conn = $c_nodb;
+            $host = $h;
+            $user = $u;
+            $password = $p;
+            $database = $db_name;
+            break;
+        }
+    }
+    
+    $err = mysqli_connect_error() ?: 'Access denied or server unreachable';
+    $connection_errors[] = "$h ($u): $err";
 }
 
 // Re-enable exceptions for standard behavior
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
 if (!$conn) {
-    die("Connection failed: " . mysqli_connect_error());
+    http_response_code(500);
+    echo '<!DOCTYPE html><html><head><title>Database Connection Error</title>';
+    echo '<style>body{font-family:"Poppins",sans-serif;background:#0d1117;color:#c9d1d9;padding:40px;line-height:1.6;}';
+    echo '.card{background:#161b22;padding:30px;border-radius:12px;max-width:720px;margin:0 auto;border:1px solid #30363d;box-shadow:0 10px 30px rgba(0,0,0,0.5);}';
+    echo 'h2{color:#f85149;margin-top:0;display:flex;align-items:center;gap:10px;}';
+    echo 'code{background:#21262d;padding:4px 8px;border-radius:6px;color:#ec6cb9;font-family:monospace;font-size:14px;}';
+    echo 'ul{margin-top:10px;padding-left:20px;} li{margin-bottom:12px;}';
+    echo '.diagnostic{background:#0d1117;padding:12px;border-radius:8px;border:1px solid #21262d;color:#8b949e;font-size:13px;word-break:break-all;}';
+    echo '</style></head><body>';
+    echo '<div class="card">';
+    echo '<h2>⚠️ Database Connection Failed</h2>';
+    echo '<p>Unable to connect to MySQL database <code>' . htmlspecialchars($db_name) . '</code> on aaPanel / VPS or Local server.</p>';
+    echo '<h4>Diagnostic details:</h4>';
+    echo '<div class="diagnostic">' . htmlspecialchars(implode(' | ', $connection_errors)) . '</div>';
+    echo '<h3>🔧 How to Fix on aaPanel / VPS / XAMPP:</h3>';
+    echo '<ul>';
+    echo '<li><strong>Restart MySQL service:</strong><br>Run on server terminal: <code>/etc/init.d/mysqld restart</code> or <code>systemctl restart mysqld</code></li>';
+    echo '<li><strong>Find your MySQL Root Password:</strong><br>In aaPanel dashboard &rarr; <em>Databases</em> &rarr; <em>Root Password</em>, or run: <code>cat /www/server/pass.txt</code></li>';
+    echo '<li><strong>Update password in config/database.php:</strong><br>Add your password to <code>$credentials</code> in <code>config/database.php</code>.</li>';
+    echo '</ul>';
+    echo '</div></body></html>';
+    exit();
 }
 
 // Set timezone
