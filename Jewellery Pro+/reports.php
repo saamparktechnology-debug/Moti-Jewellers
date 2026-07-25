@@ -1142,7 +1142,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 </div>
                 <div>
                     <label class="filter-label">🔍 Name / Mobile</label>
-                    <input type="text" name="filter_name" value="<?php echo htmlspecialchars($filter_name); ?>" placeholder="Searchâ€¦" class="jewel-input w-full">
+                    <input type="text" name="filter_name" value="<?php echo htmlspecialchars($filter_name); ?>" placeholder="Search..." class="jewel-input w-full">
                 </div>
                 <div>
                     <label class="filter-label">💳 Payment</label>

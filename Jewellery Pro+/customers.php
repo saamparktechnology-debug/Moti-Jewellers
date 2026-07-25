@@ -617,7 +617,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 <form method="GET" class="flex flex-wrap gap-2">
                     <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
                     <input type="date" name="date_filter" value="<?php echo htmlspecialchars($date_filter); ?>" class="jewel-input" style="width:auto;">
-                    <input type="text" name="search" placeholder="Search name / mobile / IDâ€¦" value="<?php echo htmlspecialchars($search); ?>" class="jewel-input" style="min-width:180px;flex:1;">
+                    <input type="text" name="search" placeholder="Search name / mobile / ID..." value="<?php echo htmlspecialchars($search); ?>" class="jewel-input" style="min-width:180px;flex:1;">
                     <button type="submit" class="btn-jewel" style="padding:8px 18px;font-size:12px;border-radius:10px;">
                         <i class="fas fa-search"></i> Search
                     </button>
@@ -731,11 +731,11 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         <form method="POST">
             <div class="mb-3">
                 <label>👑 Full Name <span style="color:#ef4444;">*</span></label>
-                <input type="text" name="name" required placeholder="Customer nameâ€¦" class="jewel-input">
+                <input type="text" name="name" required placeholder="Customer name..." class="jewel-input">
             </div>
             <div class="mb-3">
                 <label>📱 Mobile Number <span style="color:#ef4444;">*</span></label>
-                <input type="tel" name="mobile" required placeholder="10-digit mobileâ€¦" class="jewel-input">
+                <input type="tel" name="mobile" required placeholder="10-digit mobile..." class="jewel-input">
             </div>
             <div class="mb-3">
                 <label>📜§ Email Address</label>
@@ -743,7 +743,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div>
             <div class="mb-3">
                 <label>📜 Address</label>
-                <textarea name="address" rows="2" placeholder="Customer addressâ€¦" class="jewel-input"></textarea>
+                <textarea name="address" rows="2" placeholder="Customer address..." class="jewel-input"></textarea>
             </div>
             <div class="mb-4">
                 <label>🏛️ GST Number <span style="color:#9ca3af;font-weight:400;">(Optional)</span></label>
