@@ -18,7 +18,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_income'])) {
     $invoice_no     = mysqli_real_escape_string($conn, $_POST['invoice_no'] ?? '');
     $created_by     = $_SESSION['user_id'];
     if(mysqli_query($conn, "INSERT INTO income (income_date, source, category, amount, description, payment_method, invoice_no, created_by) VALUES ('$income_date', '$source', '$category', $amount, '$description', '$payment_method', '$invoice_no', $created_by)")) {
-        $success_income = "âœ… Income added successfully!";
+        $success_income = "✓… Income added successfully!";
     } else {
         $error_income = "âŒ Error: " . mysqli_error($conn);
     }
@@ -35,7 +35,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_expense'])) {
     $vendor_name    = mysqli_real_escape_string($conn, $_POST['vendor_name'] ?? '');
     $created_by     = $_SESSION['user_id'];
     if(mysqli_query($conn, "INSERT INTO expenses (expense_date, category, amount, description, payment_method, bill_no, vendor_name, created_by) VALUES ('$expense_date', '$category', $amount, '$description', '$payment_method', '$bill_no', '$vendor_name', $created_by)")) {
-        $success_expense = "âœ… Expense added successfully!";
+        $success_expense = "✓… Expense added successfully!";
     } else {
         $error_expense = "âŒ Error: " . mysqli_error($conn);
     }
@@ -85,7 +85,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <meta name="author" content="MANU GUPTA">
     <meta name="description" content="Income and Expense Management for MOTI JEWELLERS">
-    <title>Income &amp; Expenses â€” MOTI JEWELLERS</title>
+    <title>Income &amp; Expenses — MOTI JEWELLERS</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -457,8 +457,8 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             <div class="stat-card stat-income">
                 <div class="flex justify-between items-start">
                     <div>
-                        <p class="stat-lbl">ðŸ’° Total Income</p>
-                        <p class="stat-val">â‚¹<?php echo number_format($total_income, 2); ?></p>
+                        <p class="stat-lbl">💰 Total Income</p>
+                        <p class="stat-val">₹<?php echo number_format($total_income, 2); ?></p>
                     </div>
                     <i class="fas fa-arrow-up"></i>
                 </div>
@@ -467,7 +467,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 <div class="flex justify-between items-start">
                     <div>
                         <p class="stat-lbl">ðŸ’¸ Total Expenses</p>
-                        <p class="stat-val">â‚¹<?php echo number_format($total_expense, 2); ?></p>
+                        <p class="stat-val">₹<?php echo number_format($total_expense, 2); ?></p>
                     </div>
                     <i class="fas fa-arrow-down"></i>
                 </div>
@@ -475,8 +475,8 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             <div class="stat-card stat-sales">
                 <div class="flex justify-between items-start">
                     <div>
-                        <p class="stat-lbl">ðŸ“ˆ Total Sales</p>
-                        <p class="stat-val">â‚¹<?php echo number_format($total_sales, 2); ?></p>
+                        <p class="stat-lbl">📈 Total Sales</p>
+                        <p class="stat-val">₹<?php echo number_format($total_sales, 2); ?></p>
                         <p class="stat-sub"><?php echo $total_sales_count; ?> invoices</p>
                     </div>
                     <i class="fas fa-receipt"></i>
@@ -486,7 +486,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 <div class="flex justify-between items-start">
                     <div>
                         <p class="stat-lbl">ðŸ‘‘ Net Profit/Loss</p>
-                        <p class="stat-val" style="color:<?php echo $net_profit>=0?'#86efac':'#fca5a5'; ?>">â‚¹<?php echo number_format($net_profit, 2); ?></p>
+                        <p class="stat-val" style="color:<?php echo $net_profit>=0?'#86efac':'#fca5a5'; ?>">₹<?php echo number_format($net_profit, 2); ?></p>
                     </div>
                     <i class="fas fa-chart-line"></i>
                 </div>
@@ -494,7 +494,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             <div class="stat-card stat-count">
                 <div class="flex justify-between items-start">
                     <div>
-                        <p class="stat-lbl">âœ¨ Transactions</p>
+                        <p class="stat-lbl">✓¨ Transactions</p>
                         <p class="stat-val"><?php echo count($income_records) + count($expense_records); ?></p>
                     </div>
                     <i class="fas fa-exchange-alt"></i>
@@ -539,14 +539,14 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                         <div>
                             <label class="field-label">ðŸ“‚ Category *</label>
                             <select name="category" required class="jewel-input">
-                                <option value="">â€” Select Category â€”</option>
+                                <option value="">— Select Category —</option>
                                 <?php mysqli_data_seek($income_categories, 0); while($cat = mysqli_fetch_assoc($income_categories)): ?>
-                                    <option value="<?php echo htmlspecialchars($cat['category_name']); ?>">ðŸ’° <?php echo htmlspecialchars($cat['category_name']); ?></option>
+                                    <option value="<?php echo htmlspecialchars($cat['category_name']); ?>">💰 <?php echo htmlspecialchars($cat['category_name']); ?></option>
                                 <?php endwhile; ?>
                             </select>
                         </div>
                         <div>
-                            <label class="field-label">ðŸ’µ Amount (â‚¹) *</label>
+                            <label class="field-label">ðŸ’µ Amount (₹) *</label>
                             <input type="number" step="0.01" name="amount" required placeholder="0.00" class="jewel-input">
                         </div>
                         <div>
@@ -554,7 +554,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                             <select name="payment_method" class="jewel-input">
                                 <option value="cash">ðŸ’µ Cash</option>
                                 <option value="card">ðŸ’³ Card</option>
-                                <option value="upi">ðŸ“± UPI</option>
+                                <option value="upi">📱 UPI</option>
                                 <option value="bank">ðŸ¦ Bank Transfer</option>
                             </select>
                         </div>
@@ -585,14 +585,14 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                         <div>
                             <label class="field-label">ðŸ“‚ Category *</label>
                             <select name="category" required class="jewel-input">
-                                <option value="">â€” Select Category â€”</option>
+                                <option value="">— Select Category —</option>
                                 <?php mysqli_data_seek($expense_categories, 0); while($cat = mysqli_fetch_assoc($expense_categories)): ?>
                                     <option value="<?php echo htmlspecialchars($cat['category_name']); ?>">ðŸ’¸ <?php echo htmlspecialchars($cat['category_name']); ?></option>
                                 <?php endwhile; ?>
                             </select>
                         </div>
                         <div>
-                            <label class="field-label">ðŸ’µ Amount (â‚¹) *</label>
+                            <label class="field-label">ðŸ’µ Amount (₹) *</label>
                             <input type="number" step="0.01" name="amount" required placeholder="0.00" class="jewel-input">
                         </div>
                         <div>
@@ -600,7 +600,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                             <select name="payment_method" class="jewel-input">
                                 <option value="cash">ðŸ’µ Cash</option>
                                 <option value="card">ðŸ’³ Card</option>
-                                <option value="upi">ðŸ“± UPI</option>
+                                <option value="upi">📱 UPI</option>
                                 <option value="bank">ðŸ¦ Bank Transfer</option>
                             </select>
                         </div>
@@ -645,7 +645,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                             <td><?php echo date('d M Y', strtotime($inc['income_date'])); ?></td>
                             <td class="font-semibold" style="color:#166534;"><?php echo htmlspecialchars($inc['source']); ?></td>
                             <td style="color:#7a4e0a;"><?php echo htmlspecialchars($inc['category']); ?></td>
-                            <td class="text-right font-bold" style="color:#16a34a;">â‚¹<?php echo number_format($inc['amunt'],2); ?></td>
+                            <td class="text-right font-bold" style="color:#16a34a;">₹<?php echo number_format($inc['amunt'],2); ?></td>
                             <td style="text-transform:uppercase;font-size:11px;"><?php echo htmlspecialchars($inc['payment_method']); ?></td>
                             <td class="text-center">
                                 <a href="?delete_income=<?php echo $inc['id']; ?>" onclick="return confirm('Delete this income record?')" class="btn-delete">
@@ -660,7 +660,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                     <tfoot>
                         <tr>
                             <td colspan="3" style="color:#166534;">Total Income</td>
-                            <td class="text-right" style="color:#16a34a;">â‚¹<?php echo number_format($total_income,2); ?></td>
+                            <td class="text-right" style="color:#16a34a;">₹<?php echo number_format($total_income,2); ?></td>
                             <td colspan="2"></td>
                         </tr>
                     </tfoot>
@@ -688,8 +688,8 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                         <tr>
                             <td><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></td>
                             <td style="color:#9f1239;"><?php echo htmlspecialchars($exp['category']); ?></td>
-                            <td style="color:#7a4e0a;"><?php echo htmlspecialchars($exp['vendor'] ?? 'â€”'); ?></td>
-                            <td class="text-right font-bold" style="color:#dc2626;">â‚¹<?php echo number_format($exp['amount'],2); ?></td>
+                            <td style="color:#7a4e0a;"><?php echo htmlspecialchars($exp['vendor'] ?? '—'); ?></td>
+                            <td class="text-right font-bold" style="color:#dc2626;">₹<?php echo number_format($exp['amount'],2); ?></td>
                             <td style="text-transform:uppercase;font-size:11px;"><?php echo htmlspecialchars($exp['payment']); ?></td>
                             <td class="text-center">
                                 <a href="?delete_expense=<?php echo $exp['id']; ?>" onclick="return confirm('Delete this expense record?')" class="btn-delete">
@@ -704,7 +704,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                     <tfoot>
                         <tr>
                             <td colspan="3" style="color:#9f1239;">Total Expenses</td>
-                            <td class="text-right" style="color:#dc2626;">â‚¹<?php echo number_format($total_expense,2); ?></td>
+                            <td class="text-right" style="color:#dc2626;">₹<?php echo number_format($total_expense,2); ?></td>
                             <td colspan="2"></td>
                         </tr>
                     </tfoot>
