@@ -509,7 +509,7 @@ nav.nav-gold span{color:#fff!important;}
         </div>
         <div class="md:col-span-2">
             <label class="field-label">Address</label>
-            <input name="buyer_addr" class="form-input" value="Main Market, Paschim Medinipur, West Bengal, India" placeholder="e.g. Main Market, Paschim Medinipur, West Bengal, India">
+            <input name="buyer_addr" class="form-input" placeholder="Address">
         </div>
         <div>
             <label class="field-label">PAN</label>
