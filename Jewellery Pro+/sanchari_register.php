@@ -237,7 +237,7 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
     <div class="flex justify-between items-center mb-6">
         <div>
             <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
-                📝 Sanchay Customer Registration
+                 Sanchay Customer Registration
             </h2>
             <p class="text-xs sm:text-sm mt-1" style="color:#7a4e0a;">Register a new customer for Moti Jewellers Swarna Sanchay Scheme</p>
         </div>

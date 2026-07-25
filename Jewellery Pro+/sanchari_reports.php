@@ -220,7 +220,7 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
 
     <div class="mb-6">
         <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
-            📈 Sanchay Audit &amp; Status Reports
+             Sanchay Audit &amp; Status Reports
         </h2>
         <p class="text-xs sm:text-sm mt-1" style="color:#7a4e0a;">Complete list of registered accounts and recent transaction journals</p>
     </div>

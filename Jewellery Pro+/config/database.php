@@ -63,11 +63,11 @@ if (!$conn) {
     echo '.diagnostic{background:#0d1117;padding:12px;border-radius:8px;border:1px solid #21262d;color:#8b949e;font-size:13px;word-break:break-all;}';
     echo '</style></head><body>';
     echo '<div class="card">';
-    echo '<h2>⚠️ Database Connection Failed</h2>';
+    echo '<h2> Database Connection Failed</h2>';
     echo '<p>Unable to connect to MySQL database <code>' . htmlspecialchars($db_name) . '</code> on aaPanel / VPS or Local server.</p>';
     echo '<h4>Diagnostic details:</h4>';
     echo '<div class="diagnostic">' . htmlspecialchars(implode(' | ', $connection_errors)) . '</div>';
-    echo '<h3>🔧 How to Fix on aaPanel / VPS / XAMPP:</h3>';
+    echo '<h3> How to Fix on aaPanel / VPS / XAMPP:</h3>';
     echo '<ul>';
     echo '<li><strong>Restart MySQL service:</strong><br>Run on server terminal: <code>/etc/init.d/mysqld restart</code> or <code>systemctl restart mysqld</code></li>';
     echo '<li><strong>Find your MySQL Root Password:</strong><br>In aaPanel dashboard &rarr; <em>Databases</em> &rarr; <em>Root Password</em>, or run: <code>cat /www/server/pass.txt</code></li>';

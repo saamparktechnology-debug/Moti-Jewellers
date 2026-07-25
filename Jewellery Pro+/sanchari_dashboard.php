@@ -358,7 +358,7 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
         <div>
             <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
-                🏆 Swarna Sanchay Gold Scheme
+                 Swarna Sanchay Gold Scheme
             </h2>
             <p class="text-xs sm:text-sm mt-1" style="color:#7a4e0a;">Manage advance gold bookings, monthly installments, passbooks, and redemptions</p>
         </div>

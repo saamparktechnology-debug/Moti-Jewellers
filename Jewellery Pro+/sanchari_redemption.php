@@ -84,7 +84,7 @@ if(isset($_GET['pdf']) && isset($_GET['rid'])) {
 </head>
 <body>
 <div class="header">
-  <h1>🏅 Moti Jewellers</h1>
+  <h1> Moti Jewellers</h1>
   <p>Sanchari Scheme — Redemption Receipt</p>
   <span class="badge"><?= htmlspecialchars($r['redemption_id']) ?></span>
 </div>
@@ -368,7 +368,7 @@ $past = mysqli_query($conn, "SELECT sr.*, sc.customer_name, sc.mobile FROM sanch
     <div class="flex justify-between items-center mb-6">
         <div>
             <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
-                🏅 Sanchay Gold Scheme Redemption
+                 Sanchay Gold Scheme Redemption
             </h2>
             <p class="text-xs sm:text-sm mt-1" style="color:#7a4e0a;">Maturity settlement, jewellery purchase adjustment, and receipt printing</p>
         </div>

@@ -83,7 +83,7 @@ if(isset($_GET['pdf']) && isset($_GET['rid'])) {
 </head>
 <body>
 <div class="header">
-  <h1>🏅 Moti Jewellers</h1>
+  <h1> Moti Jewellers</h1>
   <p>Sanchari Scheme — Redemption Receipt</p>
   <span class="badge"><?= htmlspecialchars($r['redemption_id']) ?></span>
 </div>
@@ -455,7 +455,7 @@ function calcBalance() {
     document.getElementById('s_jewellery').textContent = '₹' + jewellery.toLocaleString('en-IN', {minimumFractionDigits:2});
     document.getElementById('s_adjusted').textContent  = '- ₹' + adjusted.toLocaleString('en-IN', {minimumFractionDigits:2});
     document.getElementById('s_balance').textContent   = (balance >= 0 ? '₹' : '-₹') + Math.abs(balance).toLocaleString('en-IN', {minimumFractionDigits:2});
-    note.textContent = balance >= 0 ? '⬆ Customer pays extra' : '⬇ Refund to customer';
+    note.textContent = balance >= 0 ? '⬆ Customer pays extra' : ' Refund to customer';
     note.className = balance >= 0 ? 'text-danger small' : 'text-success small';
   } else {
     sBox.style.display = 'none';

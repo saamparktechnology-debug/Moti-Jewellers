@@ -234,7 +234,7 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
     <div class="flex justify-between items-center mb-6">
         <div>
             <h2 class="text-2xl sm:text-3xl font-bold" style="color:#800020;font-family:'Playfair Display',serif;">
-                💰 Record Installment Payment
+                 Record Installment Payment
             </h2>
             <p class="text-xs sm:text-sm mt-1" style="color:#7a4e0a;">Record gold scheme installment deposit and calculate accumulated gold weight</p>
         </div>
