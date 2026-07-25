@@ -54,11 +54,11 @@ $subtotal  = floatval($inv['subtotal'] ?? 0);
 $raw_gst_type = strtolower(trim($inv['gst_type'] ?? 'non_gst'));
 $is_gst    = ($gst_total > 0 || ($raw_gst_type !== 'non_gst' && strpos($raw_gst_type, 'gst') === 0));
 
-$doc_title     = $is_gst ? 'TAX INVOICE' : 'ESTIMATE';
-$no_label      = $is_gst ? 'Invoice No.' : 'Estimate No.';
+$doc_title     = $is_gst ? 'TAX INVOICE' : 'CASH MEMO';
+$no_label      = $is_gst ? 'Invoice No.' : 'Cash Memo No.';
 $date_label    = $is_gst ? 'Invoice Date' : 'Date';
 $bill_to_label = $is_gst ? 'Bill To' : 'Customer Details';
-$doc_term_name = $is_gst ? 'invoice' : 'estimate';
+$doc_term_name = $is_gst ? 'invoice' : 'cash memo';
 
 // Calculate overall effective GST rate (e.g. 18% or 3%)
 $effective_gst_pct = ($subtotal > 0 && $gst_total > 0) ? round(($gst_total / $subtotal) * 100, 1) : ($is_gst ? 3 : 0);
@@ -123,7 +123,7 @@ function num2words($n) {
 }
 $total_words = num2words($total) . ' Rupees Only';
 
-$logo_file = 'assets/images/moti-removebg-preview.png';
+$logo_file = $COMPANY['logo_path'] ?? 'logo.png';
 
 //  DUE PAYMENT RECEIPT MODE LOGIC 
 $is_receipt = (isset($_GET['receipt']) && $_GET['receipt'] == '1') || isset($_GET['history_id']);
@@ -368,7 +368,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Original <?php echo $is_gst ? 'Invoice' : 'Estimate'; ?> Total Amount (Ref: <strong><?php echo htmlspecialchars($invoice_no); ?></strong>)</td>
+                            <td>Original <?php echo $is_gst ? 'Invoice' : 'Cash Memo'; ?> Total Amount (Ref: <strong><?php echo htmlspecialchars($invoice_no); ?></strong>)</td>
                             <td class="right">₹<?php echo number_format($inv['total_amount'], 2); ?></td>
                         </tr>
                         <tr>
@@ -406,7 +406,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                         <div>
                             <div class="terms-box-title">Terms &amp; Declaration</div>
                             <div class="terms-text-content">
-                                1. Received payment with thanks towards due balance for <?php echo $is_gst ? 'Invoice' : 'Estimate'; ?> <strong><?php echo htmlspecialchars($invoice_no); ?></strong>.<br>
+                                1. Received payment with thanks towards due balance for <?php echo $is_gst ? 'Invoice' : 'Cash Memo'; ?> <strong><?php echo htmlspecialchars($invoice_no); ?></strong>.<br>
                                 2. Subject to Paschim Medinipur Jurisdiction.<br>
                                 3. This is a computer generated official payment receipt.
                             </div>
