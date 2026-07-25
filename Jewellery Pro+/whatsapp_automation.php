@@ -747,6 +747,9 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
         </a>
+        <a href="sanchari_dashboard.php">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
