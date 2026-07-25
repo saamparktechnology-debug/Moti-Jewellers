@@ -93,7 +93,8 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
   tr:nth-child(even) td{background:#fdf6f0;}
   .total{font-weight:normal;background:#fff8f4;}
   .footer{margin-top:20px;font-size:10px;color:#999;text-align:center;}
-</style></head><body>
+</style>    <link rel="stylesheet" href="mobile.css">
+</head><body>
 <h2>Moti Jewellers - Swarna Sanchay Statement</h2>
 <div class="info">
   <strong><?= htmlspecialchars($cust['customer_name'] ?? '') ?></strong> &nbsp;|&nbsp;
@@ -237,6 +238,7 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
       }
       @media (min-width: 769px) { .mobile-burger { display: none !important; } }
   </style>
+    <link rel="stylesheet" href="mobile.css">
 </head>
 <body class="light-theme" style="background:#F5F5F5;">
 

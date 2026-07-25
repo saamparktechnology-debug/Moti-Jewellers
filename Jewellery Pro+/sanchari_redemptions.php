@@ -80,6 +80,7 @@ if(isset($_GET['pdf']) && isset($_GET['rid'])) {
   .sign-box { text-align: center; border-top: 1px solid #ccc; padding-top: 6px; font-size: 10px; color: #888; }
   @media print { body { padding: 15px; } }
 </style>
+    <link rel="stylesheet" href="mobile.css">
 </head>
 <body>
 <div class="header">
@@ -200,6 +201,7 @@ $past = mysqli_query($conn, "SELECT sr.*, sc.customer_name, sc.mobile FROM sanch
     .badge-active { background:#d4edda; color:#155724; }
     .badge-completed { background:#cce5ff; color:#004085; }
   </style>
+    <link rel="stylesheet" href="mobile.css">
 </head>
 <body>
 

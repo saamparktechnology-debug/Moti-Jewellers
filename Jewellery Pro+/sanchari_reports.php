@@ -109,6 +109,7 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
       }
       @media (min-width: 769px) { .mobile-burger { display: none !important; } }
   </style>
+    <link rel="stylesheet" href="mobile.css">
 </head>
 <body class="light-theme" style="background:#F5F5F5;">
 
