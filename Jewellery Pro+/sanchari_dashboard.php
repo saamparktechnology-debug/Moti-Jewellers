@@ -59,7 +59,7 @@ if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['delete_customer'])) {
 
 $tab = $_GET['tab'] ?? 'overview';
 
-// ── Stats ──────────────────────────────────────────────────────────────────
+// -- Stats ------------------------------------------------------------------
 $total_customers   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) c FROM sanchari_customers"))['c'] ?? 0;
 $active_customers  = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(*) c FROM sanchari_customers WHERE status='Active'"))['c'] ?? 0;
 $total_collected   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COALESCE(SUM(amount),0) s FROM sanchari_payments"))['s'] ?? 0;
@@ -67,7 +67,7 @@ $total_weight      = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COALESCE(SUM(
 $pending_balance   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COALESCE(SUM(balance_amount),0) s FROM sanchari_payments WHERE payment_status!='paid'"))['s'] ?? 0;
 $this_month        = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COALESCE(SUM(amount),0) s FROM sanchari_payments WHERE MONTH(payment_date)=MONTH(CURDATE()) AND YEAR(payment_date)=YEAR(CURDATE())"))['s'] ?? 0;
 
-// ── Data for tabs ─────────────────────────────────────────────────────────
+// -- Data for tabs --------------------------------------------------------─
 $customers_data = mysqli_query($conn,"SELECT sc.*, COALESCE(SUM(sp.amount),0) total_paid, COUNT(sp.id) installments FROM sanchari_customers sc LEFT JOIN sanchari_payments sp ON sc.customer_id=sp.customer_id GROUP BY sc.id ORDER BY sc.id DESC");
 $payments_data  = mysqli_query($conn,"SELECT * FROM sanchari_payments ORDER BY id DESC LIMIT 200");
 

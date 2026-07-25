@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
@@ -39,7 +39,7 @@ if(!$invoice_no) { die("Invoice number missing."); }
 // Fetch invoice
 $inv_res = mysqli_query($conn, "SELECT * FROM invoices WHERE invoice_no = '$invoice_no'");
 if(!$inv_res || mysqli_num_rows($inv_res) == 0) {
-    die("<h3 style='font-family:sans-serif;padding:20px;'>Invoice not found: ".htmlspecialchars($invoice_no)."</h3><a href='reports.php'>← Back to Reports</a>");
+    die("<h3 style='font-family:sans-serif;padding:20px;'>Invoice not found: ".htmlspecialchars($invoice_no)."</h3><a href='reports.php'>&larr; Back to Reports</a>");
 }
 $inv = mysqli_fetch_assoc($inv_res);
 
@@ -134,7 +134,7 @@ if(!file_exists($logo_file)) {
     if(file_exists('assets/images/logo.png')) $logo_file = 'assets/images/logo.png';
 }
 
-// ── DUE PAYMENT RECEIPT MODE LOGIC ──
+// -- DUE PAYMENT RECEIPT MODE LOGIC --
 $is_receipt = (isset($_GET['receipt']) && $_GET['receipt'] == '1') || isset($_GET['history_id']);
 $history_id = intval($_GET['history_id'] ?? 0);
 
@@ -299,7 +299,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
 
 <div class="print-actions">
     <div style="display:flex;gap:10px;">
-        <a href="billing.php" class="btn-back">← Back to Billing</a>
+        <a href="billing.php" class="btn-back">&larr; Back to Billing</a>
         <a href="reports.php" class="btn-back"> Reports</a>
     </div>
     <button onclick="window.print()" class="btn-print"> Print / Download PDF (A4)</button>
@@ -359,7 +359,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                         <div class="bill-to-title">Received From</div>
                         <div class="customer-name-big"><?php echo htmlspecialchars($inv['customer_name']); ?></div>
                         <?php if(!empty($inv['customer_address'])): ?>
-                        <div class="customer-address-text"> Address: <?php echo htmlspecialchars($inv['customer_address']); ?></div>
+                        <div class="customer-address-text"> Address: <?php echo htmlspecialchars($inv['customer_address']); ?></div>
                         <?php endif; ?>
                     </div>
                     <div class="bill-to-right">
@@ -481,7 +481,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                         <div class="bill-to-title">Bill To</div>
                         <div class="customer-name-big"><?php echo htmlspecialchars($inv['customer_name']); ?></div>
                         <?php if(!empty($inv['customer_address'])): ?>
-                        <div class="customer-address-text"> Address: <?php echo htmlspecialchars($inv['customer_address']); ?></div>
+                        <div class="customer-address-text"> Address: <?php echo htmlspecialchars($inv['customer_address']); ?></div>
                         <?php endif; ?>
                     </div>
                     <div class="bill-to-right">
@@ -489,7 +489,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                         <?php if(!empty($inv['customer_gstin'])): ?>
                          GSTIN: <strong><?php echo htmlspecialchars($inv['customer_gstin']); ?></strong><br>
                         <?php endif; ?>
-                         <strong>Place of Supply:</strong><br>
+                         <strong>Place of Supply:</strong><br>
                         <div style="margin-top:2px;font-size:11.5px;color:#334155;line-height:1.4;">
                             <?php echo $COMPANY['address_line1']; ?><br>
                             <?php echo $COMPANY['address_line2']; ?><br>

@@ -3,7 +3,7 @@ session_start();
 require_once 'config/database.php';
 if(!isset($_SESSION['user_id'])) { header('Location: login.php'); exit; }
 
-// ── Generate Redemption ID ─────────────────────────────────────────────
+// -- Generate Redemption ID --------------------------------------------─
 function genRedemptionId($conn) {
     $res = mysqli_query($conn, "SELECT redemption_id FROM sanchari_redemptions ORDER BY id DESC LIMIT 1");
     $row = mysqli_fetch_assoc($res);
@@ -14,7 +14,7 @@ function genRedemptionId($conn) {
     return 'RED' . str_pad($num, 4, '0', STR_PAD_LEFT);
 }
 
-// ── Handle Form Submit ─────────────────────────────────────────────────
+// -- Handle Form Submit ------------------------------------------------─
 $success = false;
 $saved_id = '';
 if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_redemption'])) {
@@ -42,7 +42,7 @@ if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_redemption'])) {
     $saved_id = $redemption_id;
 }
 
-// ── Handle PDF Receipt ─────────────────────────────────────────────────
+// -- Handle PDF Receipt ------------------------------------------------─
 if(isset($_GET['pdf']) && isset($_GET['rid'])) {
     $rid = mysqli_real_escape_string($conn, $_GET['rid']);
     $r   = mysqli_fetch_assoc(mysqli_query($conn, "SELECT sr.*, sc.customer_name, sc.mobile, sc.address, sc.monthly_amount, sc.scheme_duration, sc.joining_date FROM sanchari_redemptions sr LEFT JOIN sanchari_customers sc ON sr.customer_id=sc.customer_id WHERE sr.redemption_id='$rid'"));
@@ -165,12 +165,12 @@ if(isset($_GET['pdf']) && isset($_GET['rid'])) {
     exit;
 }
 
-// ── Load customers for dropdown ────────────────────────────────────────
+// -- Load customers for dropdown ----------------------------------------
 $customers = mysqli_query($conn, "SELECT sc.*, COALESCE(SUM(sp.amount),0) total_paid, COALESCE(SUM(sp.weight),0) total_weight, COUNT(sp.id) installments FROM sanchari_customers sc LEFT JOIN sanchari_payments sp ON sc.customer_id=sp.customer_id GROUP BY sc.id ORDER BY sc.customer_name ASC");
 $cust_list = [];
 while($r = mysqli_fetch_assoc($customers)) $cust_list[] = $r;
 
-// ── Past redemptions ───────────────────────────────────────────────────
+// -- Past redemptions --------------------------------------------------─
 $past = mysqli_query($conn, "SELECT sr.*, sc.customer_name, sc.mobile FROM sanchari_redemptions sr LEFT JOIN sanchari_customers sc ON sr.customer_id=sc.customer_id ORDER BY sr.id DESC");
 ?>
 <!DOCTYPE html>

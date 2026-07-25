@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once 'config/database.php';
 
@@ -869,7 +869,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div>
         <?php endif; ?>
 
-        <!-- ── CHARTS ROW ── -->
+        <!-- -- CHARTS ROW -- -->
         <div class="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <!-- Sales Chart
             <div class="chart-card">
@@ -905,7 +905,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div> -->
         </div>
 
-        <!-- ── PAYMENT STATUS OVERVIEW ── -->
+        <!-- -- PAYMENT STATUS OVERVIEW -- -->
         <div class="jewel-card p-5 sm:p-6 mb-6">
             <h3 class="section-title mb-5"><i class="fas fa-wallet"></i> Payment Status Overview</h3>
 
@@ -1031,7 +1031,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div>
         </div>
 
-        <!-- ── GST SUMMARY ── -->
+        <!-- -- GST SUMMARY -- -->
         <div class="jewel-card p-5 sm:p-6 mb-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
                 <h3 class="section-title"><i class="fas fa-receipt"></i> GST Summary</h3>
@@ -1121,7 +1121,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div>
         </div>
 
-        <!-- ── ALL BILLS TABLE ── -->
+        <!-- -- ALL BILLS TABLE -- -->
         <div class="jewel-card p-5 sm:p-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
                 <h3 class="section-title"><i class="fas fa-file-invoice"></i> All Bills Record</h3>
@@ -1141,7 +1141,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                     <input type="date" name="filter_to" value="<?php echo htmlspecialchars($filter_to); ?>" class="jewel-input w-full">
                 </div>
                 <div>
-                    <label class="filter-label"> Name / Mobile</label>
+                    <label class="filter-label"> Name / Mobile</label>
                     <input type="text" name="filter_name" value="<?php echo htmlspecialchars($filter_name); ?>" placeholder="Search..." class="jewel-input w-full">
                 </div>
                 <div>
@@ -1162,8 +1162,8 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                     </select>
                 </div>
                 <div class="col-span-2 sm:col-span-3 lg:col-span-5 flex gap-3">
-                    <button type="submit" class="btn-jewel" style="padding:8px 20px;font-size:12px;"> Filter</button>
-                    <a href="reports.php" class="btn-jewel" style="padding:8px 16px;font-size:12px;background:linear-gradient(135deg,#6b7280,#4b5563);">↩ Clear</a>
+                    <button type="submit" class="btn-jewel" style="padding:8px 20px;font-size:12px;"> Filter</button>
+                    <a href="reports.php" class="btn-jewel" style="padding:8px 16px;font-size:12px;background:linear-gradient(135deg,#6b7280,#4b5563);">&#x21A9; Clear</a>
                 </div>
             </form>
 
@@ -1287,7 +1287,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
 </style>
 
 <script>
-    /* ── Sidebar ── */
+    /* -- Sidebar -- */
     function toggleSidebar() {
         const sidebar = document.getElementById('mainSidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -1305,12 +1305,12 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         document.body.style.overflow = '';
     }
 
-    /* ── Toggle detail tables ── */
+    /* -- Toggle detail tables -- */
     function toggleDetail(id) {
         document.getElementById(id).classList.toggle('open');
     }
 
-    /* ── Actions: Send Reminder & Mark Paid (uses billing.php AJAX endpoints) ── */
+    /* -- Actions: Send Reminder & Mark Paid (uses billing.php AJAX endpoints) -- */
     function sendReminder(invoiceNo, customerName, customerMobile, balanceAmount, customerEmail) {
         console.log('sendReminder called', {invoiceNo, customerName, customerMobile, balanceAmount, customerEmail});
         if(!invoiceNo) return alert('Invoice number is missing');
@@ -1357,7 +1357,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             }).catch(e => { console.error('markAsPaid fetch error', e); alert('Error: ' + e); });
     }
 
-    /* ── Chart ── */
+    /* -- Chart -- */
     const labels    = <?php echo json_encode(array_column($daily_sales,'date')); ?>;
     const salesData = <?php echo json_encode(array_column($daily_sales,'total')); ?>;
     const chartEl = document.getElementById('salesChart');
@@ -1393,7 +1393,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         });
     }
 
-    /* ── Excel Export ── */
+    /* -- Excel Export -- */
     const billsData = <?php echo json_encode($bills_rows); ?>;
 
     function downloadExcel() {
