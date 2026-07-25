@@ -134,7 +134,7 @@ if(!file_exists($logo_file)) {
     if(file_exists('assets/images/logo.png')) $logo_file = 'assets/images/logo.png';
 }
 
-// â”€â”€ DUE PAYMENT RECEIPT MODE LOGIC â”€â”€
+// ── DUE PAYMENT RECEIPT MODE LOGIC ──
 $is_receipt = (isset($_GET['receipt']) && $_GET['receipt'] == '1') || isset($_GET['history_id']);
 $history_id = intval($_GET['history_id'] ?? 0);
 
