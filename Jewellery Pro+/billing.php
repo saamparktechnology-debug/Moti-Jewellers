@@ -2354,7 +2354,7 @@ function submitGramItem() {
     showNotif('✓… Added Item: ' + name, 'success');
 }
 
-// ==================== ðŸ“¦ QTY FORM LOGIC ====================
+// ==================== 📜¦ QTY FORM LOGIC ====================
 
 // Stock search & filter with floating suggestions
 function filterQtyStock(query) {

@@ -34,7 +34,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $query = "INSERT INTO products (serial_no, name, item_name, category, weight, price, quantity, huid_code, created_at) VALUES ('$serial_no', '$name', '$item_name', '$category', '$weight', '$price', '$quantity', '$huid_code', NOW())";
         if(mysqli_query($conn, $query)) {
-            $success = "✓¨ Product added successfully! ✓¨";
+            $success = "✨ Product added successfully! ✨";
         } else {
             $error = "Error adding product: " . mysqli_error($conn);
         }
@@ -43,7 +43,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         $id = $_POST['product_id'];
         $quantity = $_POST['quantity'];
         if(mysqli_query($conn, "UPDATE products SET quantity = quantity + $quantity WHERE id = $id")) {
-            $success = "ðŸ“¦ Stock updated successfully!";
+            $success = "📜¦ Stock updated successfully!";
         } else {
             $error = "Error updating stock: " . mysqli_error($conn);
         }
@@ -73,7 +73,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST') {
         mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 0");
         mysqli_query($conn, "DELETE FROM invoice_items WHERE product_id = $id");
         if(mysqli_query($conn, "DELETE FROM products WHERE id = $id")) {
-            $success = "ðŸ—‘ï¸ Product deleted successfully!";
+            $success = "🗑️ï¸ Product deleted successfully!";
         } else {
             $error = "Error deleting product: " . mysqli_error($conn);
         }
@@ -874,7 +874,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                         </div>
 
                         <div class="mb-3">
-                            <label>✓¨ Category</label>
+                            <label>✨ Category</label>
                             <select name="category" id="addCategorySelect" required class="jewel-input" onchange="updateItemTypes('addCategorySelect','addItemSelect','addCustomItem')">
                                 <option value="">-- Select Category --</option>
                                 <optgroup label="🥇 Gold">
@@ -890,7 +890,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                                 <optgroup label="💎 Diamond">
                                     <option value="Diamond">Diamond</option>
                                 </optgroup>
-                                <optgroup label="ðŸŸ¤ Other">
+                                <optgroup label="🟡 Other">
                                     <option value="Other">Other</option>
                                 </optgroup>
                             </select>
@@ -907,7 +907,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                         </div>
 
                         <div class="mb-3">
-                            <label>ðŸ”¢ Serial Number</label>
+                            <label>🔢 Serial Number</label>
                             <input type="text" name="serial_no" placeholder="Enter serial number" required class="jewel-input">
                         </div>
 
@@ -924,7 +924,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                         <input type="hidden" name="price" value="0">
 
                         <div class="mb-4">
-                            <label>ðŸ“¦ Quantity</label>
+                            <label>📜¦ Quantity</label>
                             <input type="number" name="quantity" placeholder="Enter quantity" required class="jewel-input">
                         </div>
 
@@ -1122,7 +1122,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             <input type="hidden" name="product_id" id="editProductId">
 
             <div class="mb-3">
-                <label>ðŸ”¢ Serial Number</label>
+                <label>🔢 Serial Number</label>
                 <input type="text" name="serial_no" id="editProductSerial" required class="jewel-input">
             </div>
             <div class="mb-3">
@@ -1134,7 +1134,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 <input type="text" name="name" id="editProductName" required class="jewel-input">
             </div>
             <div class="mb-3">
-                <label>✓¨ Category</label>
+                <label>✨ Category</label>
                 <select name="category" id="editProductCategory" required class="jewel-input" onchange="updateItemTypes('editProductCategory','editProductItemName','editCustomItem')">
                     <option value="">-- Select Category --</option>
                     <optgroup label="🥇 Gold">
@@ -1170,11 +1170,11 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 <input type="number" step="0.01" name="price" id="editProductPrice" required class="jewel-input">
             </div>
             <div class="mb-4">
-                <label>ðŸ“¦ Quantity</label>
+                <label>📜¦ Quantity</label>
                 <input type="number" name="quantity" id="editProductQuantity" required class="jewel-input">
             </div>
             <div class="flex gap-3">
-                <button type="submit" name="update_product" class="btn-jewel flex-1 text-center">ðŸ’¾ Update</button>
+                <button type="submit" name="update_product" class="btn-jewel flex-1 text-center">💾 Update</button>
                 <button type="button" onclick="closeEditModal()" class="flex-1 py-2 rounded-lg text-sm font-semibold" style="background:#e5e7eb;color:#374151;">Cancel</button>
             </div>
         </form>
@@ -1189,11 +1189,11 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             <input type="hidden" name="product_id" id="updateProductId">
             <p class="mb-3 text-sm" style="color:#7a4e0a;">Product: <strong id="updateProductName" style="color:#800020;"></strong></p>
             <div class="mb-4">
-                <label>âž• Add Quantity</label>
+                <label>➕ Add Quantity</label>
                 <input type="number" name="quantity" required class="jewel-input" placeholder="Enter quantity to add">
             </div>
             <div class="flex gap-3">
-                <button type="submit" name="update_quantity" class="btn-jewel flex-1 text-center">âž• Add Stock</button>
+                <button type="submit" name="update_quantity" class="btn-jewel flex-1 text-center">➕ Add Stock</button>
                 <button type="button" onclick="closeUpdateModal()" class="flex-1 py-2 rounded-lg text-sm font-semibold" style="background:#e5e7eb;color:#374151;">Cancel</button>
             </div>
         </form>
@@ -1210,7 +1210,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         <form method="POST">
             <input type="hidden" name="product_id" id="deleteProductId">
             <div class="flex gap-3">
-                <button type="submit" name="delete_product" class="flex-1 py-2 rounded-lg text-sm font-semibold text-white" style="background:linear-gradient(135deg,#ef4444,#dc2626);">ðŸ—‘ï¸ Yes, Delete</button>
+                <button type="submit" name="delete_product" class="flex-1 py-2 rounded-lg text-sm font-semibold text-white" style="background:linear-gradient(135deg,#ef4444,#dc2626);">🗑️ï¸ Yes, Delete</button>
                 <button type="button" onclick="closeDeleteModal()" class="flex-1 py-2 rounded-lg text-sm font-semibold" style="background:#e5e7eb;color:#374151;">Cancel</button>
             </div>
         </form>
@@ -1272,7 +1272,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         itemsByCategory[cat].forEach(function(item) {
             const opt = document.createElement('option');
             opt.value = item;
-            opt.textContent = item === 'Other' ? 'âž• Other (Custom)' : item;
+            opt.textContent = item === 'Other' ? '➕ Other (Custom)' : item;
             itemSel.appendChild(opt);
         });
     }
