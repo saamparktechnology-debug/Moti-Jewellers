@@ -877,7 +877,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 <i class="fas fa-info-circle mr-1" style="color:#d68b16;"></i>
                 <strong>Whinta API Setup:</strong> Select "Whinta API" above, set <b>API URL</b> to
                 <code>https://app.whinta.com/api</code>, leave <b>Instance ID</b> blank, and paste your
-                <b>Access Token</b> (from Whinta â†’ Developer Tools â†’ Access Token â†’ Generate API key) into the
+                <b>Access Token</b> (from Whinta ←’ Developer Tools ←’ Access Token ←’ Generate API key) into the
                 <b>API Token</b> field.
             </div>
         </div>
