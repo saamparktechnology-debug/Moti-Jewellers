@@ -539,6 +539,9 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                             <td class="center"><?php echo $idx + 1; ?></td>
                             <td>
                                 <div class="item-desc"><?php echo $name; ?></div>
+                                <?php if($is_gst): ?>
+                                <div class="item-sub" style="color:#0369a1;font-weight:600;">HSN: <strong><?php echo htmlspecialchars(!empty($it['hsn_code']) ? $it['hsn_code'] : '7108'); ?></strong></div>
+                                <?php endif; ?>
                                 <?php if(!empty($huid)): ?>
                                 <div class="item-sub" style="color:#7a4e0a;font-weight:600;">HUID: <strong><?php echo htmlspecialchars($huid); ?></strong></div>
                                 <?php endif; ?>
