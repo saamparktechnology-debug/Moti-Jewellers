@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($_POST['action'] === 'delete' && !empty($_POST['mobile'])) {
         $m = mysqli_real_escape_string($conn, $_POST['mobile']);
-        mysqli_query($conn, "DELETE FROM customers WHERE mobile = '$m'");
+        mysqli_query($conn, "DELETE FROM contacts WHERE mobile = '$m'");
         $msg = 'deleted';
     }
 
@@ -455,6 +455,7 @@ function openModal() {
     document.getElementById('fMobile').value = '';
     document.getElementById('fEmail').value = '';
     document.getElementById('fAddress').value = '';
+    document.getElementById('fNote').value = '';
     document.getElementById('modalOverlay').classList.add('show');
 }
 function editModal(c) {
@@ -463,6 +464,7 @@ function editModal(c) {
     document.getElementById('fMobile').value = c.mobile || '';
     document.getElementById('fEmail').value = c.email || '';
     document.getElementById('fAddress').value = c.address || '';
+    document.getElementById('fNote').value = c.note || '';
     document.getElementById('modalOverlay').classList.add('show');
 }
 function closeModal() {
