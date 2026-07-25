@@ -252,7 +252,7 @@ h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <img src="logo.png" alt="Logo" class="w-8 h-8 object-contain" onerror="this.src='radhey_shyam_logo.png'">
+                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="Logo" class="w-8 h-8 object-contain" onerror="this.src='radhey_shyam_logo.png'">
                 <div>
                     <h1 class="font-bold text-lg text-amber-950 leading-none">MOTI JEWELLERS</h1>
                     <p class="text-xs text-amber-700 font-medium">Customer Contacts Directory</p>

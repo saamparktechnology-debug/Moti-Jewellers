@@ -488,7 +488,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
         <div class="left-content">
             <!-- Brand top -->
             <div class="brand-top">
-                <img src="logo.png" alt="Logo" onerror="this.src='assets/images/moti-removebg-preview.png'">
+                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="Logo" onerror="this.src='assets/images/moti-removebg-preview.png'">
                 <div class="brand-top-text">
                     <h2>MOTI JEWELLERS</h2>
                     <p>Premium Since 2011</p>
@@ -523,7 +523,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
 
         <!-- Logo -->
         <div class="form-logo">
-            <img src="logo.png" alt="Logo" onerror="this.src='assets/images/moti-removebg-preview.png'">
+            <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="Logo" onerror="this.src='assets/images/moti-removebg-preview.png'">
             <h1>MOTI JEWELLERS</h1>
             <p>Premium Jewellery Management System</p>
         </div>

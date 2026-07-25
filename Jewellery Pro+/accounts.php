@@ -341,7 +341,7 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <img src="logo.png" alt="Logo" class="w-8 h-8 object-contain" onerror="this.src='radhey_shyam_logo.png'">
+                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="Logo" class="w-8 h-8 object-contain" onerror="this.src='radhey_shyam_logo.png'">
                 <div>
                     <h1 class="font-bold text-lg text-amber-950 leading-none">MOTI JEWELLERS</h1>
                     <p class="text-xs text-amber-700 font-medium">Daily Accounts &amp; Cash Collection</p>

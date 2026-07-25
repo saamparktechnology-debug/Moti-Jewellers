@@ -117,7 +117,7 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
 <!-- SIDEBAR -->
 <div class="sidebar" id="mainSidebar">
     <div class="sidebar-logo">
-        <img src="logo.png" alt="Logo" onerror="this.src='assets/images/moti-removebg-preview.png'">
+        <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="Logo" onerror="this.src='assets/images/moti-removebg-preview.png'">
         <div class="sidebar-logo-text">
             <h2><?php echo htmlspecialchars($COMPANY['name']); ?></h2>
             <p>Premium Since 2026</p>
