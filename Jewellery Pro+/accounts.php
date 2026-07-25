@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 if(!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -9,7 +10,7 @@ if(!isset($_SESSION['user_id'])) {
 
 $is_logged_in = true;
 
-// -- Ensure required columns & due_update_history table exist ----------------
+//  Ensure required columns & due_update_history table exist 
 $cols = ['cash_paid', 'upi_paid', 'account_paid', 'cheque_paid', 'old_gold_value'];
 foreach ($cols as $c) {
     $chk = mysqli_query($conn, "SHOW COLUMNS FROM invoices LIKE '$c'");
@@ -26,7 +27,7 @@ if ($chkHistoryTable && mysqli_num_rows($chkHistoryTable) > 0) {
     }
 }
 
-// -- Month filter --------------------------------------------------------
+//  Month filter 
 $month = isset($_GET['month']) ? $_GET['month'] : date('Y-m');
 if (!preg_match('/^\d{4}-\d{2}$/', $month)) $month = date('Y-m');
 $monthStart = $month . '-01';
@@ -36,7 +37,7 @@ $monthLabel = date('F Y', strtotime($monthStart));
 $monthStartEsc = mysqli_real_escape_string($conn, $monthStart);
 $monthEndEsc   = mysqli_real_escape_string($conn, $monthEnd);
 
-// -- 1. Fetch all paid/part invoices for the month ----------------------------
+//  1. Fetch all paid/part invoices for the month 
 $sql = "
     SELECT
         DATE(created_at)               AS day,
@@ -89,7 +90,7 @@ while ($row = mysqli_fetch_assoc($res)) {
     $days[$d]['bills']   += 1;
 }
 
-// -- 2. Fetch Due Payments Cleared Today / In Month (from due_update_history) 
+//  2. Fetch Due Payments Cleared Today / In Month (from due_update_history) 
 if ($chkHistoryTable && mysqli_num_rows($chkHistoryTable) > 0) {
     $dueSql = "
         SELECT 
@@ -127,7 +128,7 @@ if ($chkHistoryTable && mysqli_num_rows($chkHistoryTable) > 0) {
 ksort($days);
 $days = array_reverse($days, true);
 
-// -- Month totals ----------------------------------------------------------
+//  Month totals 
 $monthCash     = array_sum(array_column($days, 'cash'));
 $monthUpi      = array_sum(array_column($days, 'upi'));
 $monthCheque   = array_sum(array_column($days, 'cheque'));
@@ -136,7 +137,7 @@ $monthTotal    = array_sum(array_column($days, 'total'));
 $monthBills    = array_sum(array_column($days, 'bills'));
 $monthDueRec   = array_sum(array_column($days, 'due_collections'));
 
-// -- Today highlight ------------------------------------------------------
+//  Today highlight 
 $today = date('Y-m-d');
 $todayCash      = $days[$today]['cash']      ?? 0;
 $todayUpi       = $days[$today]['upi']       ?? 0;
@@ -151,7 +152,7 @@ function pct($part, $total) {
     return $total > 0 ? round(($part / $total) * 100) : 0;
 }
 
-$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -295,9 +296,6 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
-        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
@@ -335,13 +333,11 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
     <!-- Top Navbar -->
     <header class="bg-white border-b border-amber-200/60 px-6 py-3.5 sticky top-0 z-30 flex items-center justify-between no-print shadow-sm">
         <div class="flex items-center gap-3">
-            <div class="mobile-burger" style="display:none;">
-                <div class="burger-menu" id="burgerMenu" onclick="toggleSidebar()">
-                    <span></span><span></span><span></span>
-                </div>
-            </div>
+            <button onclick="toggleSidebar()" class="md:hidden text-amber-900 p-2 text-xl focus:outline-none">
+                <i class="fas fa-bars"></i>
+            </button>
             <div class="flex items-center gap-2">
-                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="Logo" class="w-8 h-8 object-contain" onerror="this.src='radhey_shyam_logo.png'">
+                <img src="assets/images/moti-removebg-preview.png" alt="Logo" class="w-8 h-8 object-contain" onerror="this.src='moti-removebg-preview.png'">
                 <div>
                     <h1 class="font-bold text-lg text-amber-950 leading-none">MOTI JEWELLERS</h1>
                     <p class="text-xs text-amber-700 font-medium">Daily Accounts &amp; Cash Collection</p>
@@ -553,19 +549,17 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
 function toggleSidebar() {
     const sidebar = document.getElementById('mainSidebar');
     const overlay = document.getElementById('sidebarOverlay');
-    const burger  = document.getElementById('burgerMenu');
     sidebar.classList.toggle('open');
     overlay.classList.toggle('active');
-    if(burger) burger.classList.toggle('active');
 }
 function closeSidebar() {
     document.getElementById('mainSidebar').classList.remove('open');
     document.getElementById('sidebarOverlay').classList.remove('active');
-    const burger  = document.getElementById('burgerMenu');
-    if(burger) burger.classList.remove('active');
 }
 </script>
 </body>
 </html>
+
+
 
 

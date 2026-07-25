@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
 $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
@@ -348,7 +349,7 @@ nav.nav-gold span{color:#fff!important;}
         foreach($logo_paths as $p){if(file_exists($p)){echo '<img src="'.$p.'" alt="Logo">';$found=true;break;}}
         if(!$found) echo '<i class="fas fa-gem" style="color:#fff;font-size:30px;"></i>';
         ?>
-        <div class="sidebar-logo-text"><h2>MOTI JEWELLERS</h2><p>Main Market, Paschim Medinipur, West Bengal, India</p></div>
+        <div class="sidebar-logo-text"><h2>MOTI JEWELLERS</h2><p>Sabang, Paschim Medinipur, West Bengal, India</p></div>
     </div>
     <nav class="sidebar-nav">
         <div class="sidebar-section-label">Main Menu</div>
@@ -356,9 +357,7 @@ nav.nav-gold span{color:#fff!important;}
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
-        </a>
+        
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
         <a href="reports.php"><i class="fas fa-chart-bar"></i> REPORTS</a>
@@ -1020,6 +1019,9 @@ function numberToWords(num){
 </script>
 </body>
 </html>
+
+
+
 
 
 

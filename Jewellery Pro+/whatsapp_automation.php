@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 if(!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -8,11 +9,6 @@ if(!isset($_SESSION['user_id'])) {
 }
 
 // Create/alter tables
-$check_column = mysqli_query($conn, "SHOW COLUMNS FROM whatsapp_settings LIKE 'reminder_days'");
-if(mysqli_num_rows($check_column) == 0) {
-    mysqli_query($conn, "ALTER TABLE whatsapp_settings ADD COLUMN reminder_days INT DEFAULT 3");
-}
-
 mysqli_query($conn, "CREATE TABLE IF NOT EXISTS whatsapp_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     api_type VARCHAR(50) DEFAULT 'greenapi',
@@ -23,6 +19,11 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS whatsapp_settings (
     status VARCHAR(20) DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )");
+
+$check_column = mysqli_query($conn, "SHOW COLUMNS FROM whatsapp_settings LIKE 'reminder_days'");
+if($check_column && mysqli_num_rows($check_column) == 0) {
+    mysqli_query($conn, "ALTER TABLE whatsapp_settings ADD COLUMN reminder_days INT DEFAULT 3");
+}
 
 mysqli_query($conn, "CREATE TABLE IF NOT EXISTS whatsapp_logs (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -417,7 +418,7 @@ $advance_customers_list = mysqli_query($conn,
 );
 $total_customers      = mysqli_num_rows($all_customers);
 
-$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -687,7 +688,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             
             
             <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+                <img src="assets/images/moti-removebg-preview.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
             </div>
         </div>
 
@@ -745,9 +746,6 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         </a>
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
-        </a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
         </a>
 
         <div class="sidebar-divider"></div>
@@ -838,7 +836,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         <?php if(isset($bulk_error)):             ?><div class="alert alert-error"><i class="fas fa-exclamation-circle"></i><?php echo $bulk_error; ?></div><?php endif; ?>
         <?php if(isset($advance_reminder_result)):?><div class="alert alert-purple"><i class="fas fa-bell"></i><?php echo $advance_reminder_result; ?></div><?php endif; ?>
 
-        <!-- -- API Settings -- -->
+        <!--  API Settings  -->
         <div class="jewel-card api-card p-5 mb-6">
             <h2 class="gold-font text-lg font-bold mb-4 title-api"><i class="fas fa-plug mr-2"></i>WhatsApp API Settings</h2>
             <form method="POST">
@@ -882,7 +880,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div>
         </div>
 
-        <!-- -- Single Message -- -->
+        <!--  Single Message  -->
         <div class="jewel-card wa-card p-5 mb-6">
             <h2 class="gold-font text-lg font-bold mb-4 title-wa"><i class="fab fa-whatsapp mr-2"></i>Send Single Message</h2>
             <form method="POST" enctype="multipart/form-data">
@@ -937,7 +935,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </form>
         </div>
 
-        <!-- -- Bulk Message -- -->
+        <!--  Bulk Message  -->
         <div class="jewel-card bulk-card p-5 mb-6">
             <h2 class="gold-font text-lg font-bold mb-4 title-bulk"><i class="fas fa-users mr-2"></i>Bulk Message
                 <span class="text-sm font-normal ml-2" style="color:#9ca3af;">(<?php echo $total_customers; ?> customers)</span>
@@ -983,7 +981,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </form>
         </div>
 
-        <!-- -- Advance Customers -- -->
+        <!--  Advance Customers  -->
         <div class="jewel-card adv-card p-5 mb-6">
             <h2 class="gold-font text-lg font-bold mb-4 title-adv"><i class="fas fa-star mr-2"></i>Advance Customers &amp; Reminders</h2>
 
@@ -1048,7 +1046,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div>
         </div>
 
-        <!-- -- Message Logs -- -->
+        <!--  Message Logs  -->
         <div class="jewel-card log-card p-5">
             <h2 class="gold-font text-lg font-bold mb-4 title-log"><i class="fas fa-history mr-2"></i>Message Logs <span class="text-sm font-normal" style="color:#9ca3af;">(Last 30)</span></h2>
             <div class="table-wrap overflow-x-auto rounded-xl" style="border:1px solid rgba(37,99,235,0.15);">
@@ -1101,7 +1099,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
 </style>
 
 <script>
-    /* -- Sidebar -- */
+    /*  Sidebar  */
     function toggleSidebar() {
         const sidebar = document.getElementById('mainSidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -1119,25 +1117,25 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         document.body.style.overflow = '';
     }
 
-    /* -- Media toggle -- */
+    /*  Media toggle  */
     function toggleMedia(prefix) {
         const sel = document.getElementById(prefix + 'MediaType');
         const div = document.getElementById(prefix + 'MediaUploadDiv');
         if(sel && div) div.style.display = sel.value !== 'text' ? 'block' : 'none';
     }
 
-    /* -- Single Message: template vs free-text toggle -- */
+    /*  Single Message: template vs free-text toggle  */
     function toggleSingleTemplate() {
         const checked = document.getElementById('singleUseTemplate').checked;
         document.getElementById('singleTemplateFieldsDiv').style.display = checked ? 'grid' : 'none';
         document.getElementById('singleMessageDiv').style.display = checked ? 'none' : 'block';
     }
 
-    /* -- Customer checkboxes -- */
+    /*  Customer checkboxes  */
     function selectAll()   { document.querySelectorAll('input[name="selected_customers[]"]').forEach(c => c.checked = true); }
     function deselectAll() { document.querySelectorAll('input[name="selected_customers[]"]').forEach(c => c.checked = false); }
 
-    /* -- Advance reminder link -- */
+    /*  Advance reminder link  */
     const reminderBtn = document.getElementById('sendFilteredReminders');
     if(reminderBtn) {
         reminderBtn.addEventListener('click', function(e) {
@@ -1158,6 +1156,8 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
 </script>
 </body>
 </html>
+
+
 
 
 

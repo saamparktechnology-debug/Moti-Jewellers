@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 if(!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -88,7 +89,7 @@ if(!empty($search)) {
     $products = mysqli_query($conn, "SELECT * FROM products ORDER BY id");
 }
 $low_stock = mysqli_query($conn, "SELECT * FROM products WHERE quantity < 5 ORDER BY quantity ASC");
-$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -689,7 +690,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             
             
             <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+                <img src="assets/images/moti-removebg-preview.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
             </div>
         </div>
         <div style="display:flex;gap:9px;justify-content:center;">
@@ -739,9 +740,6 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         </a>
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
-        </a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
         </a>
 
         <div class="sidebar-divider"></div>
@@ -1357,6 +1355,8 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
 
 </body>
 </html>
+
+
 
 
 

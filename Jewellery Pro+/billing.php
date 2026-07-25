@@ -4,6 +4,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 require_once 'config/mail_config.php';
 
 $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
@@ -103,7 +104,7 @@ if($chk_reminder && mysqli_num_rows($chk_reminder) == 0) {
     mysqli_query($conn, "ALTER TABLE invoices ADD COLUMN reminder_sent TINYINT(1) DEFAULT 0");
 }
 
-// -- NEW: AJAX: Mark invoice as paid (partial or full custom amount) ------
+//  NEW: AJAX: Mark invoice as paid (partial or full custom amount) 
 if(isset($_GET['action']) && $_GET['action'] === 'mark_paid') {
     header('Content-Type: application/json');
     if($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -243,7 +244,7 @@ $last_upi_paid = 0;
 $last_is_split = 0;
 $last_old_gold_amount = 0;
 
-$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-preview.png', 'moti-removebg-preview.png', 'logo.png'];
 
 // Fetch products from DB
 $all_products = [];
@@ -290,7 +291,7 @@ $itemTypeOptions['Diamond']  = array_unique(array_merge($itemTypeOptions['Diamon
 $itemTypeOptions['Others']   = array_unique(array_merge($itemTypeOptions['Others'],
   ['Shankha','Pala','Mala','Moti Mala','Trasel','Branch Fram','Braslate Pala',
   'Parl Mala','Gala','Reparing','Stamp Charg','Other']));
-// -- NEW: Fetch due-today payments ----------------------------------------
+//  NEW: Fetch due-today payments 
 $today = date('Y-m-d');
 $due_today_result = mysqli_query($conn, "
     SELECT invoice_no, customer_name, customer_mobile, customer_address,
@@ -336,21 +337,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
     $customer_mobile  = mysqli_real_escape_string($conn, $_POST['customer_mobile']);
     $customer_address = mysqli_real_escape_string($conn, $_POST['customer_address'] ?? '');
     $customer_email   = mysqli_real_escape_string($conn, $_POST['customer_email'] ?? '');
+    $gst_amount       = floatval($_POST['gst_amount'] ?? 0);
     $raw_gst_type     = strtolower(trim($_POST['gst_type'] ?? 'non_gst'));
-    if ($raw_gst_type === 'non_gst' || empty($raw_gst_type)) {
-        $raw_items = json_decode($_POST['items'] ?? '[]', true);
-        if (is_array($raw_items)) {
-            foreach ($raw_items as $it) {
-                $gt = strtolower(trim($it['gst_type'] ?? ''));
-                if ($gt === 'gst_3' || $gt === 'gst_18' || $gt === '3%' || $gt === '18%') {
-                    $raw_gst_type = 'gst';
-                    break;
-                }
-            }
-        }
-    }
-    if ($raw_gst_type === 'gst_3' || $raw_gst_type === 'gst_18') {
-        $raw_gst_type = 'gst';
+    if ($gst_amount > 0 && ($raw_gst_type === 'non_gst' || empty($raw_gst_type))) {
+        $raw_gst_type = 'gst_3';
     }
     $gst_type         = mysqli_real_escape_string($conn, $raw_gst_type);
     $subtotal         = floatval($_POST['subtotal']);
@@ -450,7 +440,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         }
     }
 
-    // -- STOCK VALIDATION: Pre-check available stock pieces before creating invoice --
+    //  STOCK VALIDATION: Pre-check available stock pieces before creating invoice 
     $raw_items = json_decode($_POST['items'] ?? '[]', true);
     if (is_array($raw_items)) {
         $req_pcs_map = [];
@@ -557,9 +547,6 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
                 mysqli_query($conn, "DELETE FROM products WHERE id = $pid AND quantity <= 0");
             }
         }
-        $total_qty = 0;
-        if(is_array($items)) foreach($items as $item) { $total_qty += floatval($item['quantity'] ?? 0); }
-
         $redirect_url = 'view_pdf.php?invoice_no=' . urlencode($invoice_no);
         if(!headers_sent()) {
             header("Location: " . $redirect_url);
@@ -580,7 +567,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <title>Billing - MOTI JEWELLERS</title>
     <link rel="icon" type="image/png" href="logo.png">
-    <link rel="shortcut icon" type="image/png" href="assets/images/moti-removebg-preview.png">
+    <link rel="shortcut icon" type="image/png" href="logo.png">
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/theme.css">
@@ -847,9 +834,7 @@ window.addEventListener('load', function() {
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
         </a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
-        </a>
+        
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
@@ -1301,7 +1286,7 @@ function submitPayment() {
                                         <input type="text" id="gramStockSearch" placeholder=" Search stock..." class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="filterGramStock(this.value)" autocomplete="off">
                                         <div id="gramStockSuggestions" class="autocomplete-suggestions hidden"></div>
                                     </div>
-                                    <button type="button" onclick="clearGramStockSearch()" class="px-3 py-2 rounded-lg text-sm bg-white border border-yellow-300 text-yellow-800">&#x21A9;</button>
+                                    <button type="button" onclick="clearGramStockSearch()" class="px-3 py-2 rounded-lg text-sm bg-white border border-yellow-300 text-yellow-800"></button>
                                 </div>
                                 <div class="mb-3">
                                     <label class="block mb-1 text-xs font-semibold text-yellow-800">Select Product</label>
@@ -1392,7 +1377,7 @@ function submitPayment() {
                         <div class="mt-4 pt-4" style="border-top:1px dashed rgba(214,139,22,0.3);">
                             <h4 class="text-xs font-bold mb-2" style="color:#7a4e0a;">Additional Details for this Item</h4>
                             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <div>
+                                 <div>
                                      <div class="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                                          <label id="mcLabel" class="text-xs font-bold" style="color:#7a4e0a;">Making Charge</label>
                                          <div class="inline-flex p-0.5 bg-amber-100/90 border border-amber-300/80 rounded-lg shadow-inner gap-0.5">
@@ -1409,7 +1394,7 @@ function submitPayment() {
                                          <span id="mcUnitSuffix" class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-700 pointer-events-none">%</span>
                                      </div>
                                      <div id="itemMakingChargeHint" class="text-xs mt-1 font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200" style="display:none;"></div>
-                                </div>
+                                 </div>
                                 <div>
                                     <label class="block mb-1 text-xs font-semibold" style="color:#7a4e0a;">Hallmark (₹)</label>
                                     <input type="number" id="itemHallmark" value="" step="1" min="0" placeholder="0" class="jewel-input w-full rounded-lg px-2 py-1 text-sm">
@@ -1506,7 +1491,6 @@ function submitPayment() {
                     <!-- Hidden form fields -->
                     <input type="hidden" name="subtotal" id="hiddenSubtotal" value="0">
                     <input type="hidden" name="gst_amount" id="hiddenGst" value="0">
-                    <input type="hidden" name="gst_type" id="hiddenGstType" value="non_gst">
                     <input type="hidden" name="total_amount" id="hiddenTotal" value="0">
                     <input type="hidden" name="items" id="hiddenItems" value="[]">
                     <input type="hidden" name="making_charge" id="hiddenMakingCharge" value="0">
@@ -2120,10 +2104,6 @@ function setMcMode(mode) {
     updateMakingChargeHint();
 }
 
-function toggleMcMode() {
-    setMcMode(currentMcMode === 'pct' ? 'direct' : 'pct');
-}
-
 function updateMakingChargeHint() {
     const hintEl = document.getElementById('itemMakingChargeHint');
     if(!hintEl) return;
@@ -2614,7 +2594,7 @@ function populateStockSelects() {
     filterGramStock('');
     filterQtyStock('');
 }
-function resetItemCharges() {
+   function resetItemCharges() {
     document.getElementById('itemMakingCharge').value = '';
     document.getElementById('itemHallmark').value = '';
     document.getElementById('itemDiscount').value = '';
@@ -2757,17 +2737,13 @@ function calculateTotal() {
     const discount  = items.reduce((sum, item) => sum + (item.discount || 0), 0);
     
     let cgst = 0, sgst = 0;
-    let computedGstType = 'non_gst';
-    
     items.forEach(item => {
         if (item.gst_type === 'gst_3') {
             cgst += item.total * 0.015;
             sgst += item.total * 0.015;
-            if (computedGstType === 'non_gst') computedGstType = 'gst_3';
         } else if (item.gst_type === 'gst_18') {
             cgst += item.total * 0.09;
             sgst += item.total * 0.09;
-            computedGstType = 'gst_18';
         }
     });
 
@@ -2794,9 +2770,6 @@ function calculateTotal() {
     
     document.getElementById('hiddenSubtotal').value  = subtotal;
     document.getElementById('hiddenGst').value       = cgst + sgst;
-    if(document.getElementById('hiddenGstType')) {
-        document.getElementById('hiddenGstType').value = computedGstType;
-    }
     document.getElementById('hiddenTotal').value     = grand;
     document.getElementById('hiddenItems').value     = JSON.stringify(buildItemsForSubmit());
     document.getElementById('hiddenMakingCharge').value = makingAmt;
@@ -2806,6 +2779,10 @@ function calculateTotal() {
     if(document.getElementById('paymentMethod').value === 'Split') {
         document.getElementById('splitGrandTotal').textContent = fmt(grand);
         updateSplitDisplay();
+    }
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) {
+        submitBtn.innerHTML = (cgst + sgst > 0) ? ' Generate Tax Invoice ' : ' Generate Cash Memo ';
     }
     updateBalanceFromPart();
 }
@@ -3301,7 +3278,7 @@ function sendPaymentReminder() {
     .catch(error => { showNotif('\u26A0\uFE0F ' + (error?.message || 'Reminder email could not be sent.'), 'error'); });
 }
 
-// -- NEW: Due Today - Send Reminder ----------------------------------------
+//  NEW: Due Today - Send Reminder 
 function sendDueReminder(invoiceNo, customerName, customerMobile, balanceAmount) {
     const btn = document.getElementById('remind-btn-' + invoiceNo);
     if(!btn) return;
@@ -3514,6 +3491,9 @@ function convertNumberToWords($number) {
     return trim($result).' Rupees Only';
 }
 ?>
+
+
+
 
 
 

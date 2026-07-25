@@ -7,8 +7,12 @@ require_once 'config/database.php';
 require_once 'config/company_config.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
+if(!$is_logged_in) {
+    header("Location: login.php");
+    exit();
+}
 $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'light';
-$logo_paths = ['logo.png', 'images/radhey_shyam_logo.png', 'radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-preview.png', 'moti-removebg-preview.png', 'radhey shyam logo.png'];
 
 $daily_sales = [];
 $top_products = [];
@@ -128,8 +132,14 @@ if($is_logged_in) {
     $total_sales = $total_sales_row['total'] ?? 0;
 
     // Today's sales (Includes new billing invoices + due payments cleared today)
-    $today_sales_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT (SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE DATE(created_at) = CURDATE()) + (SELECT COALESCE(SUM(amount_paid), 0) FROM due_update_history WHERE DATE(payment_date) = CURDATE()) as total"));
-    $today_sales_amt = $today_sales_row['total'] ?? 0;
+    $today_due_cleared = 0;
+    $due_chk = mysqli_query($conn, "SHOW TABLES LIKE 'due_update_history'");
+    if($due_chk && mysqli_num_rows($due_chk) > 0) {
+        $due_cleared_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(amount_paid), 0) as total FROM due_update_history WHERE DATE(payment_date) = CURDATE()"));
+        $today_due_cleared = floatval($due_cleared_row['total'] ?? 0);
+    }
+    $today_inv_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE(created_at) = CURDATE()"));
+    $today_sales_amt = floatval($today_inv_row['total'] ?? 0) + $today_due_cleared;
 
     // Today's invoice count
     $today_invoice_count_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM invoices WHERE DATE(created_at) = CURDATE()"));
@@ -461,12 +471,14 @@ if($is_logged_in) {
         }
 
         .floating-logo img {
-            width: 160px !important;
-            height: 160px !important;
+            width: 220px !important;
+            height: 220px !important;
+            max-width: 85vw !important;
+            max-height: 220px !important;
             object-fit: contain;
             display: block;
             margin: 0 auto !important;
-            filter: drop-shadow(0 8px 24px rgba(181,115,14,0.4));
+            filter: drop-shadow(0 12px 32px rgba(214,139,22,0.45));
         }
 
         /* ========== HERO ========== */
@@ -763,17 +775,17 @@ if($is_logged_in) {
         }
     }
 
-    const texts = ["MOTI JEWELLERS"];
+    const texts = ["MOTI JEWELLERS", "PREMIUM JEWELLERY COLLECTION", "FINE GOLD & DIAMOND JEWELLERY"];
     let textIndex = 0, charIndex = 0, isDeleting = false, typingSpeed = 100;
 
     function typeEffect() {
         const el = document.getElementById('typingText');
         if(!el) return;
         const cur = texts[textIndex];
-        if(isDeleting) { el.innerHTML = cur.substring(0, charIndex - 1); charIndex--; typingSpeed = 50; }
-        else { el.innerHTML = cur.substring(0, charIndex + 1); charIndex++; typingSpeed = 100; }
-        if(!isDeleting && charIndex === cur.length) { isDeleting = true; typingSpeed = 2000; }
-        else if(isDeleting && charIndex === 0) { isDeleting = false; textIndex = 0; typingSpeed = 500; }
+        if(isDeleting) { el.textContent = cur.substring(0, charIndex - 1); charIndex--; typingSpeed = 40; }
+        else { el.textContent = cur.substring(0, charIndex + 1); charIndex++; typingSpeed = 90; }
+        if(!isDeleting && charIndex === cur.length) { isDeleting = true; typingSpeed = 2500; }
+        else if(isDeleting && charIndex === 0) { isDeleting = false; textIndex = (textIndex + 1) % texts.length; typingSpeed = 400; }
         setTimeout(typeEffect, typingSpeed);
     }
 
@@ -807,14 +819,15 @@ if($is_logged_in) {
         const isReload = performance.getEntriesByType("navigation")[0]?.type === "reload";
         const hasVisited = sessionStorage.getItem('visited');
 
+        createJewelSparkles();
+        setTimeout(typeEffect, 300);
+
         if (!hasVisited || isReload) {
             sessionStorage.setItem('visited', 'true');
-            createJewelSparkles();
-            setTimeout(typeEffect, 600);
             setTimeout(function() {
                 const ov = document.getElementById('loadingOverlay');
                 if(ov) { ov.style.opacity = '0'; ov.style.visibility = 'hidden'; setTimeout(()=>ov.style.display='none', 500); }
-            }, 2000);
+            }, 1800);
         } else {
         const ov = document.getElementById('loadingOverlay');
             if(ov) { ov.style.display = 'none'; }
@@ -847,7 +860,7 @@ if($is_logged_in) {
             
             
             <div style="width:120px;height:120px;background:transparent;display:flex;align-items:center;justify-content:center;animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+                <img src="assets/images/moti-removebg-preview.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
             </div>
         </div>
 
@@ -920,9 +933,6 @@ if($is_logged_in) {
         </a>
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
-        </a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
         </a>
 
         <div class="sidebar-divider"></div>
@@ -1035,16 +1045,16 @@ if($is_logged_in) {
             $logo_found = false;
             foreach($logo_paths as $path) {
                 if(file_exists($path)) {
-                    echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo" style="height:150px;width:150px;max-width:180px;object-fit:contain;display:block;margin:0 auto;filter:drop-shadow(0 8px 24px rgba(181,115,14,0.4));">';
+                    echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo" style="width:220px;height:220px;max-width:85vw;max-height:220px;object-fit:contain;display:block;margin:0 auto;filter:drop-shadow(0 12px 32px rgba(214,139,22,0.45));">';
                     $logo_found = true; break;
                 }
             }
-            if(!$logo_found) echo '<i class="fas fa-gem" style="font-size:80px;color:#d68b16;"></i>';
+            if(!$logo_found) echo '<i class="fas fa-gem" style="font-size:110px;color:#d68b16;filter:drop-shadow(0 12px 32px rgba(214,139,22,0.45));"></i>';
             ?>
         </div>
 
         <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mt-4 mb-4" style="min-height:1.2em;">
-            <span id="typingText" class="typing-text"></span><span class="cursor"></span>
+            <span id="typingText" class="typing-text">MOTI JEWELLERS</span><span class="cursor"></span>
         </h1>
 
         <p class="text-base sm:text-lg md:text-xl mb-8 max-w-2xl mx-auto" style="color:#7a4e0a;">
@@ -1288,7 +1298,14 @@ if($is_logged_in) {
         <?php
         $products_count = $conn->query("SELECT COUNT(*) as total FROM products")->fetch_assoc();
         $stock_value    = $conn->query("SELECT SUM(price * quantity) as total FROM products")->fetch_assoc();
-        $today_sales    = $conn->query("SELECT (SELECT COALESCE(SUM(total_amount), 0) FROM invoices WHERE DATE(created_at) = CURDATE()) + (SELECT COALESCE(SUM(amount_paid), 0) FROM due_update_history WHERE DATE(payment_date) = CURDATE()) as total")->fetch_assoc();
+        $today_due_cleared_stat = 0;
+        $due_chk_stat = $conn->query("SHOW TABLES LIKE 'due_update_history'");
+        if($due_chk_stat && $due_chk_stat->num_rows > 0) {
+            $due_cleared_row_stat = $conn->query("SELECT COALESCE(SUM(amount_paid), 0) as total FROM due_update_history WHERE DATE(payment_date) = CURDATE()")->fetch_assoc();
+            $today_due_cleared_stat = floatval($due_cleared_row_stat['total'] ?? 0);
+        }
+        $today_inv_row_stat = $conn->query("SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE(created_at) = CURDATE()")->fetch_assoc();
+        $today_sales = ['total' => floatval($today_inv_row_stat['total'] ?? 0) + $today_due_cleared_stat];
         $customers_count = $conn->query("SELECT COUNT(*) as total FROM customers")->fetch_assoc();
         ?>
         <div class="stat-gem p-5">
@@ -1687,6 +1704,7 @@ if($is_logged_in) {
     </script>
     <?php endif; ?>
 </html>
+
 
 
 

@@ -4,22 +4,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 session_start();
 require_once 'config/database.php';
-if(file_exists('config/company_config.php')) {
-    require_once 'config/company_config.php';
-} else {
-    $COMPANY = [
-        'name'          => 'MOTI JEWELLERS',
-        'name_short'    => 'Moti Jewellers',
-        'address_line1' => 'Main Market',
-        'address_line2' => 'Paschim Medinipur',
-        'state'         => 'West Bengal',
-        'state_code'    => '19',
-        'mobile'        => '9635985848',
-        'email'         => 'motijewellers9635985848@gmail.com',
-        'gstin'         => '19ELQPP1010L1ZR',
-        'logo_path'     => 'logo.png',
-    ];
-}
+require_once 'config/company_config.php';
 
 if(!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -44,12 +29,12 @@ if(!$inv_res || mysqli_num_rows($inv_res) == 0) {
 $inv = mysqli_fetch_assoc($inv_res);
 
 // Fetch invoice items
-$col_unit = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'unit'")) > 0;
-if(!$col_unit) @mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN unit VARCHAR(20) DEFAULT 'g'");
+$col_gst_type_check = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'gst_type'")) > 0;
+$select_gst_type = $col_gst_type_check ? "ii.gst_type," : "'non_gst' AS gst_type,";
 
 $items_res = mysqli_query($conn, "
     SELECT ii.invoice_id, ii.product_id, ii.quantity, ii.price, ii.total,
-           ii.making_charge, ii.hallmark, ii.discount,
+           ii.making_charge, ii.hallmark, ii.discount, $select_gst_type
            'g' AS unit,
            COALESCE(ii.product_name, p.name) AS product_name,
            COALESCE(ii.serial_no, p.serial_no) AS serial_no,
@@ -65,21 +50,30 @@ if($items_res) {
 }
 
 $gst_total = floatval($inv['gst_amount'] ?? 0);
-$is_gst    = ($gst_total > 0 || strpos(($inv['gst_type'] ?? ''), 'gst') === 0);
-
 $subtotal  = floatval($inv['subtotal'] ?? 0);
-$calc_pct  = ($is_gst && $subtotal > 0 && $gst_total > 0) ? round(($gst_total / $subtotal) * 100) : 3;
-$half_pct  = ($calc_pct > 0) ? ($calc_pct / 2) : 1.5;
+$raw_gst_type = strtolower(trim($inv['gst_type'] ?? 'non_gst'));
+$is_gst    = ($gst_total > 0 || ($raw_gst_type !== 'non_gst' && strpos($raw_gst_type, 'gst') === 0));
 
-// Exact CGST & SGST 50/50 Split
+$doc_title     = $is_gst ? 'TAX INVOICE' : 'CASH MEMO';
+$no_label      = $is_gst ? 'Invoice No.' : 'Cash Memo No.';
+$date_label    = $is_gst ? 'Invoice Date' : 'Date';
+$bill_to_label = $is_gst ? 'Bill To' : 'Customer Details';
+$doc_term_name = $is_gst ? 'invoice' : 'cash memo';
+
+// Calculate overall effective GST rate (e.g. 18% or 3%)
+$effective_gst_pct = ($subtotal > 0 && $gst_total > 0) ? round(($gst_total / $subtotal) * 100, 1) : ($is_gst ? 3 : 0);
+
+$cgst_rate   = $is_gst ? round($effective_gst_pct / 2, 2) : 0;
+$sgst_rate   = $is_gst ? round($effective_gst_pct / 2, 2) : 0;
 $cgst_amount = $is_gst ? round($gst_total / 2, 2) : 0;
 $sgst_amount = $is_gst ? round($gst_total / 2, 2) : 0;
-$cgst_rate   = $is_gst ? $half_pct : 0;
-$sgst_rate   = $is_gst ? $half_pct : 0;
+
+$subtotal = floatval($inv['subtotal'] ?? 0);
 $discount = floatval($inv['discount'] ?? 0);
 $old_gold = floatval($inv['old_gold_amount'] ?? 0);
 $raw_total= floatval($inv['total_amount']);
 
+// Ensure net total deducts old_gold_amount if DB stored pre-deduction total
 $calc_total = max(0, $subtotal + $gst_total - $old_gold);
 $total = ($old_gold > 0 && abs($raw_total - $calc_total) > 1) ? $calc_total : $raw_total;
 
@@ -129,12 +123,9 @@ function num2words($n) {
 }
 $total_words = num2words($total) . ' Rupees Only';
 
-$logo_file = 'logo.png';
-if(!file_exists($logo_file)) {
-    if(file_exists('assets/images/logo.png')) $logo_file = 'assets/images/logo.png';
-}
+$logo_file = 'assets/images/moti-removebg-preview.png';
 
-// -- DUE PAYMENT RECEIPT MODE LOGIC --
+//  DUE PAYMENT RECEIPT MODE LOGIC 
 $is_receipt = (isset($_GET['receipt']) && $_GET['receipt'] == '1') || isset($_GET['history_id']);
 $history_id = intval($_GET['history_id'] ?? 0);
 
@@ -147,15 +138,12 @@ $rec_no = 'RCPT-' . ($history_id > 0 ? $history_id : rand(1000, 9999));
 
 if ($is_receipt) {
     if ($history_id > 0) {
-        $chk_hist = mysqli_query($conn, "SHOW TABLES LIKE 'due_update_history'");
-        if ($chk_hist && mysqli_num_rows($chk_hist) > 0) {
-            $h_res = mysqli_query($conn, "SELECT * FROM due_update_history WHERE id = $history_id LIMIT 1");
-            if ($h_res && $h_row = mysqli_fetch_assoc($h_res)) {
-                $rec_paid_amount = floatval($h_row['amount_paid']);
-                $rec_prev_balance = floatval($h_row['previous_balance']);
-                $rec_new_balance = floatval($h_row['new_balance']);
-                $rec_payment_date = date('d/m/Y', strtotime($h_row['payment_date']));
-            }
+        $h_res = mysqli_query($conn, "SELECT * FROM due_update_history WHERE id = $history_id LIMIT 1");
+        if ($h_res && $h_row = mysqli_fetch_assoc($h_res)) {
+            $rec_paid_amount = floatval($h_row['amount_paid']);
+            $rec_prev_balance = floatval($h_row['previous_balance']);
+            $rec_new_balance = floatval($h_row['new_balance']);
+            $rec_payment_date = date('d/m/Y', strtotime($h_row['payment_date']));
         }
     }
     if ($rec_paid_amount <= 0) {
@@ -172,9 +160,9 @@ if ($is_receipt) {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TAX INVOICE - <?php echo htmlspecialchars($invoice_no); ?></title>
+<title><?php echo $doc_title; ?> - <?php echo htmlspecialchars($invoice_no); ?></title>
 <link rel="icon" type="image/png" href="logo.png">
-<link rel="shortcut icon" type="image/png" href="assets/images/moti-removebg-preview.png">
+<link rel="shortcut icon" type="image/png" href="logo.png">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Poppins:wght@400;500;600;700&display=swap');
 
@@ -195,7 +183,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
     width:210mm; max-width:820px; min-height:285mm; margin:0 auto; background:#fffbf4; border:3px solid #d68b16; border-radius:14px; padding:28px 32px; box-shadow:0 12px 36px rgba(0,0,0,0.18); position:relative; overflow:hidden;
 }
 
-/* Full Page Coloured Logo Watermark */
+/* Full Page Coloured Logo Watermark (Rendered on top as a true watermark overlay) */
 .full-page-coloured-watermark {
     position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:520px; height:520px; object-fit:contain; opacity:0.12; pointer-events:none; z-index:99; filter:none;
 }
@@ -217,7 +205,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
 .pill-part { background:#fef3c7; color:#b45309; border:1px solid #fcd34d; }
 .pill-unpaid { background:#ffe4e6; color:#be123c; border:1px solid #fca5a5; }
 
-/* Meta Info Grid */
+/* Meta Info Grid (Invoice No, Invoice Date, Due Date) */
 .meta-bar { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; background:rgba(247,238,215,0.72); border:1.5px solid #d68b16; border-radius:8px; padding:8px 16px; margin-bottom:16px; font-size:11.5px; }
 .meta-item { display:flex; flex-direction:column; }
 .meta-label { font-size:9.5px; color:#7a4e0a; text-transform:uppercase; font-weight:600; letter-spacing:0.5px; margin-bottom:1px; }
@@ -253,12 +241,12 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
 .terms-box-title { font-size:11px; font-weight:700; color:#7a4e0a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
 .terms-text-content { font-size:10px; color:#475569; line-height:1.55; background:rgba(255,255,255,0.65); padding:8px 12px; border-radius:6px; border:1px solid #f1e5cd; }
 
-/* Signature Stamp Box */
+/* Signature Stamp Box (At Very Bottom) */
 .stamp-space-box { margin-top:16px; display:flex; justify-content:flex-start; }
 .signature-stamp-frame { width:165px; height:75px; border:1.5px dashed #d68b16; border-radius:8px; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(248,243,230,0.5); position:relative; }
 .stamp-label-text { font-size:9.5px; color:#7a4e0a; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-top:auto; padding-bottom:5px; text-align:center; }
 
-/* Calculation Box */
+/* Calculation Box (Right Side) */
 .calc-card { background:rgba(255,255,255,0.80); border:1.5px solid #d68b16; border-radius:8px; padding:14px 18px; box-shadow:0 2px 6px rgba(122,78,10,0.06); display:flex; flex-direction:column; gap:6px; }
 .calc-line { display:flex; justify-content:space-between; font-size:11.5px; color:#475569; }
 .calc-line strong { color:#1e293b; }
@@ -342,7 +330,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                         <span class="meta-value"><?php echo $rec_payment_date; ?></span>
                     </div>
                     <div class="meta-item">
-                        <span class="meta-label">Ref. Invoice No.</span>
+                        <span class="meta-label">Ref. <?php echo $no_label; ?></span>
                         <span class="meta-value"><?php echo htmlspecialchars($invoice_no); ?> (<?php echo $date_fmt; ?>)</span>
                     </div>
                     <?php if($rec_new_balance > 0 && !empty($next_due_date_display)): ?>
@@ -380,7 +368,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                     </thead>
                     <tbody>
                         <tr>
-                            <td>Original Invoice Total Amount (Ref: <strong><?php echo htmlspecialchars($invoice_no); ?></strong>)</td>
+                            <td>Original <?php echo $is_gst ? 'Invoice' : 'Cash Memo'; ?> Total Amount (Ref: <strong><?php echo htmlspecialchars($invoice_no); ?></strong>)</td>
                             <td class="right">₹<?php echo number_format($inv['total_amount'], 2); ?></td>
                         </tr>
                         <tr>
@@ -418,7 +406,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                         <div>
                             <div class="terms-box-title">Terms &amp; Declaration</div>
                             <div class="terms-text-content">
-                                1. Received payment with thanks towards due balance for Invoice <strong><?php echo htmlspecialchars($invoice_no); ?></strong>.<br>
+                                1. Received payment with thanks towards due balance for <?php echo $is_gst ? 'Invoice' : 'Cash Memo'; ?> <strong><?php echo htmlspecialchars($invoice_no); ?></strong>.<br>
                                 2. Subject to Paschim Medinipur Jurisdiction.<br>
                                 3. This is a computer generated official payment receipt.
                             </div>
@@ -449,7 +437,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                         </div>
                     </div>
                     <div class="header-right">
-                        <div class="tax-invoice-tag"><?php echo $is_gst ? 'TAX INVOICE' : 'INVOICE'; ?></div>
+                        <div class="tax-invoice-tag"><?php echo $doc_title; ?></div>
                         <span class="payment-status-pill <?php echo 'pill-'.$inv['payment_status']; ?>">
                             <?php
                             $ps = $inv['payment_status'];
@@ -462,11 +450,11 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                 <!-- 2. Invoice Meta Bar: Invoice No, Invoice Date, Due Date -->
                 <div class="meta-bar">
                     <div class="meta-item">
-                        <span class="meta-label">Invoice No.</span>
+                        <span class="meta-label"><?php echo $no_label; ?></span>
                         <span class="meta-value"><?php echo htmlspecialchars($invoice_no); ?></span>
                     </div>
                     <div class="meta-item">
-                        <span class="meta-label">Invoice Date</span>
+                        <span class="meta-label"><?php echo $date_label; ?></span>
                         <span class="meta-value"><?php echo $date_fmt; ?></span>
                     </div>
                     <div class="meta-item">
@@ -478,7 +466,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                 <!-- 3. Bill To Block: Name & Address on left, Ph No & GSTIN & Vertical Place of Supply on right -->
                 <div class="bill-to-card">
                     <div class="bill-to-left">
-                        <div class="bill-to-title">Bill To</div>
+                        <div class="bill-to-title"><?php echo $bill_to_label; ?></div>
                         <div class="customer-name-big"><?php echo htmlspecialchars($inv['customer_name']); ?></div>
                         <?php if(!empty($inv['customer_address'])): ?>
                         <div class="customer-address-text"> Address: <?php echo htmlspecialchars($inv['customer_address']); ?></div>
@@ -519,8 +507,11 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                         </tr>
                         <?php else: foreach($items as $idx => $it):
                             $name     = htmlspecialchars($it['product_name'] ?? 'Item');
-                            $serial   = htmlspecialchars($it['serial_no'] ?? '');
-                            $huid     = htmlspecialchars($it['huid_code'] ?? '');
+                            $serial   = trim($it['serial_no'] ?? '');
+                            $huid     = trim($it['huid_code'] ?? '');
+                            if(empty($huid) && !empty($inv['huid_code'])) {
+                                $huid = trim($inv['huid_code']);
+                            }
                             $unit     = strtolower(trim($it['unit'] ?? 'g'));
                             $is_piece = in_array($unit, ['qty','pcs','piece','pieces']);
                             $item_val = floatval($it['quantity']);
@@ -529,18 +520,30 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                             $net_wt   = $is_piece ? 0 : floatval($it['net_wt'] ?? $item_val);
                             $rate     = floatval($it['price']);
                             $amt      = floatval($it['total']);
-                            $item_tax_pct = ($calc_pct > 0) ? $calc_pct : 3;
-                            $tax_amt  = $is_gst ? round($amt * ($item_tax_pct / 100), 2) : 0;
+                            $it_gst_type = $it['gst_type'] ?? 'non_gst';
+                            if ($it_gst_type === 'gst_18') {
+                                $item_tax_rate = 18;
+                                $tax_amt = round($amt * 0.18, 2);
+                            } else if ($it_gst_type === 'gst_3') {
+                                $item_tax_rate = 3;
+                                $tax_amt = round($amt * 0.03, 2);
+                            } else if ($is_gst && $effective_gst_pct > 0) {
+                                $item_tax_rate = $effective_gst_pct;
+                                $tax_amt = round($amt * ($effective_gst_pct / 100), 2);
+                            } else {
+                                $item_tax_rate = 0;
+                                $tax_amt = 0;
+                            }
                         ?>
                         <tr>
                             <td class="center"><?php echo $idx + 1; ?></td>
                             <td>
                                 <div class="item-desc"><?php echo $name; ?></div>
-                                <?php if($serial): ?>
-                                <div class="item-sub">Serial: <strong><?php echo $serial; ?></strong></div>
+                                <?php if(!empty($huid)): ?>
+                                <div class="item-sub" style="color:#7a4e0a;font-weight:600;">HUID: <strong><?php echo htmlspecialchars($huid); ?></strong></div>
                                 <?php endif; ?>
-                                <?php if($huid): ?>
-                                <div class="item-sub">HUID: <strong><?php echo $huid; ?></strong></div>
+                                <?php if(!empty($serial) && $serial !== $huid): ?>
+                                <div class="item-sub">Serial: <strong><?php echo htmlspecialchars($serial); ?></strong></div>
                                 <?php endif; ?>
                                 <?php 
                                 $it_mc_amt = floatval($it['making_charge'] ?? 0);
@@ -555,7 +558,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                             <td class="right">₹<?php echo number_format($rate, 2); ?></td>
                             <td class="right">
                                 <?php if($is_gst && $tax_amt > 0): ?>
-                                ₹<?php echo number_format($tax_amt, 2); ?><br><span style="font-size:9px;color:#64748b;">(<?php echo $item_tax_pct; ?>%)</span>
+                                ₹<?php echo number_format($tax_amt, 2); ?><br><span style="font-size:9px;color:#64748b;">(<?php echo $item_tax_rate; ?>%)</span>
                                 <?php else: ?>
                                 <span style="color:#94a3b8;">0%</span>
                                 <?php endif; ?>
@@ -588,12 +591,12 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                                 1. Goods once sold will not be taken back or exchanged without original bill receipt.<br>
                                 2. Guarantee / Warranty applies strictly as per manufacturer and BIS Hallmark standards.<br>
                                 3. All disputes are subject to Paschim Medinipur Jurisdiction.<br>
-                                4. We declare that this invoice shows the actual price of the goods described and all particulars are true and correct.
+                                4. We declare that this <?php echo $doc_term_name; ?> shows the actual price of the goods described and all particulars are true and correct.
                             </div>
                         </div>
                     </div>
 
-                    <!-- Right Side: Taxable Amount, CGST 1.5%, SGST 1.5%, Total Amount, Received Amount, Previous Balance, Current Balance -->
+                    <!-- Right Side: Taxable Amount, CGST 1.5%, SGST 1.5% (Actual GST Divided in Two), Total Amount, Received Amount, Previous Balance, Current Balance -->
                     <div class="bottom-right">
                         <div class="calc-card">
                             <div class="calc-line">
@@ -662,7 +665,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                     <strong>Total Amount in Words:</strong> <em><?php echo $total_words; ?></em>
                 </div>
 
-                <!-- 8. Signature & Stamp Space -->
+                <!-- 8. Signature & Stamp Space (Right below Amount in Words) -->
                 <div class="stamp-space-box">
                     <div class="signature-stamp-frame">
                         <div class="stamp-label-text">Signature &amp; Stamp<br>Authorised Signatory</div>
@@ -681,4 +684,5 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
 
 </body>
 </html>
+
 

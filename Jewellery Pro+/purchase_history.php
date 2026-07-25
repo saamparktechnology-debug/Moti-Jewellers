@@ -6,15 +6,15 @@ if(file_exists('config/company_config.php')) {
 } else {
     $COMPANY = [
         'name'          => 'MOTI JEWELLERS',
-        'name_short'    => 'Moti Jewellers',
-        'address_line1' => 'Main Market',
+        'name_short'    => 'Gouri Jewellers',
+        'address_line1' => 'Sabang',
         'address_line2' => 'Paschim Medinipur',
         'state'         => 'West Bengal',
         'state_code'    => '19',
         'mobile'        => '9635985848',
         'email'         => 'motijewellers9635985848@gmail.com',
-        'gstin'         => '19ELQPP1010L1ZR',
-        'logo_path'     => 'logo.png',
+        'gstin'         => '',
+        'logo_path'     => 'assets/images/moti-removebg-preview.png',
     ];
 }
 
@@ -22,11 +22,11 @@ $is_logged_in = isset($_SESSION['user_id']);
 
 $logo_paths = [
     $COMPANY['logo_path'] ?? '',
-    'logo.png',
     'assets/images/moti-removebg-preview.png',
+    'logo.png',
 ];
 
-// -- Filters ----------------------------------------------------------------
+//  Filters 
 $search      = isset($_GET['search']) ? trim($_GET['search']) : '';
 $material    = isset($_GET['material']) ? trim($_GET['material']) : '';
 $date_from   = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
@@ -51,7 +51,7 @@ if ($date_to !== '') {
 }
 $where_sql = count($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
 
-// -- Handle delete --------------------------------------------------------
+//  Handle delete 
 $delete_msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     $del_id = intval($_POST['delete_id']);
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     $delete_msg = 'Purchase entry deleted successfully.';
 }
 
-// -- Fetch list ------------------------------------------------------------
+//  Fetch list 
 $list_sql = "SELECT id, purchase_no, purchase_date, invoice_no, invoice_date, supplier_name,
                     material_type, qty, unit, total_amount, payment_mode
              FROM purchase_entries
@@ -74,7 +74,7 @@ $list_sql = "SELECT id, purchase_no, purchase_date, invoice_no, invoice_date, su
              ORDER BY purchase_date DESC, id DESC";
 $result = $conn->query($list_sql);
 
-// -- Totals for filtered set ----------------------------------------------
+//  Totals for filtered set 
 $total_amount_sum = 0;
 $total_count = 0;
 $rows = [];
@@ -204,7 +204,7 @@ table.hist-table tbody tr:hover { background: rgba(214,139,22,0.06); }
         ?>
         <div class="sidebar-logo-text">
             <h2><?php echo htmlspecialchars($COMPANY['name']); ?></h2>
-            <p>Premium Since 2026</p>
+            <p>Trusted Jewellery System</p>
         </div>
     </div>
     <nav class="sidebar-nav">
@@ -344,7 +344,7 @@ table.hist-table tbody tr:hover { background: rgba(214,139,22,0.06); }
             No purchase entries found<?php echo ($search || $material || $date_from || $date_to) ? ' for the selected filters.' : '.'; ?>
         </div>
     <?php else: ?>
-    <div style="overflow-x-auto;">
+    <div style="overflow-x:auto;">
         <table class="hist-table">
             <thead>
                 <tr>
@@ -411,4 +411,5 @@ function closeSidebar(){
 </script>
 </body>
 </html>
+
 

@@ -1,5 +1,6 @@
 <?php
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 $email = 'hiisupriya@gmail.com';
 $password = '123456';
@@ -34,3 +35,5 @@ if ($res && $res->num_rows > 0) {
 
 echo "<p> <strong>Important:</strong> Please delete this <code>add_user.php</code> file from your server after running it for security reasons.</p>";
 ?>
+
+

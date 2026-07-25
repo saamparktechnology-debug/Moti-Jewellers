@@ -5,14 +5,14 @@ if(file_exists('config/company_config.php')) {
     require_once 'config/company_config.php';
 } else {
     $COMPANY = [
-        'name'          => 'MAA GOURI JEWELLERS',
+        'name'          => 'MOTI JEWELLERS',
         'name_short'    => 'Gouri Jewellers',
         'address_line1' => 'Sabang',
         'address_line2' => 'Paschim Medinipur',
         'state'         => 'West Bengal',
         'state_code'    => '19',
-        'mobile'        => '9647291299',
-        'email'         => 'jewellersmaagouri@gmail.com',
+        'mobile'        => '9635985848',
+        'email'         => 'motijewellers9635985848@gmail.com',
         'gstin'         => '',
         'logo_path'     => 'assets/images/moti-removebg-preview.png',
     ];

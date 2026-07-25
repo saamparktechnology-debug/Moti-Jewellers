@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 if(!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -76,7 +77,7 @@ $expense_categories = mysqli_query($conn, "SELECT category_name FROM expense_cat
 $income_by_cat = []; foreach($income_records as $r) { $income_by_cat[$r['category']] = ($income_by_cat[$r['category']] ?? 0) + $r['amount']; }
 $expense_by_cat = []; foreach($expense_records as $r) { $expense_by_cat[$r['category']] = ($expense_by_cat[$r['category']] ?? 0) + $r['amount']; }
 
-$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -330,7 +331,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             
             
             <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+                <img src="assets/images/moti-removebg-preview.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
             </div>
         </div>
 
@@ -381,9 +382,6 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
-        </a>
 
         <div class="sidebar-divider"></div><div class="sidebar-section-label">Analytics</div>
 
@@ -739,7 +737,7 @@ footer { background: linear-gradient(0deg, #f5e6c8, #fdf6e3); border-top: 2px so
 </style>
 
 <script>
-    /* -- Sidebar -- */
+    /*  Sidebar  */
     function toggleSidebar() {
         const sidebar = document.getElementById('mainSidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -757,7 +755,7 @@ footer { background: linear-gradient(0deg, #f5e6c8, #fdf6e3); border-top: 2px so
         document.body.style.overflow = '';
     }
 
-    /* -- Charts -- */
+    /*  Charts  */
     const incomeLabels  = <?php echo json_encode(array_keys($incom_by_cat)); ?>;
     const incomeData    = <?php echo json_encode(array_values($income_by_cat)); ?>;
     const expenseLabels = <?php echo json_encode(array_keys($expese_by_cat)); ?>;
@@ -798,6 +796,8 @@ footer { background: linear-gradient(0deg, #f5e6c8, #fdf6e3); border-top: 2px so
 </script>
 </body>
 </html>
+
+
 
 
 

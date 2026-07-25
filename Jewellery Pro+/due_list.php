@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 require_once 'config/mail_config.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
@@ -24,7 +25,7 @@ if ($chkModeCol && mysqli_num_rows($chkModeCol) == 0) {
     @mysqli_query($conn, "ALTER TABLE due_update_history ADD COLUMN payment_mode VARCHAR(50) DEFAULT 'Cash'");
 }
 
-// -- AJAX: Receive Due Payment ----------------------------------------------
+//  AJAX: Receive Due Payment 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'receive_due_payment') {
     header('Content-Type: application/json');
     $id          = intval($_POST['id'] ?? 0);
@@ -81,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recei
     exit();
 }
 
-// -- AJAX: send reminder ------------------------------------------------------
+//  AJAX: send reminder 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ajax_send_reminder') {
     header('Content-Type: application/json');
     $customer_email  = trim($_POST['customer_email']  ?? '');
@@ -132,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ajax_
     exit();
 }
 
-// -- POST: clear due for an invoice ------------------------------------------
+//  POST: clear due for an invoice 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_due') {
     $id = intval($_POST['id'] ?? 0);
     if ($id > 0) {
@@ -141,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
     }
 }
 
-// -- AJAX: fetch due update history for modal --------------------------------
+//  AJAX: fetch due update history for modal 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ajax_history') {
     header('Content-Type: application/json');
     $id = intval($_POST['id'] ?? 0);
@@ -173,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ajax_
     exit();
 }
 
-// -- Export all due customers history as CSV --------------------------------
+//  Export all due customers history as CSV 
 if (($_GET['action'] ?? '') === 'export_due_history') {
     $hasPaidAmountCol = false;
     $colRes = mysqli_query($conn, "SHOW COLUMNS FROM invoices LIKE 'paid_amount'");
@@ -245,7 +246,7 @@ if (($_GET['action'] ?? '') === 'export_due_history') {
     exit();
 }
 
-// -- Helper: build & send account statement email after a due update ------------
+//  Helper: build & send account statement email after a due update 
 function sendDueStatementEmail($conn, $id, $new_balance, $due_date) {
     $result = ['attempted' => false, 'sent' => false, 'message' => ''];
 
@@ -338,7 +339,7 @@ function sendDueStatementEmail($conn, $id, $new_balance, $due_date) {
     return $result;
 }
 
-// -- POST: update due amount / due date ----------------------------------------
+//  POST: update due amount / due date 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update') {
     $id       = intval($_POST['id'] ?? 0);
     $balance  = floatval($_POST['balance_amount'] ?? 0);
@@ -391,7 +392,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
     }
 }
 
-// -- Fetch all invoices with a due balance ------------------------------------
+//  Fetch all invoices with a due balance (with search support) 
+$search_query = mysqli_real_escape_string($conn, trim($_GET['search'] ?? ''));
+$search_where = "";
+if (!empty($search_query)) {
+    $search_where = " AND (i.customer_name LIKE '%$search_query%' OR i.customer_mobile LIKE '%$search_query%' OR i.invoice_no LIKE '%$search_query%' OR c.email LIKE '%$search_query%') ";
+}
+
 $q = "SELECT i.id, i.invoice_no, i.customer_name, i.customer_mobile,
              COALESCE(c.email, '') AS customer_email,
              COALESCE(i.total_amount, 0) AS total_amount,
@@ -400,7 +407,7 @@ $q = "SELECT i.id, i.invoice_no, i.customer_name, i.customer_mobile,
       FROM invoices i
       LEFT JOIN invoice_items ii ON ii.invoice_id = i.id
       LEFT JOIN customers c      ON c.mobile = i.customer_mobile
-      WHERE i.balance_amount > 0
+      WHERE i.balance_amount > 0 $search_where
       GROUP BY i.id
       ORDER BY i.due_date IS NULL, i.due_date ASC, i.created_at DESC";
 
@@ -410,7 +417,7 @@ if ($res) {
     while ($r = mysqli_fetch_assoc($res)) $rows[] = $r;
 }
 
-$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -524,19 +531,19 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
 }
 @media (min-width: 769px) { .mobile-burger { display: none !important; } }
 
-/* -- Layout ------------------------------------ */
+/*  Layout  */
 .page-heading { margin-bottom: 24px; }
 .page-heading h1, .page-heading h2 { margin: 0; }
 .page-heading p { margin: 0.5rem 0 0 0; color: #7a4e0a; font-size: 14px; }
 
-/* -- Alert -------------------------------------- */
+/*  Alert  */
 .alert-success { background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; font-size: 14px; }
 
-/* -- Table shell -------------------------------- */
+/*  Table shell  */
 .due-table-wrap { overflow-x: auto; border-radius: 14px; }
 .due-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; min-width: 860px; }
 
-/* -- Header ------------------------------------ */
+/*  Header  */
 .due-table thead th {
     text-align: left;
     font-size: 11px;
@@ -548,7 +555,7 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
     background: transparent;
 }
 
-/* -- Rows -------------------------------------- */
+/*  Rows  */
 .due-table tbody tr {
     background: #ffffff;
     border-radius: 12px;
@@ -567,14 +574,14 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
 .due-table tbody td:first-child { border-radius: 12px 0 0 12px; }
 .due-table tbody td:last-child  { border-radius: 0 12px 12px 0; }
 
-/* -- Cell helpers ------------------------------ */
+/*  Cell helpers  */
 .items-cell { max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #6b7280; }
 .customer-name { font-weight: 600; color: #111827; }
 .inv-badge { display: inline-block; margin-top: 5px; padding: 2px 9px; border-radius: 999px; font-size: 11px; background: #fef3c7; color: #92400e; font-weight: 600; }
 .mobile-text { font-weight: 600; color: #374151; }
 .email-text  { color: #6b7280; font-size: 12px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* -- Inline form inputs ------------------------ */
+/*  Inline form inputs  */
 .field-label { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
 .inline-input {
     width: 100%; border: 1.5px solid #e5e7eb; border-radius: 8px;
@@ -584,7 +591,7 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
 }
 .inline-input:focus { outline: none; border-color: #f59e0b; background: #fff; }
 
-/* -- Buttons ------------------------------------ */
+/*  Buttons  */
 .btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 13px; border-radius: 8px; border: 0; cursor: pointer; font-weight: 600; font-size: 12px; transition: opacity 0.15s, transform 0.1s; white-space: nowrap; }
 .btn:active { transform: scale(0.97); }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -599,7 +606,7 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
     .btn-export { background: #111827; color: #fff; padding: 10px 18px; border-radius: 8px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; transition: all 0.2s; border: 1px solid rgba(255,255,255,0.15); }
     .btn-export:hover { background: #1f2937; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
 
-/* -- Action Grid Buttons ------------------------ */
+/*  Action Grid Buttons  */
 .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%; min-width: 220px; }
 .action-btn {
     display: inline-flex;
@@ -647,7 +654,7 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
     margin-bottom: 2px;
     display: block;
 }
-/* -- Toast -------------------------------------- */
+/*  Toast  */
 #toast {
     position: fixed; bottom: 28px; right: 28px; z-index: 9999;
     padding: 14px 22px; border-radius: 12px; font-size: 13px;
@@ -665,7 +672,7 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
     .due-table td, .due-table thead th { padding: 10px 10px; }
 }
 
-/* -- Loading Overlay ---------------------------- */
+/*  Loading Overlay  */
 #loadingOverlay {
     position: fixed;
     top: 0;
@@ -732,7 +739,7 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
             
             
             <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+                <img src="assets/images/moti-removebg-preview.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
             </div>
         </div>
 
@@ -808,6 +815,19 @@ function closeSidebar() {
     document.getElementById('burgerMenu').classList.remove('active');
     document.body.style.overflow = '';
 }
+function filterDueTable(query) {
+    const term = query.trim().toLowerCase();
+    const rows = document.querySelectorAll('.due-table tbody tr');
+    rows.forEach(row => {
+        if (row.classList.contains('empty-row')) return;
+        const text = row.innerText.toLowerCase();
+        if (term === '' || text.includes(term)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
 </script>
 
 <!-- Sidebar Overlay (mobile) -->
@@ -840,9 +860,6 @@ function closeSidebar() {
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
-        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
@@ -944,14 +961,35 @@ function closeSidebar() {
         <p>Pending invoices - update amount or due date, then save. Send email reminders directly.</p>
     </div>
 
-    <!-- Navigation Buttons -->
-    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
-        <a href="reports.php" class="btn-back">
-            <i class="fas fa-arrow-left mr-1"></i> Back to Reports
-        </a>
-        <a href="due_list.php?action=export_due_history" onclick="showLoadingOverlay()" class="btn btn-export">
-            Export Due History
-        </a>
+    <!-- Navigation & Search Bar -->
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <a href="reports.php" class="btn-back">
+                <i class="fas fa-arrow-left mr-1"></i> Back to Reports
+            </a>
+            <a href="due_list.php?action=export_due_history" onclick="showLoadingOverlay()" class="btn btn-export">
+                <i class="fas fa-file-csv mr-1"></i> Export Due History
+            </a>
+        </div>
+
+        <!-- Search Form & Live Filter -->
+        <form method="get" action="due_list.php" style="display:flex;gap:8px;align-items:center;margin:0;flex-wrap:wrap;flex:1;max-width:520px;justify-content:flex-end;">
+            <div style="position:relative;flex:1;min-width:240px;">
+                <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#d68b16;font-size:14px;"></i>
+                <input type="text" name="search" id="dueSearchInput" placeholder="Search Customer, Mobile, Inv No..."
+                       value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>"
+                       onkeyup="filterDueTable(this.value)"
+                       style="width:100%;padding:9px 12px 9px 36px;border:1.5px solid #d68b16;border-radius:8px;font-size:13px;background:#fff;color:#1e293b;outline:none;box-shadow:0 2px 6px rgba(122,78,10,0.08);">
+            </div>
+            <button type="submit" class="btn" style="background:linear-gradient(135deg,#7a4e0a,#d68b16);color:#fff;padding:9px 18px;border-radius:8px;font-size:13px;font-weight:700;box-shadow:0 3px 10px rgba(214,139,22,0.3);border:none;cursor:pointer;">
+                <i class="fas fa-search mr-1"></i> Search
+            </button>
+            <?php if(!empty($_GET['search'])): ?>
+            <a href="due_list.php" class="btn" style="background:#e2e8f0;color:#475569;padding:9px 14px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">
+                <i class="fas fa-times mr-1"></i> Clear
+            </a>
+            <?php endif; ?>
+        </form>
     </div>
 
     <?php if ($message): ?>
@@ -1073,7 +1111,7 @@ function closeSidebar() {
 <div id="toast"></div>
 
 <script>
-/* -- Toast helper ---------------------------------- */
+/*  Toast helper  */
 function showToast(msg, type) {
     var t = document.getElementById('toast');
     t.textContent = msg;
@@ -1082,7 +1120,7 @@ function showToast(msg, type) {
     t._timer = setTimeout(function() { t.className = ''; }, 3200);
 }
 
-/* -- WhatsApp Reminder ------------------------------ */
+/*  WhatsApp Reminder  */
 function sendWhatsAppReminder(name, mobile, invoiceNo, due, total) {
     // Clean mobile: remove spaces, dashes, leading 0; add 91 country code
     var cleaned = mobile.replace(/[\s\-\(\)]/g, '');
@@ -1174,7 +1212,7 @@ function closeHistoryModal() {
     modal.style.display = 'none';
 }
 
-/* -- Receive Modal JS -- */
+/*  Receive Modal JS  */
 function openReceiveModal(id, invoiceNo, customerName, totalAmt, currentDue, currentDueDate) {
     document.getElementById('rcvInvoiceId').value = id;
     document.getElementById('rcvRawDue').value = currentDue;
@@ -1433,5 +1471,7 @@ function submitReceivePayment() {
     }
 })();
 </script>
+
+
 
 

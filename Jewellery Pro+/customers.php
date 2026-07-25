@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 if(!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -126,7 +127,7 @@ $customers = [];
 if($customers_result) while($row = mysqli_fetch_assoc($customers_result)) $customers[] = $row;
 
 $error_message = isset($error_msg) ? $error_msg : '';
-$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -485,7 +486,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             
             
             <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+                <img src="assets/images/moti-removebg-preview.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
             </div>
         </div>
 
@@ -535,9 +536,6 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php" class="active"><i class="fas fa-users"></i> CUSTOMERS</a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
-        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
@@ -1033,7 +1031,7 @@ document.addEventListener('keydown', function(e) {
     if(e.key === 'Escape') closeOrderHistory();
 });
 
-// -- PDF Statement Download --------------------------------------------------
+//  PDF Statement Download 
 function downloadStatementPDF() {
     const d = window._ohData;
     if(!d) return;
@@ -1046,7 +1044,7 @@ function downloadStatementPDF() {
     const W = 210, margin = 14;
     let y = 0;
 
-    // -- Header bar ----------------------------------------------------------
+    //  Header bar 
     doc.setFillColor(122, 78, 10);
     doc.rect(0, 0, W, 28, 'F');
     doc.setTextColor(255, 255, 255);
@@ -1058,7 +1056,7 @@ function downloadStatementPDF() {
     doc.text('CUSTOMER ACCOUNT STATEMENT', W/2, 24, {align:'center'});
     y = 34;
 
-    // -- Customer info box ----------------------------------------------------
+    //  Customer info box 
     doc.setFillColor(253, 246, 227);
     doc.setDrawColor(181, 115, 14);
     doc.roundedRect(margin, y, W - margin*2, 22, 3, 3, 'FD');
@@ -1070,7 +1068,7 @@ function downloadStatementPDF() {
     doc.text('Total Orders: ' + d.orders.length, W - margin - 4, y+15, {align:'right'});
     y += 28;
 
-    // -- Summary strip --------------------------------------------------------
+    //  Summary strip 
     const cols4 = (W - margin*2) / 4;
     const summaryItems = [
         { label:'Total Spent',   val:'Rs.' + d.totalSpent.toLocaleString('en-IN',{minimumFractionDigits:2}), color:[5,150,105] },
@@ -1090,7 +1088,7 @@ function downloadStatementPDF() {
     });
     y += 22;
 
-    // -- Orders table --------------------------------------------------------
+    //  Orders table 
     const colW = [28, 22, 62, 22, 28, 24]; // Invoice, Date, Items, Qty, Amount, Status
     const headers = ['Invoice No', 'Date', 'Items', 'Qty(gm)', 'Amount', 'Status'];
     const tblW = W - margin*2;
@@ -1165,7 +1163,7 @@ function downloadStatementPDF() {
         rowIdx++;
     });
 
-    // -- Footer --------------------------------------------------------------
+    //  Footer 
     y += 6;
     if(y > 265) { doc.addPage(); y = 20; }
     doc.setDrawColor(181,115,14); doc.line(margin, y, W-margin, y);
@@ -1186,6 +1184,8 @@ function downloadStatementPDF() {
 }
 
 </script>
+
+
 
 
 

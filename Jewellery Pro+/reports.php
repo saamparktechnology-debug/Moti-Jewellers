@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 if(!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -427,16 +428,21 @@ $unpaid_customers = mysqli_query($conn, "SELECT invoice_no, customer_name, custo
 $unpaid_rows = [];
 while($r = mysqli_fetch_assoc($unpaid_customers)) $unpaid_rows[] = $r;
 
-// GST summary
 $gst_month = mysqli_real_escape_string($conn, $_GET['gst_month'] ?? date('Y-m'));
 $gst_month_where = $gst_month ? "WHERE DATE_FORMAT(created_at,'%Y-%m') = '$gst_month'" : '';
 $gst_summary = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT
-        SUM(CASE WHEN (gst_type LIKE 'gst%' OR (gst_amount IS NOT NULL AND gst_amount > 0) OR (customer_gstin IS NOT NULL AND TRIM(customer_gstin) <> '')) THEN 1 ELSE 0 END) as gst_count,
-        SUM(CASE WHEN (gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0) AND (customer_gstin IS NULL OR TRIM(customer_gstin) = '')) THEN 1 ELSE 0 END) as nongst_count,
-        SUM(CASE WHEN (gst_type LIKE 'gst%' OR (gst_amount IS NOT NULL AND gst_amount > 0) OR (customer_gstin IS NOT NULL AND TRIM(customer_gstin) <> '')) THEN total_amount ELSE 0 END) as gst_taxable_total,
-        SUM(CASE WHEN (gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0) AND (customer_gstin IS NULL OR TRIM(customer_gstin) = '')) THEN total_amount ELSE 0 END) as nongst_amt,
-        SUM(CASE WHEN (gst_amount IS NOT NULL AND gst_amount > 0) THEN gst_amount ELSE 0 END) as actual_gst_collected
+        SUM(CASE WHEN (gst_type LIKE 'gst%' OR gst_amount > 0) THEN 1 ELSE 0 END) as gst_count,
+        SUM(CASE WHEN (gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0)) THEN 1 ELSE 0 END) as nongst_count,
+        SUM(CASE WHEN (gst_type LIKE 'gst%' OR gst_amount > 0) THEN (total_amount - COALESCE(gst_amount, 0)) ELSE 0 END) as gst_taxable_total,
+        SUM(CASE WHEN (gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0)) THEN total_amount ELSE 0 END) as nongst_amt,
+        SUM(CASE WHEN (gst_type LIKE 'gst%' OR gst_amount > 0) THEN gst_amount ELSE 0 END) as actual_gst_collected,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN 1 ELSE 0 END) as gst_3_count,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN (total_amount - COALESCE(gst_amount, 0)) ELSE 0 END) as gst_3_taxable,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN gst_amount ELSE 0 END) as gst_3_amt,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN 1 ELSE 0 END) as gst_18_count,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN (total_amount - COALESCE(gst_amount, 0)) ELSE 0 END) as gst_18_taxable,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN gst_amount ELSE 0 END) as gst_18_amt
     FROM invoices $gst_month_where
 "));
 
@@ -452,8 +458,10 @@ if($filter_from)   $where_clauses[] = "DATE(created_at) >= '$filter_from'";
 if($filter_to)     $where_clauses[] = "DATE(created_at) <= '$filter_to'";
 if($filter_name)   $where_clauses[] = "(customer_name LIKE '%$filter_name%' OR customer_mobile LIKE '%$filter_name%')";
 if($filter_status) $where_clauses[] = "payment_status = '$filter_status'";
-if($filter_gst === 'gst')     $where_clauses[] = "(gst_type LIKE 'gst%' OR (gst_amount IS NOT NULL AND gst_amount > 0) OR (customer_gstin IS NOT NULL AND TRIM(customer_gstin) <> ''))";
-if($filter_gst === 'non_gst') $where_clauses[] = "(gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0) AND (customer_gstin IS NULL OR TRIM(customer_gstin) = ''))";
+if($filter_gst === 'gst')       $where_clauses[] = "(gst_type LIKE 'gst%' OR gst_amount > 0)";
+if($filter_gst === 'gst_3')     $where_clauses[] = "((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10)))";
+if($filter_gst === 'gst_18')    $where_clauses[] = "((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10)))";
+if($filter_gst === 'non_gst')   $where_clauses[] = "(gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0))";
 $where_sql = $where_clauses ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
 // customer_gstin column exists directly in invoices table
@@ -464,7 +472,7 @@ while($r = mysqli_fetch_assoc($bills_result)) $bills_rows[] = $r;
 $total_bills_amount = array_sum(array_column($bills_rows, 'total_amount'));
 $total_bills_count  = count($bills_rows);
 
-$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-preview.png', 'moti-removebg-preview.png', 'logo.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -744,7 +752,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             
             
             <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+                <img src="assets/images/moti-removebg-preview.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
             </div>
         </div>
 
@@ -792,9 +800,6 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
-        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
@@ -869,7 +874,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div>
         <?php endif; ?>
 
-        <!-- -- CHARTS ROW -- -->
+        <!--  CHARTS ROW  -->
         <div class="charts-grid grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <!-- Sales Chart
             <div class="chart-card">
@@ -905,7 +910,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div> -->
         </div>
 
-        <!-- -- PAYMENT STATUS OVERVIEW -- -->
+        <!--  PAYMENT STATUS OVERVIEW  -->
         <div class="jewel-card p-5 sm:p-6 mb-6">
             <h3 class="section-title mb-5"><i class="fas fa-wallet"></i> Payment Status Overview</h3>
 
@@ -1031,7 +1036,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div>
         </div>
 
-        <!-- -- GST SUMMARY -- -->
+        <!--  GST SUMMARY  -->
         <div class="jewel-card p-5 sm:p-6 mb-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
                 <h3 class="section-title"><i class="fas fa-receipt"></i> GST Summary</h3>
@@ -1121,7 +1126,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             </div>
         </div>
 
-        <!-- -- ALL BILLS TABLE -- -->
+        <!--  ALL BILLS TABLE  -->
         <div class="jewel-card p-5 sm:p-6">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-3">
                 <h3 class="section-title"><i class="fas fa-file-invoice"></i> All Bills Record</h3>
@@ -1163,7 +1168,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 </div>
                 <div class="col-span-2 sm:col-span-3 lg:col-span-5 flex gap-3">
                     <button type="submit" class="btn-jewel" style="padding:8px 20px;font-size:12px;"> Filter</button>
-                    <a href="reports.php" class="btn-jewel" style="padding:8px 16px;font-size:12px;background:linear-gradient(135deg,#6b7280,#4b5563);">&#x21A9; Clear</a>
+                    <a href="reports.php" class="btn-jewel" style="padding:8px 16px;font-size:12px;background:linear-gradient(135deg,#6b7280,#4b5563);"> Clear</a>
                 </div>
             </form>
 
@@ -1287,7 +1292,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
 </style>
 
 <script>
-    /* -- Sidebar -- */
+    /*  Sidebar  */
     function toggleSidebar() {
         const sidebar = document.getElementById('mainSidebar');
         const overlay = document.getElementById('sidebarOverlay');
@@ -1305,12 +1310,12 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         document.body.style.overflow = '';
     }
 
-    /* -- Toggle detail tables -- */
+    /*  Toggle detail tables  */
     function toggleDetail(id) {
         document.getElementById(id).classList.toggle('open');
     }
 
-    /* -- Actions: Send Reminder & Mark Paid (uses billing.php AJAX endpoints) -- */
+    /*  Actions: Send Reminder & Mark Paid (uses billing.php AJAX endpoints)  */
     function sendReminder(invoiceNo, customerName, customerMobile, balanceAmount, customerEmail) {
         console.log('sendReminder called', {invoiceNo, customerName, customerMobile, balanceAmount, customerEmail});
         if(!invoiceNo) return alert('Invoice number is missing');
@@ -1357,7 +1362,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             }).catch(e => { console.error('markAsPaid fetch error', e); alert('Error: ' + e); });
     }
 
-    /* -- Chart -- */
+    /*  Chart  */
     const labels    = <?php echo json_encode(array_column($daily_sales,'date')); ?>;
     const salesData = <?php echo json_encode(array_column($daily_sales,'total')); ?>;
     const chartEl = document.getElementById('salesChart');
@@ -1393,7 +1398,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         });
     }
 
-    /* -- Excel Export -- */
+    /*  Excel Export  */
     const billsData = <?php echo json_encode($bills_rows); ?>;
 
     function downloadExcel() {
@@ -1486,7 +1491,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         ws3['!cols'] = [{wch:5},{wch:20},{wch:22},{wch:20},{wch:14},{wch:18},{wch:16},{wch:18},{wch:14},{wch:14}];
         XLSX.utils.book_append_sheet(wb, ws3, 'Pending Payments');
 
-        XLSX.writeFile(wb, `Radhe ShyamJewellers_Report_${todayFile}.xlsx`);
+        XLSX.writeFile(wb, `MOTIJewellers_Report_${todayFile}.xlsx`);
     }
 
     let currentDeleteInvoiceNo = '';
@@ -1693,6 +1698,9 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
 </div>
 </body>
 </html>
+
+
+
 
 
 

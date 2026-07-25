@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 if(!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -9,22 +10,24 @@ if(!isset($_SESSION['user_id'])) {
 
 $is_logged_in = true;
 
-// -- Handle Add/Edit/Delete --------------------------------------------------
+//  Handle Add/Edit/Delete 
 $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $name    = trim($_POST['name'] ?? '');
     $mobile  = trim($_POST['mobile'] ?? '');
     $email   = trim($_POST['email'] ?? '');
     $address = trim($_POST['address'] ?? '');
+    $note    = trim($_POST['note'] ?? '');
 
     if ($_POST['action'] === 'save' && $name !== '' && $mobile !== '') {
         $n = mysqli_real_escape_string($conn, $name);
         $m = mysqli_real_escape_string($conn, $mobile);
         $e = mysqli_real_escape_string($conn, $email);
         $a = mysqli_real_escape_string($conn, $address);
-        mysqli_query($conn, "INSERT INTO customers (name, mobile, address, email)
-                              VALUES ('$n', '$m', '$a', '$e')
-                              ON DUPLICATE KEY UPDATE name='$n', address='$a', email='$e'");
+        $nt = mysqli_real_escape_string($conn, $note);
+        mysqli_query($conn, "INSERT INTO contacts (name, mobile, address, email, note)
+                              VALUES ('$n', '$m', '$a', '$e', '$nt')
+                              ON DUPLICATE KEY UPDATE name='$n', address='$a', email='$e', note='$nt'");
         $msg = 'saved';
     }
 
@@ -39,15 +42,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 $msg = $_GET['msg'] ?? '';
 
-// -- Search --------------------------------------------------------------
+//  Search 
 $search = trim($_GET['search'] ?? '');
 if ($search !== '') {
     $s = mysqli_real_escape_string($conn, $search);
-    $sql = "SELECT name, mobile, email, address FROM customers
+    $sql = "SELECT name, mobile, email, address, note FROM contacts
             WHERE name LIKE '%$s%' OR mobile LIKE '%$s%' OR email LIKE '%$s%'
             ORDER BY name ASC";
 } else {
-    $sql = "SELECT name, mobile, email, address FROM customers ORDER BY name ASC";
+    $sql = "SELECT name, mobile, email, address, note FROM contacts ORDER BY name ASC";
 }
 $res = mysqli_query($conn, $sql);
 if (!$res) die("Query Error: " . mysqli_error($conn));
@@ -58,7 +61,7 @@ while ($row = mysqli_fetch_assoc($res)) {
 }
 $total = count($customers);
 
-$logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'];
+$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -206,9 +209,6 @@ h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
-        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
@@ -246,13 +246,11 @@ h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
     <!-- Top Navbar -->
     <header class="bg-white border-b border-amber-200/60 px-6 py-3.5 sticky top-0 z-30 flex items-center justify-between no-print shadow-sm">
         <div class="flex items-center gap-3">
-            <div class="mobile-burger" style="display:none;">
-                <div class="burger-menu" id="burgerMenu" onclick="toggleSidebar()">
-                    <span></span><span></span><span></span>
-                </div>
-            </div>
+            <button onclick="toggleSidebar()" class="md:hidden text-amber-900 p-2 text-xl focus:outline-none">
+                <i class="fas fa-bars"></i>
+            </button>
             <div class="flex items-center gap-2">
-                <img src="<?php echo htmlspecialchars($COMPANY['logo_path'] ?? 'logo.png'); ?>" alt="Logo" class="w-8 h-8 object-contain" onerror="this.src='radhey_shyam_logo.png'">
+                <img src="assets/images/moti-removebg-preview.png" alt="Logo" class="w-8 h-8 object-contain" onerror="this.src='moti-removebg-preview.png'">
                 <div>
                     <h1 class="font-bold text-lg text-amber-950 leading-none">MOTI JEWELLERS</h1>
                     <p class="text-xs text-amber-700 font-medium">Customer Contacts Directory</p>
@@ -416,6 +414,10 @@ h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
                 <label class="block text-xs font-bold text-amber-900 mb-1">Billing Address</label>
                 <textarea name="address" id="fAddress" rows="3" placeholder="Enter customer address..." class="w-full px-3.5 py-2 text-xs rounded-xl border border-amber-300 bg-amber-50/50 text-gray-900 outline-none focus:ring-2 focus:ring-amber-500"></textarea>
             </div>
+            <div>
+                <label class="block text-xs font-bold text-amber-900 mb-1">Note</label>
+                <textarea name="note" id="fNote" rows="2" placeholder="Add a note..." class="w-full px-3.5 py-2 text-xs rounded-xl border border-amber-300 bg-amber-50/50 text-gray-900 outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+            </div>
             <div class="flex gap-3 pt-2">
                 <button type="button" onclick="closeModal()" class="flex-1 py-2.5 text-xs font-bold text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200 transition">
                     Cancel
@@ -438,16 +440,12 @@ h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
 function toggleSidebar() {
     const sidebar = document.getElementById('mainSidebar');
     const overlay = document.getElementById('sidebarOverlay');
-    const burger  = document.getElementById('burgerMenu');
     sidebar.classList.toggle('open');
     overlay.classList.toggle('active');
-    if(burger) burger.classList.toggle('active');
 }
 function closeSidebar() {
     document.getElementById('mainSidebar').classList.remove('open');
     document.getElementById('sidebarOverlay').classList.remove('active');
-    const burger  = document.getElementById('burgerMenu');
-    if(burger) burger.classList.remove('active');
 }
 function openModal() {
     document.getElementById('modalTitle').innerHTML = '<i class="fas fa-user-plus mr-1"></i> Add Contact';
@@ -482,4 +480,6 @@ document.getElementById('modalOverlay').addEventListener('click', e => {
 </script>
 </body>
 </html>
+
+
 

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/database.php';
+require_once 'config/company_config.php';
 
 $is_logged_in = isset($_SESSION['user_id']);
 if (!$is_logged_in) {
@@ -20,8 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
         'invoices',
         'products',
         'customers',
-        'advance_customers',
-        'due_update_history',
         'purchase_entries',
         'stock_metal',
         'sanchari_payments',
@@ -32,9 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
         'contacts',
         'due_list',
         'accounts',
-        'otp_logins',
-        'password_resets',
-        'whatsapp_logs',
     ];
 
     $errors = [];
@@ -68,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset All Data | Moti Jewellers</title>
+    <title>Reset All Data | MOTI JEWELLERS</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/theme.css">
@@ -77,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
         * { font-family: 'Poppins', sans-serif; box-sizing: border-box; }
         h1,h2,h3 { font-family: 'Poppins', serif; }
 
-        .sidebar { position:fixed;top:0;left:0;width:240px;height:100vh;background:linear-gradient(180deg,#7a4e0a 0%,#b5730e 40%,#d68b16 100%);z-index:1000;display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,0.25);overflow:hidden; }
+        .sidebar { position:fixed;top:0;left:0;width:240px;height:100vh;background:linear-gradient(180deg, #011921 0%, #03373b 50%, #044e54 80%, #011921 100%);z-index:1000;display:flex;flex-direction:column;box-shadow:4px 0 24px rgba(0,0,0,0.25);overflow:hidden; }
         .sidebar-nav { flex:1;padding:10px 0;overflow-y:auto;overflow-x:hidden; }
         .sidebar-logo { padding:22px 18px 16px;border-bottom:1px solid rgba(255,255,255,0.18);display:flex;align-items:center;gap:12px;flex-shrink:0; }
         .sidebar-logo img { width:44px;height:44px;object-fit:contain;border-radius:50%;background:rgba(255,255,255,0.1);padding:3px; }
@@ -97,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
         .sidebar-logout { display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:600;text-decoration:none;transition:background .2s;background:rgba(239,68,68,0.75);color:#fff;border:1px solid rgba(239,68,68,0.4); }
         .sidebar-logout:hover { background:#ef4444; }
         .page-wrapper { margin-left:240px;min-height:100vh;background:linear-gradient(135deg,#f8f1e4,#fdf6e3); }
-        nav.nav-gold { background:linear-gradient(135deg,#b5730e,#d68b16)!important; }
+        nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important; border-bottom: 2.5px solid #ffd700; box-shadow: 0 0 12px rgba(255, 215, 0, 0.5) !important; }
 
         .danger-card {
             background:#fff;
@@ -202,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
         foreach($logo_paths as $p){ if(file_exists($p)){ echo '<img src="'.$p.'" alt="Logo">'; $found=true; break; } }
         if(!$found) echo '<i class="fas fa-gem" style="color:#fff;font-size:30px;"></i>';
         ?>
-        <div class="sidebar-logo-text"><h2>MOTI JEWELLERS</h2><p>Premium Since 2011</p></div>
+        <div class="sidebar-logo-text"><h2>MOTI JEWELLERS</h2><p>Premium Since 2026</p></div>
     </div>
     <nav class="sidebar-nav">
         <div class="sidebar-section-label">Main Menu</div>
@@ -210,17 +206,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_reset']) && $
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
-        <a href="sanchari_dashboard.php">
-            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
-        </a>
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
         <a href="reports.php"><i class="fas fa-chart-bar"></i> REPORTS</a>
+        <a href="due_list.php"><i class="fas fa-hourglass-half"></i> DUE LIST</a>
         <a href="income_expenses.php"><i class="fas fa-chart-line"></i> INCOME &amp; EXP</a>
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Tools</div>
         <a href="whatsapp_automation.php"><i class="fab fa-whatsapp"></i> WHATSAPP</a>
-        <a href="sbook.php"><i class="fas fa-book"></i> SANCHAY</a>
         <a href="purchase.php"><i class="fas fa-shopping-cart"></i> PURCHASE</a>
         <a href="contacts.php"><i class="fas fa-address-book"></i> CONTACTS</a>
         <a href="accounts.php"><i class="fas fa-calculator"></i> ACCOUNTS</a>
@@ -350,3 +343,8 @@ function validateReset() {
 
 </body>
 </html>
+
+
+
+
+
