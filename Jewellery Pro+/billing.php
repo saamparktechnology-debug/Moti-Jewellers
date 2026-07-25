@@ -103,7 +103,7 @@ if($chk_reminder && mysqli_num_rows($chk_reminder) == 0) {
     mysqli_query($conn, "ALTER TABLE invoices ADD COLUMN reminder_sent TINYINT(1) DEFAULT 0");
 }
 
-// -- NEW: AJAX: Mark invoice as paid (partial or full custom amount) ------─
+// -- NEW: AJAX: Mark invoice as paid (partial or full custom amount) ------
 if(isset($_GET['action']) && $_GET['action'] === 'mark_paid') {
     header('Content-Type: application/json');
     if($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -276,7 +276,7 @@ foreach ($categories as $cat) {
     }
 }
 
-// Gold 22K & 18K items — as specified by shop owner
+// Gold 22K & 18K items - as specified by shop owner
 $goldItems = ['Necklace','Chur','Bala','Chain','Tops','Single Loket','Double Loket','Churi','Jhuladul','Jhumka','Ladies Ring','Gold Choker','Gents Ring','Gents Breslet','Ladies Breslet','Tika','Takti','Mantasa','Pearl Choker','Bauti Chur','Soket Bauti','Breslet Noya','Stell Noya','Baby Ring','Bali','Pitaring','Baby Breslet','Pearl Sitahar','Nose Pin','Other'];
 $itemTypeOptions['Gold 22K'] = array_unique(array_merge($itemTypeOptions['Gold 22K'], $goldItems));
 $itemTypeOptions['Gold 18K'] = array_unique(array_merge($itemTypeOptions['Gold 18K'], $goldItems));
@@ -290,7 +290,7 @@ $itemTypeOptions['Diamond']  = array_unique(array_merge($itemTypeOptions['Diamon
 $itemTypeOptions['Others']   = array_unique(array_merge($itemTypeOptions['Others'],
   ['Shankha','Pala','Mala','Moti Mala','Trasel','Branch Fram','Braslate Pala',
   'Parl Mala','Gala','Reparing','Stamp Charg','Other']));
-// -- NEW: Fetch due-today payments ----------------------------------------─
+// -- NEW: Fetch due-today payments ----------------------------------------
 $today = date('Y-m-d');
 $due_today_result = mysqli_query($conn, "
     SELECT invoice_no, customer_name, customer_mobile, customer_address,
@@ -1044,7 +1044,7 @@ window.addEventListener('load', function() {
 
 <!-- ============================================================ -->
 <!-- NEW: Payment Modal (paste once, anywhere after the section    -->
-<!-- above — e.g. right before </body>)                            -->
+<!-- above - e.g. right before </body>)                            -->
 <!-- ============================================================ -->
 
 <div id="paymentModalOverlay" class="payment-modal-overlay" onclick="if(event.target===this) closePaymentModal()">
@@ -1077,7 +1077,7 @@ window.addEventListener('load', function() {
 
 
 <!-- ============================================================ -->
-<!-- NEW: CSS — paste inside your existing <style> tag              -->
+<!-- NEW: CSS - paste inside your existing <style> tag              -->
 <!-- ============================================================ -->
 <style>
 .payment-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;}
@@ -1095,7 +1095,7 @@ window.addEventListener('load', function() {
 
 
 <!-- ============================================================ -->
-<!-- NEW: JS — paste inside your existing <script> tag              -->
+<!-- NEW: JS - paste inside your existing <script> tag              -->
 <!-- ============================================================ -->
 <script>
 let currentPaymentData = {};
@@ -1459,7 +1459,7 @@ function submitPayment() {
                             <tbody id="itemsList">
                                 <tr id="emptyRow">
                                     <td colspan="11" style="text-align:center;padding:20px;color:#9ca3af;font-size:12px;">
-                                        No items added yet — enter details above to add products
+                                        No items added yet - enter details above to add products
                                     </td>
                                 </tr>
                             </tbody>
@@ -1902,7 +1902,7 @@ function filterGramStock(query) {
     filtered.forEach(p => {
         const isOutOfStock = (parseFloat(p.quantity) <= 0);
         const stockText = isOutOfStock ? 'OUT OF STOCK' : (p.quantity + ' pcs');
-        const display = (p.item_name || p.name) + ' | SN:' + (p.serial_no || '—') + ' | Stock: ' + stockText;
+        const display = (p.item_name || p.name) + ' | SN:' + (p.serial_no || '-') + ' | Stock: ' + stockText;
         const opt = document.createElement('option');
         opt.value = p.id;
         opt.textContent = display;
@@ -1925,7 +1925,7 @@ function filterGramStock(query) {
                 const item = document.createElement('div');
                 item.className = 'autocomplete-suggestion-item';
                 item.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;background:#fff;';
-                item.innerHTML = '<div><strong style="color:#022c22;">' + (p.item_name || p.name) + '</strong> <span style="font-size:11px;color:#059669;">(' + p.category + ')</span></div><div style="font-size:11px;color:' + (isOut?'#dc2626':'#7a4e0a') + ';">SN: ' + (p.serial_no || '—') + ' | ' + (isOut ? 'OUT OF STOCK' : (p.quantity + ' pcs')) + '</div>';
+                item.innerHTML = '<div><strong style="color:#022c22;">' + (p.item_name || p.name) + '</strong> <span style="font-size:11px;color:#059669;">(' + p.category + ')</span></div><div style="font-size:11px;color:' + (isOut?'#dc2626':'#7a4e0a') + ';">SN: ' + (p.serial_no || '-') + ' | ' + (isOut ? 'OUT OF STOCK' : (p.quantity + ' pcs')) + '</div>';
                 item.onmouseover = function() { this.style.background = '#f5ead0'; };
                 item.onmouseout = function() { this.style.background = '#fff'; };
                 item.onclick = function() {
@@ -1973,7 +1973,7 @@ function onGramStockChange() {
         document.getElementById('manualHuid').value = huid;
     }
 
-    // Use shop rate (per 10g) for this category — the correct billing rate
+    // Use shop rate (per 10g) for this category - the correct billing rate
     const shopRatePerGram = getShopRateForCategory(category); // returns per-gram from shop rates
     const shopRate10g     = shopRatePerGram * 10;             // convert back to per-10g for the field
 
@@ -2354,7 +2354,7 @@ function submitGramItem() {
     showNotif(' Added Item: ' + name, 'success');
 }
 
-// ==================== ¦ QTY FORM LOGIC ====================
+// ====================  QTY FORM LOGIC ====================
 
 // Stock search & filter with floating suggestions
 function filterQtyStock(query) {
@@ -2377,7 +2377,7 @@ function filterQtyStock(query) {
     filtered.forEach(p => {
         const isOutOfStock = (parseFloat(p.quantity) <= 0);
         const stockText = isOutOfStock ? 'OUT OF STOCK' : (p.quantity + ' pcs');
-        const display = (p.item_name || p.name) + ' | SN:' + (p.serial_no || '—') + ' | Stock: ' + stockText;
+        const display = (p.item_name || p.name) + ' | SN:' + (p.serial_no || '-') + ' | Stock: ' + stockText;
         const opt = document.createElement('option');
         opt.value = p.id;
         opt.textContent = display;
@@ -2399,7 +2399,7 @@ function filterQtyStock(query) {
                 const item = document.createElement('div');
                 item.className = 'autocomplete-suggestion-item';
                 item.style.cssText = 'padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;display:flex;justify-content:space-between;align-items:center;background:#fff;';
-                item.innerHTML = '<div><strong style="color:#022c22;">' + (p.item_name || p.name) + '</strong> <span style="font-size:11px;color:#059669;">(' + p.category + ')</span></div><div style="font-size:11px;color:' + (isOut?'#dc2626':'#7a4e0a') + ';">SN: ' + (p.serial_no || '—') + ' | ' + (isOut ? 'OUT OF STOCK' : (p.quantity + ' pcs')) + '</div>';
+                item.innerHTML = '<div><strong style="color:#022c22;">' + (p.item_name || p.name) + '</strong> <span style="font-size:11px;color:#059669;">(' + p.category + ')</span></div><div style="font-size:11px;color:' + (isOut?'#dc2626':'#7a4e0a') + ';">SN: ' + (p.serial_no || '-') + ' | ' + (isOut ? 'OUT OF STOCK' : (p.quantity + ' pcs')) + '</div>';
                 item.onmouseover = function() { this.style.background = '#f5ead0'; };
                 item.onmouseout = function() { this.style.background = '#fff'; };
                 item.onclick = function() {
@@ -2874,7 +2874,7 @@ function previewShopRate(key) {
 function autoFillShopFromLive() {
     const liveMap = {
         gold22: document.getElementById('shopGold22Input'),
-        gold18: null,  // no direct live 18K — compute as 22K * 18/22
+        gold18: null,  // no direct live 18K - compute as 22K * 18/22
         silver: document.getElementById('shopSilverInput'),
     };
     // Gold 22K
@@ -3301,7 +3301,7 @@ function sendPaymentReminder() {
     .catch(error => { showNotif('\u26A0\uFE0F ' + (error?.message || 'Reminder email could not be sent.'), 'error'); });
 }
 
-// -- NEW: Due Today — Send Reminder ----------------------------------------
+// -- NEW: Due Today - Send Reminder ----------------------------------------
 function sendDueReminder(invoiceNo, customerName, customerMobile, balanceAmount) {
     const btn = document.getElementById('remind-btn-' + invoiceNo);
     if(!btn) return;

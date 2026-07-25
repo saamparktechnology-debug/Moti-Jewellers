@@ -971,7 +971,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
 
             <!-- Part detail -->
             <div id="detailPart" class="detail-collapse mb-3">
-                <h4 class="font-bold text-sm mb-3" style="color:#c2410c;"> Part Payment — Balance Remaining</h4>
+                <h4 class="font-bold text-sm mb-3" style="color:#c2410c;"> Part Payment - Balance Remaining</h4>
                 <?php if(empty($part_rows)): ?>
                     <p class="text-sm" style="color:#7a4e0a;">No part payment customers found.</p>
                 <?php else: ?>
@@ -1004,7 +1004,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
 
             <!-- Unpaid detail -->
             <div id="detailUnpaid" class="detail-collapse">
-                <h4 class="font-bold text-sm mb-3" style="color:#be123c;"> Unpaid — Full Payment Pending</h4>
+                <h4 class="font-bold text-sm mb-3" style="color:#be123c;"> Unpaid - Full Payment Pending</h4>
                 <?php if(empty($unpaid_rows)): ?>
                     <p class="text-sm" style="color:#16a34a;">No unpaid customers! </p>
                 <?php else: ?>
@@ -1059,13 +1059,13 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             $month_label = $gst_month ? date('F Y', strtotime($gst_month.'-01')) : 'All Time';
             ?>
 
-            <p class="text-xs mb-4" style="color:#7a4e0a;">Œ Showing data for: <strong style="color:#800020;"><?php echo $month_label; ?></strong></p>
+            <p class="text-xs mb-4" style="color:#7a4e0a;"> Showing data for: <strong style="color:#800020;"><?php echo $month_label; ?></strong></p>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <!-- GST Card -->
                 <div class="stat-card-gst p-5">
                     <div class="flex justify-between items-center mb-3">
-                        <span class="font-bold text-sm" style="color:#134e4a;">„ GST Bills</span>
+                        <span class="font-bold text-sm" style="color:#134e4a;"> GST Bills</span>
                         <span class="text-2xl font-black" style="color:#0f766e;"><?php echo $gst_summary['gst_count']; ?> bills</span>
                     </div>
                     <div class="space-y-2 text-sm">
@@ -1113,7 +1113,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
             <div class="gst-total-box">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                        <p class="font-bold text-sm" style="color:#0d9488;"> Total GST Payable to Govt — <?php echo $month_label; ?></p>
+                        <p class="font-bold text-sm" style="color:#0d9488;"> Total GST Payable to Govt - <?php echo $month_label; ?></p>
                         <p class="text-xs mt-1" style="color:#14b8a6;">CGST ₹<?php echo number_format($cgst,2); ?> + SGST ₹<?php echo number_format($sgst,2); ?></p>
                     </div>
                     <p class="text-2xl font-black" style="color:#0f766e;">₹<?php echo number_format($actual_gst,2); ?></p>
@@ -1157,7 +1157,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                     <label class="filter-label"> GST Type</label>
                     <select name="filter_gst" class="jewel-input w-full">
                         <option value="" <?php if(!$filter_gst) echo 'selected'; ?>>All</option>
-                        <option value="gst"     <?php if($filter_gst==='gst')     echo 'selected'; ?>>„ GST (3%)</option>
+                        <option value="gst"     <?php if($filter_gst==='gst')     echo 'selected'; ?>> GST (3%)</option>
                         <option value="non_gst" <?php if($filter_gst==='non_gst') echo 'selected'; ?>> Non-GST</option>
                     </select>
                 </div>
@@ -1237,11 +1237,11 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                         <td class="text-right font-bold" style="color:#16a34a;">₹<?php echo number_format($bill['total_amount'],2); ?></td>
                         <td class="text-right" style="color:#15803d;">₹<?php echo number_format($paid_show,2); ?></td>
                         <td class="text-right font-bold" style="color:<?php echo $balance>0?'#dc2626':'#9ca3af'; ?>">
-                            <?php echo $balance>0 ? '₹'.number_format($balance,2) : '—'; ?>
+                            <?php echo $balance>0 ? '₹'.number_format($balance,2) : '-'; ?>
                         </td>
                         <td class="text-center">
                             <?php if(strpos($bill['gst_type'], 'gst') === 0): ?>
-                                <span style="color:#0d9488;font-weight:700;font-size:11px;">„ GST</span>
+                                <span style="color:#0d9488;font-weight:700;font-size:11px;"> GST</span>
                                 <?php if($gst_amt>0): ?>
                                     <div style="font-size:9px;color:#14b8a6;">Total: ₹<?php echo number_format($gst_amt,2); ?></div>
                                     <div style="font-size:9px;color:#14b8a6;">C+S: ₹<?php echo number_format($cgst_amt,2); ?> ea</div>
@@ -1419,10 +1419,10 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
 
         const wb = XLSX.utils.book_new();
 
-        // Sheet 1 — All Bills
+        // Sheet 1 - All Bills
         const aoa1 = [];
         aoa1.push([' MOTI JEWELLERS', '', '', '', '', '', '', '', '', '', '', '']);
-        aoa1.push(['All Bills Report — Generated: ' + today, '', '', '', '', '', '', '', '', '', '', '']);
+        aoa1.push(['All Bills Report - Generated: ' + today, '', '', '', '', '', '', '', '', '', '', '']);
         aoa1.push([]);
         aoa1.push(['Total Bills', billsData.length, '', 'Total Amount', inrFmt(totalAmt), '', 'Total GST Collected', inrFmt(totalGST), '', 'Balance Due', inrFmt(totalBalance), '']);
         aoa1.push(['Full Paid', paidBills, '', 'Part Payment', partBills, '', 'Unpaid', unpaidBills, '', 'GST Bills', gstBills, '']);
@@ -1453,9 +1453,9 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         ws1['!merges'] = [{s:{r:0,c:0},e:{r:0,c:12}},{s:{r:1,c:0},e:{r:1,c:12}}];
         XLSX.utils.book_append_sheet(wb, ws1, 'All Bills');
 
-        // Sheet 2 — Payment Summary
+        // Sheet 2 - Payment Summary
         const aoa2 = [];
-        aoa2.push([' MOTI JEWELLERS — Payment Summary']);
+        aoa2.push([' MOTI JEWELLERS - Payment Summary']);
         aoa2.push(['Generated: ' + today]);
         aoa2.push([]);
         aoa2.push(['Category', 'Count', 'Amount (₹)']);
@@ -1472,7 +1472,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         ws2['!cols'] = [{wch:28},{wch:12},{wch:20}];
         XLSX.utils.book_append_sheet(wb, ws2, 'Payment Summary');
 
-        // Sheet 3 — Pending
+        // Sheet 3 - Pending
         const pendingData = billsData.filter(b => b.payment_status !== 'paid' && parseFloat(b.balance_amount||0) > 0);
         //  UPDATED: Added GSTIN column in pending sheet too
         const aoa3 = [['#','Invoice No','Customer','GSTIN','Mobile','Bill Total (₹)','Paid (₹)','Balance Due (₹)','Status','Date']];
@@ -1667,7 +1667,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                      Delete Permanently<br><span class="text-[9px] font-normal text-red-500">(Stock is NOT updated)</span>
                 </button>
                 <button type="button" onclick="selectDeleteMode('restore_stock')" id="btnDeleteRestore" class="flex-1 py-3 px-4 rounded-xl border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 font-semibold text-xs transition duration-200 text-center cursor-pointer">
-                    ¦ Move to Stock<br><span class="text-[9px] font-normal text-green-500">(Add items to inventory)</span>
+                     Move to Stock<br><span class="text-[9px] font-normal text-green-500">(Add items to inventory)</span>
                 </button>
             </div>
             

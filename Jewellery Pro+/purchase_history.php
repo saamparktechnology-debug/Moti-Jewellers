@@ -51,7 +51,7 @@ if ($date_to !== '') {
 }
 $where_sql = count($where) ? ('WHERE ' . implode(' AND ', $where)) : '';
 
-// -- Handle delete --------------------------------------------------------─
+// -- Handle delete --------------------------------------------------------
 $delete_msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_id'])) {
     $del_id = intval($_POST['delete_id']);
@@ -74,7 +74,7 @@ $list_sql = "SELECT id, purchase_no, purchase_date, invoice_no, invoice_date, su
              ORDER BY purchase_date DESC, id DESC";
 $result = $conn->query($list_sql);
 
-// -- Totals for filtered set ----------------------------------------------─
+// -- Totals for filtered set ----------------------------------------------
 $total_amount_sum = 0;
 $total_count = 0;
 $rows = [];

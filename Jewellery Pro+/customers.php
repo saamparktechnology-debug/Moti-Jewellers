@@ -31,7 +31,7 @@ if(isset($_GET['action']) && $_GET['action'] === 'get_orders') {
                     $cat  = $it['category'] ?: '';
                     $iname = $it['item_name'] ?: '';
                     $pname = $it['pname'] ?: '';
-                    $desc = trim(($cat ? $cat . ' ”“ ' : '') . ($iname ?: $pname));
+                    $desc = trim(($cat ? $cat . '  ' : '') . ($iname ?: $pname));
                     if(empty($desc)) $desc = 'Item';
                     $items[] = [
                         'desc'  => $desc,
@@ -738,7 +738,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 <input type="tel" name="mobile" required placeholder="10-digit mobile..." class="jewel-input">
             </div>
             <div class="mb-3">
-                <label>§ Email Address</label>
+                <label> Email Address</label>
                 <input type="email" name="email" placeholder="email@example.com" class="jewel-input">
             </div>
             <div class="mb-3">
@@ -777,7 +777,7 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
                 <input type="tel" name="mobile" id="editMobile" required class="jewel-input">
             </div>
             <div class="mb-3">
-                <label>§ Email Address</label>
+                <label> Email Address</label>
                 <input type="email" name="email" id="editEmail" class="jewel-input">
             </div>
             <div class="mb-3">
@@ -887,19 +887,19 @@ $logo_paths = ['logo.png','images/radhey_shyam_logo.png','radhey_shyam_logo.png'
         <div style="display:flex;gap:0;flex-shrink:0;border-bottom:1px solid rgba(181,115,14,0.15);">
             <div style="flex:1;padding:12px 8px;text-align:center;border-right:1px solid rgba(181,115,14,0.15);">
                 <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.8px;">Total Orders</div>
-                <div id="ohTotalOrders" style="font-size:18px;font-weight:800;color:#800020;margin-top:2px;">—</div>
+                <div id="ohTotalOrders" style="font-size:18px;font-weight:800;color:#800020;margin-top:2px;">-</div>
             </div>
             <div style="flex:1;padding:12px 8px;text-align:center;border-right:1px solid rgba(181,115,14,0.15);">
                 <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.8px;">Total Spent</div>
-                <div id="ohTotalSpent" style="font-size:18px;font-weight:800;color:#059669;margin-top:2px;">—</div>
+                <div id="ohTotalSpent" style="font-size:18px;font-weight:800;color:#059669;margin-top:2px;">-</div>
             </div>
             <div style="flex:1;padding:12px 8px;text-align:center;border-right:1px solid rgba(181,115,14,0.15);">
                 <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.8px;">Paid</div>
-                <div id="ohTotalPaid" style="font-size:18px;font-weight:800;color:#2563eb;margin-top:2px;">—</div>
+                <div id="ohTotalPaid" style="font-size:18px;font-weight:800;color:#2563eb;margin-top:2px;">-</div>
             </div>
             <div style="flex:1;padding:12px 8px;text-align:center;">
                 <div style="font-size:9px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.8px;">Balance Due</div>
-                <div id="ohTotalBalance" style="font-size:18px;font-weight:800;color:#dc2626;margin-top:2px;">—</div>
+                <div id="ohTotalBalance" style="font-size:18px;font-weight:800;color:#dc2626;margin-top:2px;">-</div>
             </div>
         </div>
         <!-- Orders List -->
@@ -935,10 +935,10 @@ function openOrderHistory(mobile, name) {
     document.getElementById('ohLoading').style.display = 'block';
     document.getElementById('ohOrdersList').style.display = 'none';
     document.getElementById('ohEmpty').style.display = 'none';
-    document.getElementById('ohTotalOrders').textContent = '—';
-    document.getElementById('ohTotalSpent').textContent = '—';
-    document.getElementById('ohTotalPaid').textContent = '—';
-    document.getElementById('ohTotalBalance').textContent = '—';
+    document.getElementById('ohTotalOrders').textContent = '-';
+    document.getElementById('ohTotalSpent').textContent = '-';
+    document.getElementById('ohTotalPaid').textContent = '-';
+    document.getElementById('ohTotalBalance').textContent = '-';
     document.getElementById('ohSummaryBadge').textContent = '';
     document.body.style.overflow = 'hidden';
 
@@ -1046,7 +1046,7 @@ function downloadStatementPDF() {
     const W = 210, margin = 14;
     let y = 0;
 
-    // -- Header bar ----------------------------------------------------------─
+    // -- Header bar ----------------------------------------------------------
     doc.setFillColor(122, 78, 10);
     doc.rect(0, 0, W, 28, 'F');
     doc.setTextColor(255, 255, 255);
@@ -1090,7 +1090,7 @@ function downloadStatementPDF() {
     });
     y += 22;
 
-    // -- Orders table --------------------------------------------------------─
+    // -- Orders table --------------------------------------------------------
     const colW = [28, 22, 62, 22, 28, 24]; // Invoice, Date, Items, Qty, Amount, Status
     const headers = ['Invoice No', 'Date', 'Items', 'Qty(gm)', 'Amount', 'Status'];
     const tblW = W - margin*2;
@@ -1111,7 +1111,7 @@ function downloadStatementPDF() {
     let rowIdx = 0;
     d.orders.forEach(o => {
         const date = new Date(o.created_at).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
-        const itemNames = (o.items||[]).map(it => it.desc).join(', ') || '—';
+        const itemNames = (o.items||[]).map(it => it.desc).join(', ') || '-';
         const totalQty  = (o.items||[]).reduce((s, it) => s + parseFloat(it.qty||0), 0);
         const amt       = 'Rs.' + parseFloat(o.total_amount).toLocaleString('en-IN',{minimumFractionDigits:2});
         const status    = o.payment_status === 'paid' ? 'Paid' : (o.payment_status === 'part' ? 'Part Paid' : 'Unpaid');
@@ -1155,7 +1155,7 @@ function downloadStatementPDF() {
         itemLines.forEach((ln, li) => { doc.text(ln, cx + 1, lineStartY + li*4); });
         cx += colW[2];
         doc.setTextColor(80,80,80);
-        doc.text(totalQty > 0 ? totalQty.toFixed(3) : '—', cx + colW[3]/2, cy, {align:'center'}); cx += colW[3];
+        doc.text(totalQty > 0 ? totalQty.toFixed(3) : '-', cx + colW[3]/2, cy, {align:'center'}); cx += colW[3];
         doc.setFont('helvetica','bold'); doc.setTextColor(5,100,60);
         doc.text(amt, cx + colW[4]/2, cy, {align:'center'}); cx += colW[4];
         doc.setTextColor(...statusColor);
@@ -1165,7 +1165,7 @@ function downloadStatementPDF() {
         rowIdx++;
     });
 
-    // -- Footer --------------------------------------------------------------─
+    // -- Footer --------------------------------------------------------------
     y += 6;
     if(y > 265) { doc.addPage(); y = 20; }
     doc.setDrawColor(181,115,14); doc.line(margin, y, W-margin, y);

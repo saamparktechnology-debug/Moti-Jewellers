@@ -16,7 +16,7 @@ if (isset($_GET['fix'])) {
     $success = "Admin account (motijewellers9635985848@gmail.com / 123456) ready!";
 }
 
-// --─ LOGIN ------------------------------------------------------------------─
+// -- LOGIN ------------------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
     $email    = mysqli_real_escape_string($conn, trim($_POST['email']));
     $password = $_POST['password'];
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
     }
 }
 
-// --─ VERIFY OTP --------------------------------------------------------------
+// -- VERIFY OTP --------------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['verify_otp'])) {
     $entered_otp = trim($_POST['otp']);
     if (!isset($_SESSION['otp_sent']) || !$_SESSION['otp_sent']) {
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['verify_otp'])) {
     }
 }
 
-// --─ RESEND OTP --------------------------------------------------------------
+// -- RESEND OTP --------------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['resend_otp'])) {
     unset($_SESSION['otp'], $_SESSION['otp_sent'], $_SESSION['otp_expires'],
           $_SESSION['otp_email'], $_SESSION['otp_user_id'],
@@ -79,7 +79,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
     <meta name="author" content="MANU GUPTA">
     <meta name="description" content="Login for MOTI JEWELLERS">
-    <title>Login — MOTI JEWELLERS</title>
+    <title>Login - MOTI JEWELLERS</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -473,7 +473,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
 
 <div class="login-card">
 
-    <!-- ════ LEFT PANEL ════ -->
+    <!--  LEFT PANEL  -->
     <div class="left-panel">
         <!-- Slides -->
         <img class="slide-img active" src="assets/images/slider/nakles.png"   alt="Gold Necklace">
@@ -498,7 +498,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
             <!-- Bottom text -->
             <div class="left-bottom">
                 <h3>Crafting Timeless<br>Elegance</h3>
-                <p>Complete jewellery management — GST billing, live stock tracking, customer insights &amp; more.</p>
+                <p>Complete jewellery management - GST billing, live stock tracking, customer insights &amp; more.</p>
                 <div class="feature-list">
                     <div class="feature-item"><i class="fas fa-file-invoice-dollar"></i> GST &amp; Non-GST Billing</div>
                     <div class="feature-item"><i class="fas fa-boxes"></i> Live Stock Tracking</div>
@@ -518,7 +518,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
         </div>
     </div>
 
-    <!-- ════ RIGHT PANEL ════ -->
+    <!--  RIGHT PANEL  -->
     <div class="right-panel">
 
         <!-- Logo -->
@@ -547,7 +547,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
             </div>
         <?php endif; ?>
 
-        <!-- ════ LOGIN FORM ════ -->
+        <!--  LOGIN FORM  -->
         <div id="loginForm" <?php echo $otpSent ? 'style="display:none"' : ''; ?>>
             <div class="form-title"><i class="fas fa-sign-in-alt" style="color:var(--gold);font-size:16px;"></i> Secure Login</div>
 
@@ -564,7 +564,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
                     <label class="input-label">Password</label>
                     <div class="input-wrap">
                         <i class="fas fa-lock input-icon"></i>
-                        <input type="password" name="password" id="passwordInput" required placeholder="••••••••" class="jewel-field" style="padding-right:38px;">
+                        <input type="password" name="password" id="passwordInput" required placeholder="" class="jewel-field" style="padding-right:38px;">
                         <button type="button" class="eye-btn" onclick="togglePass()">
                             <i class="fas fa-eye" id="eyeIcon"></i>
                         </button>
@@ -588,7 +588,7 @@ $otpSent = isset($_SESSION['otp_sent']) && $_SESSION['otp_sent'];
             </div>
         </div>
 
-        <!-- ════ OTP FORM ════ -->
+        <!--  OTP FORM  -->
         <div id="otpForm" <?php echo $otpSent ? '' : 'style="display:none"'; ?>>
             <div class="otp-shield"><i class="fas fa-shield-alt"></i></div>
 

@@ -3,7 +3,7 @@ session_start();
 require_once 'config/database.php';
 if(!isset($_SESSION['user_id'])) { header('Location: login.php'); exit; }
 
-// -- Generate Redemption ID --------------------------------------------─
+// -- Generate Redemption ID --------------------------------------------
 function genRedemptionId($conn) {
     $res = mysqli_query($conn, "SELECT redemption_id FROM sanchari_redemptions ORDER BY id DESC LIMIT 1");
     $row = mysqli_fetch_assoc($res);
@@ -14,7 +14,7 @@ function genRedemptionId($conn) {
     return 'RED' . str_pad($num, 4, '0', STR_PAD_LEFT);
 }
 
-// -- Handle Form Submit ------------------------------------------------─
+// -- Handle Form Submit ------------------------------------------------
 $success = false;
 $saved_id = '';
 if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_redemption'])) {
@@ -42,7 +42,7 @@ if($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['save_redemption'])) {
     $saved_id = $redemption_id;
 }
 
-// -- Handle PDF Receipt ------------------------------------------------─
+// -- Handle PDF Receipt ------------------------------------------------
 if(isset($_GET['pdf']) && isset($_GET['rid'])) {
     $rid = mysqli_real_escape_string($conn, $_GET['rid']);
     $r   = mysqli_fetch_assoc(mysqli_query($conn, "SELECT sr.*, sc.customer_name, sc.mobile, sc.address, sc.monthly_amount, sc.scheme_duration, sc.joining_date FROM sanchari_redemptions sr LEFT JOIN sanchari_customers sc ON sr.customer_id=sc.customer_id WHERE sr.redemption_id='$rid'"));
@@ -84,7 +84,7 @@ if(isset($_GET['pdf']) && isset($_GET['rid'])) {
 <body>
 <div class="header">
   <h1> Moti Jewellers</h1>
-  <p>Sanchari Scheme — Redemption Receipt</p>
+  <p>Sanchari Scheme - Redemption Receipt</p>
   <span class="badge"><?= htmlspecialchars($r['redemption_id']) ?></span>
 </div>
 
@@ -96,7 +96,7 @@ if(isset($_GET['pdf']) && isset($_GET['rid'])) {
     <div class="field"><div class="lbl">Book ID</div><div class="val"><?= htmlspecialchars($r['book_id']) ?></div></div>
     <div class="field"><div class="lbl">Mobile</div><div class="val"><?= htmlspecialchars($r['mobile']) ?></div></div>
     <div class="field"><div class="lbl">Joining Date</div><div class="val"><?= htmlspecialchars($r['joining_date']) ?></div></div>
-    <div class="field"><div class="lbl">Scheme</div><div class="val">₹<?= number_format($r['monthly_amount'],2) ?>/mo · <?= htmlspecialchars($r['scheme_duration']) ?></div></div>
+    <div class="field"><div class="lbl">Scheme</div><div class="val">₹<?= number_format($r['monthly_amount'],2) ?>/mo  <?= htmlspecialchars($r['scheme_duration']) ?></div></div>
   </div>
 </div>
 
@@ -155,7 +155,7 @@ if(isset($_GET['pdf']) && isset($_GET['rid'])) {
 </div>
 
 <div class="footer">
-  Generated on <?= date('d M Y H:i') ?> | Moti Jewellers — Sanchari Scheme
+  Generated on <?= date('d M Y H:i') ?> | Moti Jewellers - Sanchari Scheme
 </div>
 
 <script>window.onload=()=>window.print();</script>
@@ -170,7 +170,7 @@ $customers = mysqli_query($conn, "SELECT sc.*, COALESCE(SUM(sp.amount),0) total_
 $cust_list = [];
 while($r = mysqli_fetch_assoc($customers)) $cust_list[] = $r;
 
-// -- Past redemptions --------------------------------------------------─
+// -- Past redemptions --------------------------------------------------
 $past = mysqli_query($conn, "SELECT sr.*, sc.customer_name, sc.mobile FROM sanchari_redemptions sr LEFT JOIN sanchari_customers sc ON sr.customer_id=sc.customer_id ORDER BY sr.id DESC");
 ?>
 <!DOCTYPE html>
@@ -238,7 +238,7 @@ $past = mysqli_query($conn, "SELECT sr.*, sc.customer_name, sc.mobile FROM sanch
           <div class="mb-3">
             <label class="form-label fw-semibold">Select Customer</label>
             <select id="custSelect" class="form-select">
-              <option value="">— Select Customer —</option>
+              <option value="">- Select Customer -</option>
               <?php foreach($cust_list as $c): ?>
               <option value="<?= htmlspecialchars($c['customer_id']) ?>"
                 data-book="<?= htmlspecialchars($c['book_id']) ?>"
@@ -251,7 +251,7 @@ $past = mysqli_query($conn, "SELECT sr.*, sc.customer_name, sc.mobile FROM sanch
                 data-weight="<?= $c['total_weight'] ?>"
                 data-installments="<?= $c['installments'] ?>"
                 data-status="<?= htmlspecialchars($c['status']) ?>">
-                <?= htmlspecialchars($c['customer_id']) ?> — <?= htmlspecialchars($c['customer_name']) ?> (<?= htmlspecialchars($c['book_id']) ?>)
+                <?= htmlspecialchars($c['customer_id']) ?> - <?= htmlspecialchars($c['customer_name']) ?> (<?= htmlspecialchars($c['book_id']) ?>)
               </option>
               <?php endforeach; ?>
             </select>
@@ -455,7 +455,7 @@ function calcBalance() {
     document.getElementById('s_jewellery').textContent = '₹' + jewellery.toLocaleString('en-IN', {minimumFractionDigits:2});
     document.getElementById('s_adjusted').textContent  = '- ₹' + adjusted.toLocaleString('en-IN', {minimumFractionDigits:2});
     document.getElementById('s_balance').textContent   = (balance >= 0 ? '₹' : '-₹') + Math.abs(balance).toLocaleString('en-IN', {minimumFractionDigits:2});
-    note.textContent = balance >= 0 ? '⬆ Customer pays extra' : ' Refund to customer';
+    note.textContent = balance >= 0 ? ' Customer pays extra' : ' Refund to customer';
     note.className = balance >= 0 ? 'text-danger small' : 'text-success small';
   } else {
     sBox.style.display = 'none';

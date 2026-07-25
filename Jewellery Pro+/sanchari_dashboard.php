@@ -67,7 +67,7 @@ $total_weight      = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COALESCE(SUM(
 $pending_balance   = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COALESCE(SUM(balance_amount),0) s FROM sanchari_payments WHERE payment_status!='paid'"))['s'] ?? 0;
 $this_month        = mysqli_fetch_assoc(mysqli_query($conn,"SELECT COALESCE(SUM(amount),0) s FROM sanchari_payments WHERE MONTH(payment_date)=MONTH(CURDATE()) AND YEAR(payment_date)=YEAR(CURDATE())"))['s'] ?? 0;
 
-// -- Data for tabs --------------------------------------------------------─
+// -- Data for tabs --------------------------------------------------------
 $customers_data = mysqli_query($conn,"SELECT sc.*, COALESCE(SUM(sp.amount),0) total_paid, COUNT(sp.id) installments FROM sanchari_customers sc LEFT JOIN sanchari_payments sp ON sc.customer_id=sp.customer_id GROUP BY sc.id ORDER BY sc.id DESC");
 $payments_data  = mysqli_query($conn,"SELECT * FROM sanchari_payments ORDER BY id DESC LIMIT 200");
 
@@ -94,7 +94,7 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
   .total{font-weight:normal;background:#fff8f4;}
   .footer{margin-top:20px;font-size:10px;color:#999;text-align:center;}
 </style></head><body>
-<h2>Moti Jewellers — Swarna Sanchay Statement</h2>
+<h2>Moti Jewellers - Swarna Sanchay Statement</h2>
 <div class="info">
   <strong><?= htmlspecialchars($cust['customer_name'] ?? '') ?></strong> &nbsp;|&nbsp;
   Book ID: <?= htmlspecialchars($cust['book_id'] ?? '') ?> &nbsp;|&nbsp;
@@ -109,7 +109,7 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
   <?php foreach($rows as $i=>$r): ?>
   <tr><td><?=$i+1?></td><td><?=htmlspecialchars($r['payment_id'])?></td><td><?=htmlspecialchars($r['payment_date'])?></td><td><?=$r['installment_no']?></td><td><?=number_format($r['amount'],2)?></td><td><?=number_format($r['gold_rate'],2)?></td><td><?=number_format($r['weight'],3)?></td><td><?=htmlspecialchars($r['payment_mode'])?></td></tr>
   <?php endforeach; ?>
-  <tr class="total"><td colspan="4">Total</td><td>₹<?=number_format($total_p,2)?></td><td>—</td><td><?=number_format($total_w,3)?>g</td><td></td></tr>
+  <tr class="total"><td colspan="4">Total</td><td>₹<?=number_format($total_p,2)?></td><td>-</td><td><?=number_format($total_w,3)?>g</td><td></td></tr>
   </tbody>
 </table>
 <div class="footer">Generated on <?=date('d M Y H:i')?> | Moti Jewellers</div>
@@ -331,7 +331,7 @@ if(isset($_GET['pdf']) && isset($_GET['cid'])) {
                     </div>
                 </div>
                 <span class="font-bold text-white text-xs sm:text-sm" style="font-family:'Playfair Display',serif;">
-                    <i class="fas fa-piggy-bank mr-2"></i>MOTI JEWELLERS — Swarna Sanchay Scheme
+                    <i class="fas fa-piggy-bank mr-2"></i>MOTI JEWELLERS - Swarna Sanchay Scheme
                 </span>
             </div>
             <div class="flex items-center gap-2 sm:gap-3">

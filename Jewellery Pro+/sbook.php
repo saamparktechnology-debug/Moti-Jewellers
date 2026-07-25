@@ -177,7 +177,7 @@ $logo_paths = ['logo.png', 'assets/images/logo.png', 'images/logo.png', 'assets/
                     </div>
                 </div>
                 <span class="font-bold text-white text-xs sm:text-sm" style="font-family:'Playfair Display',serif;">
-                    <i class="fas fa-piggy-bank mr-2"></i>MOTI JEWELLERS — Swarna Sanchay Booking System
+                    <i class="fas fa-piggy-bank mr-2"></i>MOTI JEWELLERS - Swarna Sanchay Booking System
                 </span>
             </div>
             <div class="flex items-center gap-3">

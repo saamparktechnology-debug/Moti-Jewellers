@@ -203,7 +203,7 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
                     </div>
                 </div>
                 <span class="font-bold text-white text-xs sm:text-sm" style="font-family:'Playfair Display',serif;">
-                    <i class="fas fa-piggy-bank mr-2"></i>MOTI JEWELLERS — Swarna Sanchay Scheme Reports
+                    <i class="fas fa-piggy-bank mr-2"></i>MOTI JEWELLERS - Swarna Sanchay Scheme Reports
                 </span>
             </div>
             <div class="flex items-center gap-2">

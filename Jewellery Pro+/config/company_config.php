@@ -1,13 +1,13 @@
 <?php
-// ══════════════════════════════════════════════════
-// COMPANY CONFIGURATION — Moti Jewellers
+// 
+// COMPANY CONFIGURATION - Moti Jewellers
 // Update this file only when details change.
-// ══════════════════════════════════════════════════
+// 
 
 $COMPANY = [
     'name'          => 'MOTI JEWELLERS',
     'name_short'    => 'Moti Jewellers',
-    'tagline'       => 'Trusted Tradition · Timeless Elegance',
+    'tagline'       => 'Trusted Tradition  Timeless Elegance',
     'sub_tagline'   => 'Precious Jewellery, Precious Relationships',
     'proprietor'    => 'Prop: Moti Jewellers',
     'address_line1' => 'Main Market',

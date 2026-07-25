@@ -218,7 +218,7 @@ if($_SERVER['REQUEST_METHOD']==='POST') {
                     </div>
                 </div>
                 <span class="font-bold text-white text-xs sm:text-sm" style="font-family:'Playfair Display',serif;">
-                    <i class="fas fa-user-plus mr-2"></i>MOTI JEWELLERS — Sanchay Customer Registration
+                    <i class="fas fa-user-plus mr-2"></i>MOTI JEWELLERS - Sanchay Customer Registration
                 </span>
             </div>
             <div class="flex items-center gap-3">
