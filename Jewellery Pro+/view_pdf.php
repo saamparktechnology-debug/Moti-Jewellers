@@ -336,6 +336,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                     <img src="<?php echo $logo_file; ?>" alt="MOTI JEWELLERS Logo" class="very-left-logo">
                     <div class="shop-branding-text">
                         <div class="shop-title"><?php echo $COMPANY['name']; ?></div>
+                        <div class="shop-details-line" style="font-size:11px;color:#7a4e0a;font-weight:600;margin-bottom:2px;">Prop: Debabrata Mondal</div>
                         <div class="shop-details-line">
                             <strong>GSTIN:</strong> <?php echo $COMPANY['gstin']; ?> &nbsp;|&nbsp; <strong>Ph No:</strong> +91-<?php echo $COMPANY['mobile']; ?><br>
                             <strong>Address:</strong> <?php echo $COMPANY['address_line1']; ?>, <?php echo $COMPANY['address_line2']; ?>, <?php echo $COMPANY['state']; ?> (Code: <?php echo $COMPANY['state_code']; ?>)
@@ -468,6 +469,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                     <img src="<?php echo $logo_file; ?>" alt="MOTI JEWELLERS Logo" class="very-left-logo">
                     <div class="shop-branding-text">
                         <div class="shop-title"><?php echo $COMPANY['name']; ?></div>
+                        <div class="shop-details-line" style="font-size:11px;color:#7a4e0a;font-weight:600;margin-bottom:2px;">Prop: Debabrata Mondal</div>
                         <div class="shop-details-line">
                             <strong>GSTIN:</strong> <?php echo $COMPANY['gstin']; ?> &nbsp;|&nbsp; <strong>Ph No:</strong> +91-<?php echo $COMPANY['mobile']; ?><br>
                             <strong>Address:</strong> <?php echo $COMPANY['address_line1']; ?>, <?php echo $COMPANY['address_line2']; ?>, <?php echo $COMPANY['state']; ?> (Code: <?php echo $COMPANY['state_code']; ?>)
@@ -744,5 +746,6 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
 
 </body>
 </html>
+
 
 
