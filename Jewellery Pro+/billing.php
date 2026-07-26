@@ -2742,12 +2742,13 @@ function calculateTotal() {
     
     let cgst = 0, sgst = 0;
     items.forEach(item => {
+        const base = (item.base_amount !== undefined) ? item.base_amount : (item.price * item.quantity);
         if (item.gst_type === 'gst_3') {
-            cgst += item.total * 0.015;
-            sgst += item.total * 0.015;
+            cgst += base * 0.015;
+            sgst += base * 0.015;
         } else if (item.gst_type === 'gst_18') {
-            cgst += item.total * 0.09;
-            sgst += item.total * 0.09;
+            cgst += base * 0.09;
+            sgst += base * 0.09;
         }
     });
 
