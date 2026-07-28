@@ -1180,9 +1180,10 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                 <span class="chip chip-yellow">Total Bills: <strong><?php echo $total_bills_count; ?></strong></span>
                 <span class="chip chip-green">Total Amount: <strong>₹<?php echo number_format($total_bills_amount,2); ?></strong></span>
                 <?php
-                $gst_filtered    = count(array_filter($bills_rows, fn($b)=>$b['gst_type']==='gst'));
-                $nongst_filtered = count(array_filter($bills_rows, fn($b)=>$b['gst_type']!=='gst'));
-                $total_gst_collected = array_sum(array_column(array_filter($bills_rows, fn($b)=>$b['gst_type']==='gst'), 'gst_amount'));
+                $is_gst_b = fn($b) => (isset($b['gst_type']) && (strpos($b['gst_type'], 'gst') === 0 || $b['gst_type'] === 'gst')) || floatval($b['gst_amount'] ?? 0) > 0;
+                $gst_filtered    = count(array_filter($bills_rows, $is_gst_b));
+                $nongst_filtered = count(array_filter($bills_rows, fn($b) => !$is_gst_b($b)));
+                $total_gst_collected = array_sum(array_column(array_filter($bills_rows, $is_gst_b), 'gst_amount'));
                 $total_cgst = round($total_gst_collected/2, 2);
                 $total_sgst = round($total_gst_collected/2, 2);
                 ?>
