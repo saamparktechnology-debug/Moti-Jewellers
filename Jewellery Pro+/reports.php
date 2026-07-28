@@ -1419,8 +1419,9 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
         const totalPaid    = billsData.reduce((s,b) => s + parseFloat(b.paid_amount||0), 0);
         const totalBalance = billsData.reduce((s,b) => s + parseFloat(b.balance_amount||0), 0);
         const totalGST     = billsData.reduce((s,b) => s + parseFloat(b.gst_amount||0), 0);
-        const gstBills     = billsData.filter(b => b.gst_type === 'gst').length;
-        const nonGstBills  = billsData.filter(b => b.gst_type !== 'gst').length;
+        const isGstBill    = b => (b.gst_type && (b.gst_type.startsWith('gst') || b.gst_type === 'gst')) || parseFloat(b.gst_amount||0) > 0;
+        const gstBills     = billsData.filter(isGstBill).length;
+        const nonGstBills  = billsData.filter(b => !isGstBill(b)).length;
         const paidBills    = billsData.filter(b => b.payment_status === 'paid').length;
         const partBills    = billsData.filter(b => b.payment_status === 'part').length;
         const unpaidBills  = billsData.filter(b => b.payment_status === 'unpaid').length;
@@ -1438,6 +1439,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
         //  UPDATED: Added GSTIN column header
         aoa1.push(['#', 'Invoice No', 'Customer Name', 'GSTIN', 'Mobile', 'Address', 'Total Amount (₹)', 'Paid Amount (₹)', 'Balance Due (₹)', 'GST Type', 'GST Amount (₹)', 'Payment Status', 'Date']);
         billsData.forEach((b, i) => {
+            const gstTypeLabel = isGstBill(b) ? (b.gst_type === 'gst_18' ? 'GST (18%)' : 'GST (3%)') : 'Non-GST';
             aoa1.push([
                 i + 1,
                 b.invoice_no,
@@ -1448,7 +1450,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                 parseFloat(b.total_amount||0),
                 parseFloat(b.paid_amount||0),
                 parseFloat(b.balance_amount||0),
-                b.gst_type === 'gst' ? 'GST (3%)' : 'Non-GST',
+                gstTypeLabel,
                 parseFloat(b.gst_amount||0),
                 b.payment_status === 'paid' ? 'Full Paid' : b.payment_status === 'part' ? 'Part Payment' : 'Unpaid',
                 fmtDate(b.created_at)
