@@ -1364,8 +1364,14 @@ function submitPayment() {
                                     <input type="number" id="gramWeight" placeholder="Grams (e.g. 5.5)" step="0.001" min="0" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="autoGramTotal()">
                                 </div>
                                 <div>
-                                    <label class="block mb-1 text-xs font-semibold text-yellow-800">Quantity (Pcs) *</label>
-                                    <input type="number" id="gramQty" value="1" step="1" min="1" class="jewel-input w-full rounded-lg px-3 py-2 text-sm" oninput="autoGramTotal()">
+                                    <label class="block mb-1 text-xs font-semibold text-yellow-800">Quantity & Unit *</label>
+                                    <div class="flex gap-2">
+                                        <input type="number" id="gramQty" value="1" step="1" min="1" class="jewel-input w-1/2 rounded-lg px-3 py-2 text-sm" oninput="autoGramTotal()">
+                                        <select id="gramUnit" class="jewel-input w-1/2 rounded-lg px-2 py-2 text-sm" onchange="autoGramTotal()">
+                                            <option value="pcs">Pcs</option>
+                                            <option value="pair">Pair</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             
@@ -2504,7 +2510,7 @@ function submitQtyItem() {
     let productId = 'other';
     let name = '';
     let itemType = '';
-    let hsn = '7113';
+    let hsn = '7108';
     let qty = 0;
     let rate = parseFloat(document.getElementById('qtyRate').value) || 0;
     
@@ -2514,7 +2520,7 @@ function submitQtyItem() {
         if (!opt || !opt.value) { alert('Please select a product from stock.'); return; }
         productId = opt.value;
         name = opt.dataset.itemName;
-        hsn = '7113';
+        hsn = '7108';
         qty = parseInt(document.getElementById('qtyCount').value) || 0;
 
         // Stock pcs validation check
@@ -2542,11 +2548,11 @@ function submitQtyItem() {
         productId = 'other';
         name = type;  // e.g. "Jhumka"
         itemType = type;
-        hsn = '7113';
+        hsn = '7108';
         qty = parseInt(document.getElementById('qtyCountCat').value) || 0;
     } else {
         name = document.getElementById('qtyManualName').value.trim();
-        hsn = document.getElementById('qtyManualHsn').value.trim() || '7113';
+        hsn = document.getElementById('qtyManualHsn').value.trim() || '7108';
         qty = parseInt(document.getElementById('qtyCountManual').value) || 0;
         if (!name) { alert('Please enter an item description.'); return; }
     }
