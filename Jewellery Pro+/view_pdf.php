@@ -589,7 +589,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                                 <?php endif; ?>
 
                             </td>
-                            <td class="center"><strong><?php echo $item_pcs; ?> Pcs</strong></td>
+                            <td class="center"><strong><?php echo $item_pcs; ?> <?php echo (stripos($name, 'pair') !== false) ? 'Pairs' : 'Pcs'; ?></strong></td>
                             <td class="right"><strong><?php echo ($gross_wt > 0) ? number_format($gross_wt, 3).' g' : '-'; ?></strong></td>
                             <td class="right"><strong><?php echo ($net_wt > 0) ? number_format($net_wt, 3).' g' : '-'; ?></strong></td>
                             <td class="right">₹<?php echo ind_format($rate); ?></td>
