@@ -137,18 +137,36 @@ function ind_format($num) {
 }
 
 function num2words($n) {
-    $n = (int)round($n);
+    $num = round(floatval($n), 2);
+    $whole = (int)floor($num);
+    $fraction = (int)round(($num - $whole) * 100);
+    
+    if ($whole == 0 && $fraction == 0) return 'Zero Rupees Only';
+    
+    $words = '';
+    if ($whole > 0) {
+        $words .= num2words_integer($whole) . ' Rupees';
+    }
+    if ($fraction > 0) {
+        if (!empty($words)) $words .= ' and ';
+        $words .= num2words_integer($fraction) . ' Paise';
+    }
+    return $words . ' Only';
+}
+
+function num2words_integer($n) {
+    $n = (int)$n;
     $ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
     $tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
     if($n==0) return 'Zero';
     if($n<20) return $ones[$n];
     if($n<100) return $tens[(int)($n/10)].($n%10?' '.$ones[$n%10]:'');
-    if($n<1000) return $ones[(int)($n/100)].' Hundred'.($n%100?' '.num2words($n%100):'');
-    if($n<100000) return num2words((int)($n/1000)).' Thousand'.($n%1000?' '.num2words($n%1000):'');
-    if($n<10000000) return num2words((int)($n/100000)).' Lakh'.($n%100000?' '.num2words($n%100000):'');
-    return num2words((int)($n/10000000)).' Crore'.($n%10000000?' '.num2words($n%10000000):'');
+    if($n<1000) return $ones[(int)($n/100)].' Hundred'.($n%100?' '.num2words_integer($n%100):'');
+    if($n<100000) return num2words_integer((int)($n/1000)).' Thousand'.($n%1000?' '.num2words_integer($n%1000):'');
+    if($n<10000000) return num2words_integer((int)($n/100000)).' Lakh'.($n%100000?' '.num2words_integer($n%100000):'');
+    return num2words_integer((int)($n/10000000)).' Crore'.($n%10000000?' '.num2words_integer($n%10000000):'');
 }
-$total_words = num2words($total) . ' Rupees Only';
+$total_words = num2words($total);
 
 $logo_file = $COMPANY['logo_path'] ?? 'logo.png';
 
@@ -179,7 +197,7 @@ if ($is_receipt) {
         $rec_prev_balance = $rec_new_balance + $rec_paid_amount;
     }
     $rec_prev_paid = max(0, floatval($inv['total_amount']) - $rec_prev_balance);
-    $rec_words = num2words($rec_paid_amount) . ' Rupees Only';
+    $rec_words = num2words($rec_paid_amount);
 }
 ?>
 <!DOCTYPE html>
@@ -285,28 +303,66 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
 .amount-words-bar strong { color:#2b1b17; font-weight:700; }
 
 /* Strict A4 Printing Rules */
+@page {
+    size: A4 portrait;
+    margin: 5mm 8mm;
+}
 @media print {
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
     html, body {
-        width: 210mm !important;
-        height: 297mm !important;
+        width: 100% !important;
+        height: auto !important;
         background: #fff !important;
         padding: 0 !important;
         margin: 0 !important;
     }
     .print-actions { display:none !important; }
-    .invoice-card { min-height: 275mm !important; 
+    .invoice-card { 
         width: 100% !important;
         max-width: 100% !important;
-        min-height: 285mm !important;
-        border: 2.5px solid #ffd700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.5) !important;
+        min-height: auto !important;
+        height: auto !important;
+        background: #fffbf4 !important;
+        border: 2px solid #d68b16 !important;
+        border-radius: 10px !important;
         box-shadow: none !important;
-        border-radius: 0 !important;
-        padding: 24px 28px !important;
-        background: #fff !important;
+        padding: 16px 20px !important;
+        box-sizing: border-box !important;
         page-break-inside: avoid;
     }
-    .full-page-coloured-watermark { opacity:0.12 !important; z-index: 99 !important; }
+    .inv-table { 
+        display: table !important; 
+        width: 100% !important; 
+        white-space: normal !important; 
+        border-collapse: collapse !important;
+        page-break-inside: auto; 
+    }
+    .inv-table tr { 
+        display: table-row !important; 
+        page-break-inside: avoid; 
+        page-break-after: auto; 
+    }
+    .inv-table th, .inv-table td { 
+    .full-page-coloured-watermark { 
+        position: absolute !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        width: 480px !important;
+        height: 480px !important;
+        object-fit: contain !important;
+        opacity: 0.16 !important; 
+        z-index: 9999 !important; 
+        pointer-events: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
     .inv-table tbody tr:nth-child(even) { background:#fcf8ee !important; }
+    .bottom-section { page-break-inside: avoid; }
 }
 </style>
     <link rel="stylesheet" href="mobile.css">

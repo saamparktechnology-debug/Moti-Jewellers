@@ -383,8 +383,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
     // Old Gold is deducted after tax so GST is calculated strictly on new items subtotal.
     $subtotal_before_tax = $subtotal + $pola;
     $total_before_round  = $subtotal_before_tax + $gst_amount - $old_gold_amount;
-    $total_amount  = max(0, round($total_before_round));
-    $round_off     = $total_amount - $total_before_round;
+    $total_amount  = max(0, round($total_before_round, 2));
+    $round_off     = 0;
 
     $chkEmailColumn = mysqli_query($conn, "SHOW COLUMNS FROM customers LIKE 'email'");
     if($chkEmailColumn && mysqli_num_rows($chkEmailColumn) == 0) {
@@ -403,11 +403,76 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
             goto skip_invoice;
         }
     } else {
-        $invoice_no = 'INV-' . date('Ymd') . '-' . rand(1000, 9999);
+        $today = date('Ymd');
+        $raw_gst_type = strtolower(trim($_POST['gst_type'] ?? 'non_gst'));
+        $is_gst_invoice = ($gst_amount > 0 || ($raw_gst_type !== 'non_gst' && !empty($raw_gst_type)));
+
+        if ($is_gst_invoice) {
+            // --- GST TAX INVOICE SEQUENCE (INV-YYYYMMDD-3866...) ---
+            $prefix = 'INV-' . $today . '-';
+            $q = mysqli_query($conn, "SELECT invoice_no FROM invoices WHERE (gst_amount > 0 OR (gst_type IS NOT NULL AND gst_type != '' AND gst_type != 'non_gst')) AND invoice_no LIKE 'INV-%'");
+            $existing_nums = [];
+            if ($q) {
+                while ($row = mysqli_fetch_assoc($q)) {
+                    $parts = explode('-', $row['invoice_no']);
+                    $num = intval(end($parts));
+                    if ($num > 0) {
+                        $existing_nums[] = $num;
+                    }
+                }
+            }
+            $next_num = 1;
+            if (!empty($existing_nums)) {
+                $next_num = max($existing_nums) + 1;
+            }
+            while (in_array($next_num, $existing_nums)) {
+                $next_num++;
+            }
+            $invoice_no = $prefix . str_pad($next_num, 4, '0', STR_PAD_LEFT);
+        } else {
+            // --- CASH MEMO (NON-GST) SEQUENCE (INV-YYYYMMDD-0001, 0002...) ---
+            $prefix = 'INV-' . $today . '-';
+            $q = mysqli_query($conn, "SELECT invoice_no FROM invoices WHERE (gst_amount <= 0 AND (gst_type IS NULL OR gst_type = '' OR gst_type = 'non_gst')) AND invoice_no LIKE 'INV-%'");
+            $existing_nums = [];
+            if ($q) {
+                while ($row = mysqli_fetch_assoc($q)) {
+                    $parts = explode('-', $row['invoice_no']);
+                    $num = intval(end($parts));
+                    if ($num > 0 && $num <= 3000) {
+                        $existing_nums[] = $num;
+                    }
+                }
+            }
+            $next_num = 1; // Cash Memos start from 0001
+            if (!empty($existing_nums)) {
+                $next_num = max($existing_nums) + 1;
+            }
+            while (in_array($next_num, $existing_nums)) {
+                $next_num++;
+            }
+            $invoice_no = $prefix . str_pad($next_num, 4, '0', STR_PAD_LEFT);
+        }
     }
     $customer_gstin = mysqli_real_escape_string($conn, $_POST['customer_gstin'] ?? '');
     $huid_code = mysqli_real_escape_string($conn, trim($_POST['huid_code'] ?? ''));
-    $created_by_val = (isset($_SESSION['user_id']) && intval($_SESSION['user_id']) > 0) ? intval($_SESSION['user_id']) : "NULL";
+    $created_by_val = "NULL";
+    $session_uid = (isset($_SESSION['user_id']) && intval($_SESSION['user_id']) > 0) ? intval($_SESSION['user_id']) : 0;
+    if ($session_uid > 0) {
+        $u_chk = mysqli_query($conn, "SELECT id FROM users WHERE id = $session_uid LIMIT 1");
+        if ($u_chk && mysqli_num_rows($u_chk) > 0) {
+            $created_by_val = $session_uid;
+        } else {
+            $first_u = mysqli_query($conn, "SELECT id FROM users ORDER BY id ASC LIMIT 1");
+            if ($first_u && $fu_row = mysqli_fetch_assoc($first_u)) {
+                $created_by_val = intval($fu_row['id']);
+            }
+        }
+    } else {
+        $first_u = mysqli_query($conn, "SELECT id FROM users ORDER BY id ASC LIMIT 1");
+        if ($first_u && $fu_row = mysqli_fetch_assoc($first_u)) {
+            $created_by_val = intval($fu_row['id']);
+        }
+    }
 
     $chk1 = mysqli_query($conn, "SHOW COLUMNS FROM invoices LIKE 'paid_amount'");
     if($chk1 && mysqli_num_rows($chk1) == 0) {
@@ -1990,11 +2055,13 @@ function onGramStockChange() {
         return;
     }
     
-    const price    = parseFloat(opt.dataset.price) || 0;    // DB: total item value
-    const qty      = parseFloat(opt.dataset.qty) || 0;      // DB: pieces in stock
-    const name     = opt.dataset.itemName;
-    const category = opt.dataset.category || '';
-    const huid     = opt.dataset.huid || '';
+    const price       = parseFloat(opt.dataset.price) || 0;    // DB: total item value
+    const qty         = parseFloat(opt.dataset.qty) || 0;      // DB: pieces in stock
+    const name        = opt.dataset.itemName;
+    const category    = opt.dataset.category || '';
+    const huid        = opt.dataset.huid || '';
+    const stockWeight = parseFloat(opt.dataset.weight) || 0;
+    const wtInfo      = stockWeight > 0 ? ' | Available Weight: <strong style="color:#059669;">' + stockWeight.toFixed(3) + ' g</strong>' : '';
 
     // Auto-fill HUID
     if (document.getElementById('manualHuid')) {
@@ -2005,23 +2072,30 @@ function onGramStockChange() {
     const shopRatePerGram = getShopRateForCategory(category); // returns per-gram from shop rates
     const shopRate10g     = shopRatePerGram * 10;             // convert back to per-10g for the field
 
+    // Auto-fill stock weight if available
+    if (weightInput) {
+        if (stockWeight > 0) {
+            weightInput.value = stockWeight;
+        } else {
+            weightInput.value = '';
+        }
+    }
+
     if (qty <= 0) {
         rateInput.value = '';
-        weightInput.value = '';
-        infoDiv.innerHTML = '<strong style="color:#dc2626;">' + name + '</strong> | <strong style="color:#dc2626;"> OUT OF STOCK (0 pcs available)</strong>';
+        if(weightInput) weightInput.value = '';
+        infoDiv.innerHTML = '<strong style="color:#dc2626;">' + name + '</strong>' + wtInfo + ' | <strong style="color:#dc2626;"> OUT OF STOCK (0 pcs available)</strong>';
     } else if (shopRate10g > 0) {
         rateInput.value = shopRate10g.toFixed(0);
         const hint = document.getElementById('gramRatePerGramHint');
-        if(hint) hint.textContent = '\u2248 \u20B9' + shopRatePerGram.toLocaleString('en-IN', {maximumFractionDigits:2}) + ' per gram (shop rate used in billing)';
-        infoDiv.innerHTML = '<strong>' + name + '</strong> | Shop Rate: \u20B9' + shopRatePerGram.toLocaleString('en-IN', {maximumFractionDigits:2}) + '/g | Stock Value: \u20B9' + price.toLocaleString('en-IN') + ' | Available Stock: <strong style="color:#059669;">' + qty + ' pcs</strong>';
-        weightInput.value = '';
+        if(hint) hint.textContent = '≈ ₹' + shopRatePerGram.toLocaleString('en-IN', {maximumFractionDigits:2}) + ' per gram (shop rate used in billing)';
+        infoDiv.innerHTML = '<strong>' + name + '</strong> | Shop Rate: ₹' + shopRatePerGram.toLocaleString('en-IN', {maximumFractionDigits:2}) + '/g | Available Qty: <strong style="color:#059669;">' + qty + ' pcs</strong>' + wtInfo;
     } else {
         rateInput.value = '';
         const hint = document.getElementById('gramRatePerGramHint');
-        if(hint) hint.textContent = '\u26A0 Set shop rate for ' + (category || 'this category') + ' in the panel on the right first!';
+        if(hint) hint.textContent = '⚠ Set shop rate for ' + (category || 'this category') + ' in the panel on the right first!';
         if(hint) hint.style.color = '#dc2626';
-        infoDiv.innerHTML = '<strong>' + name + '</strong> | Stock Value: \u20B9' + price.toLocaleString('en-IN') + ' | Available Stock: <strong style="color:#059669;">' + qty + ' pcs</strong> | \u26A0 Set shop rate first!';
-        weightInput.value = '';
+        infoDiv.innerHTML = '<strong>' + name + '</strong> | Available Qty: <strong style="color:#059669;">' + qty + ' pcs</strong>' + wtInfo + ' | ⚠ Set shop rate first!';
     }
 
     infoDiv.classList.remove('hidden');
@@ -2201,9 +2275,10 @@ function autoGramTotal() {
     
     const rate10g = parseFloat(document.getElementById('gramRate').value) || 0;
     const qty = parseFloat(document.getElementById('gramQty')?.value) || 1;
+    const unitSelect = document.getElementById('gramUnit');
+    const isPair = unitSelect && unitSelect.value === 'pair';
     let total = 0;
     const hint = document.getElementById('gramRatePerGramHint');
-    
     const unitLabel = isPair ? 'pairs' : 'pcs';
     
     if (weight > 0) {
@@ -2491,14 +2566,16 @@ function onQtyStockChange() {
     const price = parseFloat(opt.dataset.price) || 0;
     const qty = parseFloat(opt.dataset.qty) || 0;
     const name = opt.dataset.itemName;
+    const stockWeight = parseFloat(opt.dataset.weight) || 0;
+    const wtInfo = stockWeight > 0 ? ' | Available Weight: <strong style="color:#059669;">' + stockWeight.toFixed(3) + ' g</strong>' : '';
     
     rateInput.value = price.toFixed(2);
     qtyInput.value = 1;
     
     if (qty <= 0) {
-        infoDiv.innerHTML = '<strong style="color:#dc2626;">' + name + '</strong> | <strong style="color:#dc2626;"> OUT OF STOCK (0 pcs available)</strong>';
+        infoDiv.innerHTML = '<strong style="color:#dc2626;">' + name + '</strong>' + wtInfo + ' | <strong style="color:#dc2626;"> OUT OF STOCK (0 pcs available)</strong>';
     } else {
-        infoDiv.innerHTML = '<strong>' + name + '</strong> Selected. Price per Piece: ₹' + price.toFixed(2) + ' | Available Stock: <strong style="color:#059669;">' + qty + ' pcs</strong>';
+        infoDiv.innerHTML = '<strong>' + name + '</strong> Selected. Price per Piece: ₹' + price.toFixed(2) + ' | Available Qty: <strong style="color:#059669;">' + qty + ' pcs</strong>' + wtInfo;
     }
     infoDiv.classList.remove('hidden');
     
