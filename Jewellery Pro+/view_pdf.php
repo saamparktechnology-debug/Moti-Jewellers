@@ -236,8 +236,8 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
 .invoice-content { position:relative; z-index:2; }
 
 /* Top Header */
-.top-header { display:flex; align-items:center; gap:18px; margin-bottom:16px; border-bottom:2.5px solid #d68b16; padding-bottom:14px; }
-.very-left-logo { width:85px; height:85px; object-fit:contain; border:none; box-shadow:none; background:transparent; flex-shrink:0; }
+.top-header { display:flex; align-items:center; gap:20px; margin-bottom:16px; border-bottom:2.5px solid #d68b16; padding-bottom:14px; }
+.very-left-logo { width:125px; height:125px; max-width:130px; max-height:130px; object-fit:contain; border:none; box-shadow:none; background:transparent; flex-shrink:0; }
 .shop-branding-text { flex:1; }
 .shop-title { font-family:'Poppins', sans-serif; font-size:24px; font-weight:700; color:#2b1b17; line-height:1.1; letter-spacing:0.5px; margin-bottom:4px; }
 .shop-details-line { font-size:11.5px; color:#523e2b; line-height:1.5; }
@@ -360,6 +360,16 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
         pointer-events: none !important;
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
+    }
+    .very-left-logo { 
+        width: 125px !important; 
+        height: 125px !important; 
+        max-width: 130px !important; 
+        max-height: 130px !important; 
+        object-fit: contain !important; 
+        display: block !important; 
+        -webkit-print-color-adjust: exact !important; 
+        print-color-adjust: exact !important; 
     }
     .inv-table tbody tr:nth-child(even) { background:#fcf8ee !important; }
     .bottom-section { page-break-inside: avoid; }

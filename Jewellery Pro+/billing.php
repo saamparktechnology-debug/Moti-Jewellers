@@ -408,9 +408,31 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         $is_gst_invoice = ($gst_amount > 0 || ($raw_gst_type !== 'non_gst' && !empty($raw_gst_type)));
 
         if ($is_gst_invoice) {
-            // --- GST TAX INVOICE SEQUENCE (INV-YYYYMMDD-3866...) ---
-            $prefix = 'INV-' . $today . '-';
-            $q = mysqli_query($conn, "SELECT invoice_no FROM invoices WHERE (gst_amount > 0 OR (gst_type IS NOT NULL AND gst_type != '' AND gst_type != 'non_gst')) AND invoice_no LIKE 'INV-%'");
+            // --- GST TAX INVOICE SEQUENCE (Continues past sequence: 0450, 0451, 0452...) ---
+            $prefix = 'GST-' . $today . '-';
+            $q = mysqli_query($conn, "SELECT invoice_no FROM invoices WHERE (invoice_no LIKE 'GST-%' OR invoice_no LIKE 'INV-%')");
+            $existing_nums = [];
+            if ($q) {
+                while ($row = mysqli_fetch_assoc($q)) {
+                    $parts = explode('-', $row['invoice_no']);
+                    $num = intval(end($parts));
+                    if ($num > 0) {
+                        $existing_nums[] = $num;
+                    }
+                }
+            }
+            $next_num = 450;
+            if (!empty($existing_nums)) {
+                $next_num = max($existing_nums) + 1;
+            }
+            while (in_array($next_num, $existing_nums)) {
+                $next_num++;
+            }
+            $invoice_no = $prefix . str_pad($next_num, 4, '0', STR_PAD_LEFT);
+        } else {
+            // --- CASH MEMO (NON-GST) SEQUENCE (CM-YYYYMMDD-0001, 0002...) ---
+            $prefix = 'CM-' . $today . '-';
+            $q = mysqli_query($conn, "SELECT invoice_no FROM invoices WHERE invoice_no LIKE 'CM-%'");
             $existing_nums = [];
             if ($q) {
                 while ($row = mysqli_fetch_assoc($q)) {
@@ -422,28 +444,6 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
                 }
             }
             $next_num = 1;
-            if (!empty($existing_nums)) {
-                $next_num = max($existing_nums) + 1;
-            }
-            while (in_array($next_num, $existing_nums)) {
-                $next_num++;
-            }
-            $invoice_no = $prefix . str_pad($next_num, 4, '0', STR_PAD_LEFT);
-        } else {
-            // --- CASH MEMO (NON-GST) SEQUENCE (INV-YYYYMMDD-0001, 0002...) ---
-            $prefix = 'INV-' . $today . '-';
-            $q = mysqli_query($conn, "SELECT invoice_no FROM invoices WHERE (gst_amount <= 0 AND (gst_type IS NULL OR gst_type = '' OR gst_type = 'non_gst')) AND invoice_no LIKE 'INV-%'");
-            $existing_nums = [];
-            if ($q) {
-                while ($row = mysqli_fetch_assoc($q)) {
-                    $parts = explode('-', $row['invoice_no']);
-                    $num = intval(end($parts));
-                    if ($num > 0 && $num <= 3000) {
-                        $existing_nums[] = $num;
-                    }
-                }
-            }
-            $next_num = 1; // Cash Memos start from 0001
             if (!empty($existing_nums)) {
                 $next_num = max($existing_nums) + 1;
             }
