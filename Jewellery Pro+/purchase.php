@@ -358,6 +358,7 @@ nav.nav-gold span{color:#fff!important;}
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
+        <a href="sanchari_dashboard.php"><i class="fas fa-piggy-bank"></i> SANCHAY SCHEME</a>
         
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
@@ -367,7 +368,7 @@ nav.nav-gold span{color:#fff!important;}
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Tools</div>
         <a href="whatsapp_automation.php"><i class="fab fa-whatsapp"></i> WHATSAPP</a>
-        <a href="purchase.php" class="active"><i class="fas fa-shopping-cart"></i> PURCHASE</a>
+        <a href="purchase.php" class="active"><i class="fas fa-book"></i> PURCHASE</a>
         <a href="contacts.php"><i class="fas fa-address-book"></i> CONTACTS</a>
         <a href="accounts.php"><i class="fas fa-calculator"></i> ACCOUNTS</a>
     </nav>

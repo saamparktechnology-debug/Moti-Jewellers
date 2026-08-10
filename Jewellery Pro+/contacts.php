@@ -75,7 +75,8 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
-*, *::before, *::after { box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+*, *::before, *::after { box-sizing: border-box; }
+* { font-family: 'Poppins', sans-serif; }
 h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
 
 /* ========== SIDEBAR ========== */
@@ -210,6 +211,7 @@ h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
+        <a href="sanchari_dashboard.php"><i class="fas fa-piggy-bank"></i> SANCHAY SCHEME</a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
