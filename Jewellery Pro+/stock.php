@@ -357,39 +357,74 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
             bottom: 0;
             background: linear-gradient(135deg, #1a0a00, #4a2000);
             border-top: 2px solid #d68b16;
-            padding: 8px 12px;
+            padding: 6px 10px;
             display: flex;
-            flex-wrap: nowrap;
+            flex-wrap: wrap;
             justify-content: space-between;
             align-items: center;
             border-radius: 0 0 20px 20px;
             z-index: 100;
             color: #fff;
             box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
-            gap: 6px;
+            gap: 4px;
             margin-top: auto;
             margin-left: -20px;
             margin-right: -20px;
             margin-bottom: -20px;
-            overflow: visible !important;
+            box-sizing: border-box;
         }
         .sticky-stock-summary .summary-item {
             position: relative;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 4px;
-            font-size: 10.5px;
+            justify-content: space-between;
+            gap: 3px;
+            font-size: 9.5px;
             background: rgba(255, 255, 255, 0.08);
-            padding: 4px 8px;
+            padding: 3px 6px;
             border-radius: 6px;
             border: 1px solid rgba(255, 215, 0, 0.25);
             transition: all 0.2s ease;
             white-space: nowrap;
-            flex: 0 1 auto;
-            min-width: max-content;
+            flex: 1 1 0px;
+            min-width: 0;
             box-sizing: border-box;
             cursor: pointer;
+        }
+        .sticky-stock-summary .summary-item:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: #ffd700;
+        }
+        .sticky-stock-summary .summary-item i {
+            color: #ffd700;
+            font-size: 10px;
+            flex-shrink: 0;
+        }
+        .sticky-stock-summary .summary-item span {
+            font-size: 9.5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sticky-stock-summary .summary-item span strong {
+            color: #ffd700;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .summary-dropdown-btn {
+            background: rgba(255, 215, 0, 0.2);
+            color: #ffd700;
+            border: 1px solid rgba(255, 215, 0, 0.4);
+            border-radius: 4px;
+            padding: 1px 4px;
+            font-size: 8px;
+            cursor: pointer;
+            margin-left: 2px;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            flex-shrink: 0;
         }
         .sticky-stock-summary .summary-item:hover {
             background: rgba(255, 255, 255, 0.15);
@@ -1224,7 +1259,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
                             <i class="fas fa-boxes"></i>
                             <span>Unique Items: <strong><?php echo $total_unique_items; ?></strong></span>
                             <button type="button" onclick="toggleStockBreakdown('uniqueDropdown', event)" class="summary-dropdown-btn" title="Category Breakdown">
-                                Category <i class="fas fa-chevron-down"></i>
+                                Cat <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="summary-dropdown-menu" id="uniqueDropdown">
                                 <h4><span><i class="fas fa-boxes text-yellow-400 mr-1"></i> Unique Items</span> <i class="fas fa-times text-xs opacity-50 cursor-pointer" onclick="toggleStockBreakdown('uniqueDropdown', event)"></i></h4>
@@ -1246,7 +1281,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
                             <i class="fas fa-cubes"></i>
                             <span>Total Qty: <strong><?php echo number_format($total_qty); ?> pcs</strong></span>
                             <button type="button" onclick="toggleStockBreakdown('qtyDropdown', event)" class="summary-dropdown-btn" title="Category Breakdown">
-                                Category <i class="fas fa-chevron-down"></i>
+                                Cat <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="summary-dropdown-menu" id="qtyDropdown">
                                 <h4><span><i class="fas fa-cubes text-yellow-400 mr-1"></i> Quantity</span> <i class="fas fa-times text-xs opacity-50 cursor-pointer" onclick="toggleStockBreakdown('qtyDropdown', event)"></i></h4>
@@ -1268,7 +1303,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
                             <i class="fas fa-weight-hanging"></i>
                             <span>Total Weight: <strong><?php echo number_format($total_weight, 3); ?> g</strong></span>
                             <button type="button" onclick="toggleStockBreakdown('weightDropdown', event)" class="summary-dropdown-btn" title="Category Breakdown">
-                                Category <i class="fas fa-chevron-down"></i>
+                                Cat <i class="fas fa-chevron-down"></i>
                             </button>
                             <div class="summary-dropdown-menu" id="weightDropdown">
                                 <h4><span><i class="fas fa-weight-hanging text-yellow-400 mr-1"></i> Weight Breakdown</span> <i class="fas fa-times text-xs opacity-50 cursor-pointer" onclick="toggleStockBreakdown('weightDropdown', event)"></i></h4>
