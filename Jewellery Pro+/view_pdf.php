@@ -598,6 +598,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                         <tr>
                             <th style="width:28px" class="center">No</th>
                             <th>Items / Product Name</th>
+                            <?php if($is_gst): ?><th style="width:65px" class="center">HSN</th><?php endif; ?>
                             <th style="width:50px" class="center">Qty</th>
                             <th style="width:75px" class="right">Gross Wt</th>
                             <th style="width:75px" class="right">Net Wt</th>
@@ -626,13 +627,16 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                             $net_wt   = $is_piece ? 0 : floatval($it['net_wt'] ?? $item_val);
                             $rate     = floatval($it['price']);
                             $amt      = floatval($it['total']);
-                            $it_gst_type = $it['gst_type'] ?? 'non_gst';
+                            $it_gst_type = trim($it['gst_type'] ?? '');
                             if ($it_gst_type === 'gst_18') {
                                 $item_tax_rate = 18;
                                 $tax_amt = round($amt * 0.18, 2);
                             } else if ($it_gst_type === 'gst_3') {
                                 $item_tax_rate = 3;
                                 $tax_amt = round($amt * 0.03, 2);
+                            } else if ($it_gst_type === 'non_gst') {
+                                $item_tax_rate = 0;
+                                $tax_amt = 0;
                             } else if ($is_gst && $effective_gst_pct > 0) {
                                 $item_tax_rate = $effective_gst_pct;
                                 $tax_amt = round($amt * ($effective_gst_pct / 100), 2);
@@ -656,6 +660,11 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                                 <?php endif; ?>
 
                             </td>
+                            <?php if($is_gst): ?>
+                            <td class="center" style="font-weight:600; color:#475569;">
+                                <?php echo ($tax_amt > 0 || $item_tax_rate > 0) ? htmlspecialchars($it['hsn_code'] ?? '') : ''; ?>
+                            </td>
+                            <?php endif; ?>
                             <td class="center"><strong><?php echo $item_pcs; ?> <?php echo (stripos($name, 'pair') !== false) ? 'Pairs' : 'Pcs'; ?></strong></td>
                             <td class="right"><strong><?php echo ($gross_wt > 0) ? number_format($gross_wt, 3).' g' : '-'; ?></strong></td>
                             <td class="right"><strong><?php echo ($net_wt > 0) ? number_format($net_wt, 3).' g' : '-'; ?></strong></td>
@@ -674,7 +683,7 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
 
                         <!-- 5. Subtotal Row with Total Qty & Weights in Grams -->
                         <tr class="subtotal-row">
-                            <td colspan="2" style="text-align:right;">SUBTOTAL WEIGHTS &amp; AMOUNT</td>
+                            <td colspan="<?php echo $is_gst ? '3' : '2'; ?>" style="text-align:right;">SUBTOTAL WEIGHTS &amp; AMOUNT</td>
                             <td class="center"><?php echo $total_pcs; ?> Pcs</td>
                             <td class="right"><?php echo number_format($total_gross_wt, 3); ?> g</td>
                             <td class="right"><?php echo number_format($total_net_wt, 3); ?> g</td>

@@ -1432,9 +1432,22 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         <form method="POST">
             <input type="hidden" name="product_id" id="updateProductId">
             <p class="mb-3 text-sm" style="color:#7a4e0a;">Product: <strong id="updateProductName" style="color:#800020;"></strong></p>
+            <div class="mb-3 flex gap-2">
+                <div class="flex-1">
+                    <label> Add Qty/Pair</label>
+                    <input type="number" name="quantity" required class="jewel-input" placeholder="Enter quantity to add">
+                </div>
+                <div class="w-1/3">
+                    <label> Unit</label>
+                    <select name="unit" id="updateProductUnit" class="jewel-input">
+                        <option value="pcs">Pcs</option>
+                        <option value="pair">Pair</option>
+                    </select>
+                </div>
+            </div>
             <div class="mb-4">
-                <label> Add Quantity</label>
-                <input type="number" name="quantity" required class="jewel-input" placeholder="Enter quantity to add">
+                <label> Add Weight (grams)</label>
+                <input type="number" step="0.001" name="weight" class="jewel-input" placeholder="Enter weight to add">
             </div>
             <div class="flex gap-3">
                 <button type="submit" name="update_quantity" class="btn-jewel flex-1 text-center"> Add Stock</button>

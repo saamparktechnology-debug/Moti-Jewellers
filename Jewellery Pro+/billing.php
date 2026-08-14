@@ -248,7 +248,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
 
 // Fetch products from DB
 $all_products = [];
-$products_result = mysqli_query($conn, "SELECT id, name, item_name, serial_no, category, price, quantity, huid_code FROM products ORDER BY category, item_name, name");
+$products_result = mysqli_query($conn, "SELECT id, name, item_name, serial_no, category, price, quantity, unit, weight, huid_code, hsn_code FROM products ORDER BY category, item_name, name");
 if($products_result) {
     while($p = mysqli_fetch_assoc($products_result)) {
         $all_products[] = $p;
@@ -598,7 +598,10 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
         if(!$col_item_disc) mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN discount DECIMAL(10,2) DEFAULT 0");
 
         if(is_array($items)) {
+            $col_item_gst = mysqli_num_rows(mysqli_query($conn, "SHOW COLUMNS FROM invoice_items LIKE 'gst_type'")) > 0;
+            if(!$col_item_gst) mysqli_query($conn, "ALTER TABLE invoice_items ADD COLUMN gst_type VARCHAR(20) DEFAULT 'non_gst'");
             foreach($items as $item) {
+                $item_gst_type = mysqli_real_escape_string($conn, $item['gst_type'] ?? 'non_gst');
                 $product_id = $item['product_id'] ?? '';
                 $quantity   = floatval($item['quantity'] ?? 0);
                 $price      = floatval($item['price'] ?? 0);
@@ -613,7 +616,7 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
                 $manual_hsn = mysqli_real_escape_string($conn, trim($item['hsn'] ?? $item['hsn_code'] ?? ''));
 
                 if($product_id === 'other' || !is_numeric($product_id)) {
-                    $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, making_charge_pct, hallmark, discount) VALUES ($invoice_id, NULL, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_making_charge_pct, $item_hallmark, $item_discount)";
+                    $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, making_charge_pct, hallmark, discount, gst_type) VALUES ($invoice_id, NULL, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_making_charge_pct, $item_hallmark, $item_discount, '$item_gst_type')";
                     mysqli_query($conn, $item_query);
                     continue;
                 }
@@ -621,8 +624,8 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['create_invoice'])) {
                 $pcs_deduct = floatval($item['pcs'] ?? $item['stock_deduct'] ?? 1);
                 if($pcs_deduct <= 0) $pcs_deduct = 1;
 
-                $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, making_charge_pct, hallmark, discount)
-                               VALUES ($invoice_id, $pid, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_making_charge_pct, $item_hallmark, $item_discount)";
+                $item_query = "INSERT INTO invoice_items (invoice_id, product_id, product_name, serial_no, huid_code, hsn_code, quantity, price, total, making_charge, making_charge_pct, hallmark, discount, gst_type)
+                               VALUES ($invoice_id, $pid, '".$manual_name."', '".$manual_serial."', '".$manual_huid."', '".$manual_hsn."', $quantity, $price, $total, $item_making_charge, $item_making_charge_pct, $item_hallmark, $item_discount, '$item_gst_type')";
                 mysqli_query($conn, $item_query);
 
                 $w_deduct = (isset($item['unit']) && $item['unit'] === 'g') ? floatval($item['quantity'] ?? 0) : 0;
