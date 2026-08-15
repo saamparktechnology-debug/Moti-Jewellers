@@ -80,9 +80,22 @@ $old_gold = floatval($inv['old_gold_amount'] ?? 0);
 $old_gold_type = !empty($inv['old_gold_type']) ? $inv['old_gold_type'] : 'Old Gold';
 $raw_total= floatval($inv['total_amount']);
 
+// Calculate Refund / Return Amount to Customer if Old Gold exceeds Total Bill
+$subtotal_with_gst = $subtotal + ($is_gst ? $gst_total : 0);
+$refund_amount = 0;
+if ($old_gold > $subtotal_with_gst) {
+    $refund_amount = round($old_gold - $subtotal_with_gst, 2);
+}
+
 // Ensure net total deducts old_gold_amount if DB stored pre-deduction total
-$calc_total = max(0, $subtotal + $gst_total - $old_gold);
+$calc_total = max(0, $subtotal_with_gst - $old_gold);
 $total = ($old_gold > 0 && abs($raw_total - $calc_total) > 1) ? $calc_total : $raw_total;
+
+if ($total == 0 && $refund_amount > 0) {
+    $total_words = num2words($refund_amount) . ' (Refundable / Return to Customer)';
+} else {
+    $total_words = num2words($total);
+}
 
 $paid     = floatval($inv['paid_amount'] ?? 0);
 $balance  = floatval($inv['balance_amount'] ?? 0);
@@ -773,6 +786,13 @@ body { background:#cbd5e1; padding:20px 0; color:#1e293b; }
                                 <span class="calc-total-label">Grand Total (Net Payable)</span>
                                 <span class="calc-total-val">₹<?php echo ind_format($total); ?></span>
                             </div>
+
+                            <?php if($refund_amount > 0): ?>
+                            <div class="calc-line" style="color:#059669; font-weight:700; background:#ecfdf5; border:1px solid #a7f3d0; padding:5px 8px; border-radius:6px; margin:4px 0; font-size:11.5px;">
+                                <span>Return / Refund to Customer</span>
+                                <span>₹<?php echo ind_format($refund_amount); ?></span>
+                            </div>
+                            <?php endif; ?>
 
                             <div class="calc-line" style="margin-top:2px;">
                                 <span>Received Amount</span>
