@@ -17,7 +17,7 @@ define('MAIL_FROM_NAME', 'MOTI JEWELLERS');
 define('SMTP_HOST', 'smtp.gmail.com');
 define('SMTP_PORT', 587);
 define('SMTP_USERNAME', 'motijewellers9635985848@gmail.com');
-define('SMTP_PASSWORD', 'fbkjcuiduiaozyee');
+define('SMTP_PASSWORD', 'indwvdwlhndfytol');
 define('SMTP_SECURE', 'tls'); // tls or ssl
 
 define('SMTP_DEBUG', 0);

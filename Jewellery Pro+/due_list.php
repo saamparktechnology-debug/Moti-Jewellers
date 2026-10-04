@@ -20,6 +20,11 @@ $create_due_history = "CREATE TABLE IF NOT EXISTS due_update_history (
 )";
 mysqli_query($conn, $create_due_history);
 
+$chkCreatedCol = mysqli_query($conn, "SHOW COLUMNS FROM due_update_history LIKE 'created_at'");
+if ($chkCreatedCol && mysqli_num_rows($chkCreatedCol) == 0) {
+    @mysqli_query($conn, "ALTER TABLE due_update_history ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
+}
+
 $chkModeCol = mysqli_query($conn, "SHOW COLUMNS FROM due_update_history LIKE 'payment_mode'");
 if ($chkModeCol && mysqli_num_rows($chkModeCol) == 0) {
     @mysqli_query($conn, "ALTER TABLE due_update_history ADD COLUMN payment_mode VARCHAR(50) DEFAULT 'Cash'");
@@ -109,12 +114,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ajax_
         exit();
     }
 
-    $subject = 'Payment Reminder from MOTI JEWELLERS';
+    $subject = 'Payment Reminder from ' . ($COMPANY['name'] ?? 'Jewellers');
     $body    = '<p>Dear ' . htmlspecialchars($customer_name) . ',</p>'
              . '<p>This is a reminder that an amount of <strong>&#8377;' . number_format($balance_amount, 2) . '</strong> is still due.'
              . ($invoice_no ? ' (Invoice: ' . htmlspecialchars($invoice_no) . ')' : '') . '</p>'
              . '<p>Please make the remaining payment at your earliest convenience.</p>'
-             . '<p>Thank you,<br>MOTI JEWELLERS</p>';
+             . '<p>Thank you,<br>' . htmlspecialchars($COMPANY['name'] ?? 'Jewellers') . '</p>';
 
     error_log('[due_list] Reminder attempt -> to: ' . $customer_email . ' | invoice: ' . $invoice_no . ' | balance: ' . $balance_amount);
     $res = sendSMTPMail($customer_email, $subject, $body);
@@ -144,6 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delet
 
 //  AJAX: fetch due update history for modal 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ajax_history') {
+    while(ob_get_level()) ob_end_clean();
     header('Content-Type: application/json');
     $id = intval($_POST['id'] ?? 0);
     if ($id <= 0) {
@@ -151,15 +157,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ajax_
         exit();
     }
 
-    $inv_row = mysqli_fetch_assoc(mysqli_query($conn, "SELECT invoice_no, COALESCE(paid_amount, 0) AS paid_amount FROM invoices WHERE id = $id LIMIT 1"));
+    $inv_res = mysqli_query($conn, "SELECT invoice_no, COALESCE(paid_amount, 0) AS paid_amount FROM invoices WHERE id = $id LIMIT 1");
+    if (!$inv_res) {
+        echo json_encode(['success' => false, 'message' => 'Invoice not found or DB error: ' . mysqli_error($conn)]);
+        exit();
+    }
+    $inv_row = mysqli_fetch_assoc($inv_res);
     $invoice_no = $inv_row['invoice_no'] ?? '';
     $running = floatval($inv_row['paid_amount'] ?? 0);
     $history = [];
 
-    $res = mysqli_query($conn, "SELECT id AS history_id, DATE_FORMAT(payment_date, '%d-%m-%Y') AS payment_date, amount_paid, previous_balance, new_balance
+    $res = @mysqli_query($conn, "SELECT id AS history_id, DATE_FORMAT(payment_date, '%d-%m-%Y') AS payment_date, amount_paid, previous_balance, new_balance
                                FROM due_update_history
                                WHERE invoice_id = $id
-                               ORDER BY payment_date ASC, created_at ASC");
+                               ORDER BY payment_date ASC, id ASC");
+    if (!$res) {
+        $res = @mysqli_query($conn, "SELECT id AS history_id, DATE_FORMAT(payment_date, '%d-%m-%Y') AS payment_date, amount_paid, previous_balance, new_balance
+                                   FROM due_update_history
+                                   WHERE invoice_id = $id
+                                   ORDER BY id ASC");
+    }
     if ($res) {
         while ($row = mysqli_fetch_assoc($res)) {
             $amt = floatval($row['amount_paid'] ?? 0);
@@ -312,9 +329,9 @@ function sendDueStatementEmail($conn, $id, $new_balance, $due_date) {
 
     $due_date_display = ($due_date !== '') ? date('d-m-Y', strtotime($due_date)) : 'Not set';
 
-    $subject = 'Account Statement - Invoice ' . $inv['invoice_no'] . ' | MOTI JEWELLERS';
+    $subject = 'Account Statement - Invoice ' . $inv['invoice_no'] . ' | MAA GOURI JEWELLERS';
     $body = '<p>Dear ' . htmlspecialchars($inv['customer_name']) . ',</p>'
-         . '<p>Thank you for doing business with <strong>MOTI JEWELLERS</strong>. Below is your updated statement of account for Invoice <strong>' . htmlspecialchars($inv['invoice_no']) . '</strong>:</p>'
+         . '<p>Thank you for doing business with <strong>MAA GOURI JEWELLERS</strong>. Below is your updated statement of account for Invoice <strong>' . htmlspecialchars($inv['invoice_no']) . '</strong>:</p>'
          . '<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;">'
          . '<tr style="background:#f9fafb;"><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Invoice Total Amount</strong></td><td style="padding:8px;border:1px solid #e5e7eb;">&#8377;' . number_format(floatval($inv['total_amount']), 2) . '</td></tr>'
          . '<tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Current Due Balance</strong></td><td style="padding:8px;border:1px solid #e5e7eb;color:#dc2626;font-weight:bold;">&#8377;' . number_format(floatval($new_balance), 2) . '</td></tr>'
@@ -323,7 +340,7 @@ function sendDueStatementEmail($conn, $id, $new_balance, $due_date) {
          . '<h4 style="margin:16px 0 6px;color:#374151;">Payment History</h4>'
          . $historyHtml
          . '<p style="margin-top:16px;">If you have any questions regarding this statement, please contact us at +91-8617536679.</p>'
-         . '<p>Best regards,<br><strong>MOTI JEWELLERS</strong></p>';
+         . '<p>Best regards,<br><strong>MAA GOURI JEWELLERS</strong></p>';
 
     error_log('[due_list] Statement attempt -> to: ' . $email . ' | invoice: ' . $inv['invoice_no'] . ' | new balance: ' . $new_balance);
     $send = sendSMTPMail($email, $subject, $body);
@@ -417,18 +434,23 @@ if ($res) {
     while ($r = mysqli_fetch_assoc($res)) $rows[] = $r;
 }
 
-$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png'];
+$logo_paths = array_unique(array_filter([
+    $COMPANY['logo_path'] ?? null,
+    ...($COMPANY_LOGO_PATHS ?? []),
+    'logo.png',
+    'assets/images/logo.png',
+    'assets/images/radhey_shyam_logo.png',
+    'assets/images/moti-removebg-preview.png'
+]));
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-<title>Due List  MOTI JEWELLERS</title>
+<title>Due List - <?php echo htmlspecialchars($COMPANY['name'] ?? 'Jewellers'); ?></title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<!-- Fallback CDN for Font Awesome in case the primary is blocked -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <link rel="stylesheet" href="assets/css/theme.css">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap');
@@ -495,6 +517,7 @@ h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
 .sidebar-nav a { display: flex; align-items: center; gap: 12px; padding: 11px 20px; color: rgba(255,255,255,0.85); text-decoration: none; font-size: 13px; font-weight: 500; transition: all 0.2s ease; border-left: 3px solid transparent; position: relative; }
 .sidebar-nav a:hover { background: rgba(255,255,255,0.13); color: #fff; border-left-color: rgba(255,255,255,0.8); padding-left: 26px; }
 .sidebar-nav a.active { background: rgba(255,255,255,0.22); color: #fff; border-left-color: #fff; font-weight: 700; }
+.sidebar-nav a.active::after { content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 4px; height: 60%; background: #fff; border-radius: 4px 0 0 4px; }
 .sidebar-nav a i { width: 18px; text-align: center; font-size: 14px; flex-shrink: 0; opacity: 0.9; }
 .sidebar-divider { height: 1px; background: rgba(255,255,255,0.12); margin: 6px 16px; }
 .sidebar-user { padding: 14px 16px 18px; border-top: 1px solid rgba(255,255,255,0.18); background: rgba(0,0,0,0.12); flex-shrink: 0; }
@@ -741,7 +764,14 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
             
             
             <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <img src="assets/images/moti-removebg-preview.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
+                <?php
+$side_logo = '';
+foreach($logo_paths as $lp) { if(file_exists($lp)) { $side_logo = $lp; break; } }
+if($side_logo): ?>
+    <img src="<?php echo htmlspecialchars($side_logo); ?>" alt="<?php echo htmlspecialchars($COMPANY['name'] ?? 'Logo'); ?>" style="width:100%;height:100%;object-fit:contain;display:block;">
+<?php else: ?>
+    <i class="fas fa-gem" style="color:#fff;font-size:30px;flex-shrink:0;"></i>
+<?php endif; ?>
             </div>
         </div>
 
@@ -844,25 +874,25 @@ function filterDueTable(query) {
         $logo_found = false;
         foreach($logo_paths as $path) {
             if(file_exists($path)) {
-                echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo" style="height:38px;width:auto;max-width:44px;object-fit:contain;display:inline-block;margin-right:8px;">';
+                echo '<img src="'.$path.'" alt="MAA GOURI JEWELLERS Logo" style="height:38px;width:auto;max-width:44px;object-fit:contain;display:inline-block;margin-right:8px;">';
                 $logo_found = true; break;
             }
         }
         if(!$logo_found) echo '<i class="fas fa-gem" style="color:#fff;font-size:30px;flex-shrink:0;"></i>';
         ?>
         <div class="sidebar-logo-text">
-            <h2>MOTI JEWELLERS</h2>
+            <h2><?php echo htmlspecialchars($COMPANY['name'] ?? 'JEWELLERS'); ?></h2>
             <p>Premium Since 2026</p>
         </div>
     </div>
 
     <nav class="sidebar-nav">
         <div class="sidebar-section-label">Main Menu</div>
-        <a href="index.php"><i class="fas fa-home"></i> HOME</a>
+        <a href="index.php"><i class="fas fa-home"></i> DASHBOARD</a>
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
-        <a href="sanchari_dashboard.php"><i class="fas fa-piggy-bank"></i> SANCHAY SCHEME</a>
+        
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
@@ -882,9 +912,7 @@ function filterDueTable(query) {
     <div class="sidebar-user">
         <?php if($is_logged_in): ?>
         <div class="sidebar-user-info">
-            <svg width="28" height="28" viewBox="0 0 496 512" aria-hidden="true" focusable="false" style="flex-shrink:0;color:inherit;">
-                <path fill="currentColor" d="M248 8C111 8 0 119 0 256s111 248 248 248 248-111 248-248S385 8 248 8zm0 96a72 72 0 1 1 0 144 72 72 0 0 1 0-144zm0 344c-59.6 0-112.9-32.7-139.7-80.4 7.1-44 88.4-68.5 139.7-68.5 51.3 0 132.6 24.5 139.7 68.5C360.9 415.3 307.6 448 248 448z"></path>
-            </svg>
+            <i class="fas fa-user-circle"></i>
             <div class="user-details">
                 <p><?php echo htmlspecialchars($_SESSION['user_name']); ?></p>
                 <span><?php echo htmlspecialchars($_SESSION['user_mobile'] ?? 'Admin'); ?></span>
@@ -1104,7 +1132,7 @@ function filterDueTable(query) {
 </div><!-- /container -->
     <footer style="background:linear-gradient(0deg,#f5e6c8,#fdf6e3);border-top:2px solid #d68b16;padding:20px;margin-top:40px;text-align:center;">
         <p class="text-xs" style="color:#7a4e0a;">
-            &copy; 2026 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
+            &copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars($COMPANY['name'] ?? 'JEWELLERS'); ?> &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
             Design & Developed by <a href="https://saamparktechnology.com/" target="_blank" style="text-decoration:underline;color:#800020;font-weight:700;">Saampark Technology & Research Private Limited</a>
         </p>
     </footer>
@@ -1137,7 +1165,7 @@ function sendWhatsAppReminder(name, mobile, invoiceNo, due, total) {
         msg += '\n\nThank you for your *complete payment* for Invoice *' + invoiceNo + '*.';
         msg += '\n Total Paid: ₹' + total.toFixed(2);
         msg += '\n Your account is fully cleared.';
-        msg += '\n\nThank you for trusting *MOTI JEWELLERS*! \n +91-8617536679';
+        msg += '\n\nThank you for trusting *' + <?php echo json_encode($COMPANY['name'] ?? 'Jewellers'); ?> + '*! \n ' + <?php echo json_encode($COMPANY['mobile'] ?? ''); ?>;
     } else {
         // Part paid / still due
         var paid = total - due;
@@ -1147,7 +1175,7 @@ function sendWhatsAppReminder(name, mobile, invoiceNo, due, total) {
         msg += '\n Amount Paid: ₹' + paid.toFixed(2);
         msg += '\n *Remaining Due: ₹' + due.toFixed(2) + '*';
         msg += '\n\nKindly clear the pending amount at your earliest convenience.';
-        msg += '\n\nThank you,\n*MOTI JEWELLERS*\n +91-8617536679';
+        msg += '\n\nThank you,\n*' + <?php echo json_encode($COMPANY['name'] ?? 'Jewellers'); ?> + '*\n ' + <?php echo json_encode($COMPANY['mobile'] ?? ''); ?>;
     }
 
     var url = 'https://wa.me/' + cleaned + '?text=' + encodeURIComponent(msg);
@@ -1171,8 +1199,19 @@ function openHistoryModal(invoiceId, customerName) {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString()
     })
-    .then(function(res) { return res.json(); })
-    .then(function(data) {
+    .then(function(res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText);
+        return res.text();
+    })
+    .then(function(text) {
+        var data;
+        try {
+            data = JSON.parse(text);
+        } catch(e) {
+            console.error('Invalid JSON from server:', text);
+            body.innerHTML = '<div style="padding:16px;color:#b91c1c;">Server Error response: ' + text.substring(0, 150) + '</div>';
+            return;
+        }
         if (!data.success) {
             body.innerHTML = '<div style="padding:16px;color:#b91c1c;">' + (data.message || 'Unable to load history.') + '</div>';
             return;
@@ -1206,14 +1245,26 @@ function openHistoryModal(invoiceId, customerName) {
         body.innerHTML = html;
     })
     .catch(function(err) {
-        body.innerHTML = '<div style="padding:16px;color:#b91c1c;">Error loading history.</div>';
+        console.error(err);
+        body.innerHTML = '<div style="padding:16px;color:#b91c1c;">Error: ' + (err.message || 'Error loading history.') + '</div>';
     });
 }
 
 function closeHistoryModal() {
     var modal = document.getElementById('historyModal');
-    modal.style.display = 'none';
+    if (modal) modal.style.display = 'none';
 }
+
+window.addEventListener('click', function(e) {
+    var hModal = document.getElementById('historyModal');
+    if (hModal && e.target === hModal) {
+        closeHistoryModal();
+    }
+    var rModal = document.getElementById('receiveModal');
+    if (rModal && e.target === rModal) {
+        closeReceiveModal();
+    }
+});
 
 /*  Receive Modal JS  */
 function openReceiveModal(id, invoiceNo, customerName, totalAmt, currentDue, currentDueDate) {
@@ -1345,7 +1396,7 @@ function submitReceivePayment() {
 </script>
 
 <!-- History Modal -->
-<div id="historyModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:rgba(0,0,0,0.55);justify-content:center;align-items:center;padding:24px;">
+<div id="historyModal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999;background:rgba(0,0,0,0.55);justify-content:center;align-items:center;padding:24px;" onclick="if(event.target === this) closeHistoryModal()">
     <div style="background:#fff;border-radius:12px;max-width:720px;width:100%;max-height:calc(100vh - 48px);box-shadow:0 18px 50px rgba(0,0,0,0.18);overflow:hidden;">
         <div style="padding:18px 22px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
             <h2 id="historyModalTitle" style="font-size:18px;margin:0;color:#111827;">History</h2>
