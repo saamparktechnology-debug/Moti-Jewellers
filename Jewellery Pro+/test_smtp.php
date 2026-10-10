@@ -15,14 +15,14 @@ $mail->Debugoutput = function($str, $level) {
 $mail->isSMTP();
 $mail->Host       = 'smtp.gmail.com';
 $mail->SMTPAuth   = true;
-$mail->Username   = 'santudhara157@gmail.com';
-$mail->Password   = 'drmhuagqcxajlmig';
+$mail->Username   = 'motijewellers9635985848@gmail.com';
+$mail->Password   = 'zchorrwskqxvrzmg';
 $mail->SMTPSecure = 'tls';
 $mail->Port       = 587;
 
 try {
-    $mail->setFrom('santudhara157@gmail.com', 'Test');
-    $mail->addAddress('santudhara157@gmail.com');
+    $mail->setFrom('motijewellers9635985848@gmail.com', 'MOTI JEWELLERS');
+    $mail->addAddress('motijewellers9635985848@gmail.com');
     $mail->Subject = 'Test';
     $mail->Body    = 'Test mail';
     $mail->send();
