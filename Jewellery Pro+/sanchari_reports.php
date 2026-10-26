@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once 'config/database.php';
 if(!isset($_SESSION['user_id'])) { header('Location: login.php'); exit; }
@@ -130,7 +130,7 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
         ?>
         <div class="sidebar-logo-text">
             <h2>MOTI JEWELLERS</h2>
-            <p>Premium Since 2026</p>
+            <p>Trusted Tradition</p>
         </div>
     </div>
     <nav class="sidebar-nav">
@@ -147,6 +147,12 @@ $payments = mysqli_query($conn, "SELECT * FROM sanchari_payments ORDER BY id DES
         </a>
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
+        </a>
+        <a href="transfer.php">
+            <i class="fas fa-exchange-alt"></i> TRANSFER
+        </a>
+        <a href="product_summary.php">
+            <i class="fas fa-clipboard-list"></i> PRODUCT SUMMARY
         </a>
         <a href="sanchari_dashboard.php" class="active">
             <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME

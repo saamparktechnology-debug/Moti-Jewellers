@@ -1,6 +1,8 @@
-<?php
+﻿<?php
 session_start();
+
 require_once 'config/database.php';
+
 require_once 'config/company_config.php';
 
 if(!isset($_SESSION['user_id'])) {
@@ -22,16 +24,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_invoice_items') {
             // Fetch items
             $res = mysqli_query($conn, "
                 SELECT 
-                    ii.id, 
-                    ii.product_id, 
-                    ii.product_name, 
-                    ii.serial_no, 
-                    ii.huid_code, 
-                    ii.hsn_code, 
-                    ii.price, 
-                    ii.quantity,
+                    ii.*,
                     p.category,
-                    p.weight
+                    p.weight AS p_weight
                 FROM invoice_items ii 
                 LEFT JOIN products p ON ii.product_id = p.id 
                 WHERE ii.invoice_id = $invoice_id
@@ -39,18 +34,26 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_invoice_items') {
             
             if ($res) {
                 while ($row = mysqli_fetch_assoc($res)) {
+                    $unit = !empty($row['unit']) ? $row['unit'] : ((stripos($row['product_name'] ?? '', 'pair') !== false) ? 'pair' : 'pcs');
+                    $gross_wt = !empty($row['gross_wt']) ? floatval($row['gross_wt']) : ($unit === 'g' ? floatval($row['quantity'] ?? 0) : 0);
+                    $net_wt = !empty($row['net_wt']) ? floatval($row['net_wt']) : $gross_wt;
+                    $pcs = !empty($row['pcs']) ? intval($row['pcs']) : ($unit === 'pair' ? 2 : 1);
+                    if ($pcs <= 0) $pcs = 1;
                     $items[] = [
                         'id' => intval($row['id']),
                         'product_id' => $row['product_id'] ? intval($row['product_id']) : null,
                         'product_name' => $row['product_name'] ?? '',
                         'serial_no' => $row['serial_no'] ?? '',
                         'huid_code' => $row['huid_code'] ?? '',
-                        'hsn_code' => $row['hsn_code'] ?? '0',
+                        'hsn_code' => (!empty($row['hsn_code']) && $row['hsn_code'] !== '0') ? $row['hsn_code'] : '7113',
                         'price' => floatval($row['price'] ?? 0),
                         'quantity' => floatval($row['quantity'] ?? 0),
+                        'pcs' => $pcs,
+                        'gross_wt' => $gross_wt,
+                        'net_wt' => $net_wt,
                         'category' => $row['category'] ?? '',
-                        'weight' => $row['weight'] ?? '',
-                        'unit' => (stripos($row['product_name'] ?? '', 'pair') !== false) ? 'pairs' : 'pcs'
+                        'weight' => $gross_wt > 0 ? $gross_wt : (!empty($row['p_weight']) ? floatval($row['p_weight']) : 0),
+                        'unit' => $unit
                     ];
                 }
             }
@@ -84,16 +87,16 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_delete_invoice'
                         foreach ($restore_items as $item) {
                             $product_id = intval($item['product_id'] ?? 0);
                             $restore_qty = floatval($item['restore_qty'] ?? 0);
-                            $hsn_code = mysqli_real_escape_string($conn, $item['hsn_code'] ?? '0');
+                            $restore_weight = floatval($item['restore_weight'] ?? 0);
+                            $hsn_code = mysqli_real_escape_string($conn, $item['hsn_code'] ?? '7113');
                             $product_name = mysqli_real_escape_string($conn, $item['product_name'] ?? '');
                             $serial_no = mysqli_real_escape_string($conn, $item['serial_no'] ?? '');
                             $huid_code = mysqli_real_escape_string($conn, $item['huid_code'] ?? '');
                             $price = floatval($item['price'] ?? 0);
-                            $unit = mysqli_real_escape_string($conn, $item['unit'] ?? '');
+                            $unit = mysqli_real_escape_string($conn, $item['unit'] ?? 'pcs');
                             $category = mysqli_real_escape_string($conn, $item['category'] ?? '');
-                            $weight = mysqli_real_escape_string($conn, $item['weight'] ?? '');
                             
-                            if ($restore_qty > 0) {
+                            if ($restore_qty > 0 || $restore_weight > 0) {
                                 $product_exists = false;
                                 if ($product_id > 0) {
                                     $p_chk = mysqli_query($conn, "SELECT id FROM products WHERE id = $product_id");
@@ -101,13 +104,47 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_delete_invoice'
                                         $product_exists = true;
                                     }
                                 }
+
+                                if (!$product_exists) {
+                                    // Check by serial_no
+                                    if (!empty($serial_no)) {
+                                        $chk_s = mysqli_query($conn, "SELECT id FROM products WHERE serial_no = '$serial_no' LIMIT 1");
+                                        if ($chk_s && $r = mysqli_fetch_assoc($chk_s)) {
+                                            $product_id = intval($r['id']);
+                                            $product_exists = true;
+                                        }
+                                    }
+                                    // Check by huid_code
+                                    if (!$product_exists && !empty($huid_code)) {
+                                        $chk_h = mysqli_query($conn, "SELECT id FROM products WHERE huid_code = '$huid_code' LIMIT 1");
+                                        if ($chk_h && $r = mysqli_fetch_assoc($chk_h)) {
+                                            $product_id = intval($r['id']);
+                                            $product_exists = true;
+                                        }
+                                    }
+                                    // Check by category and name for basket items
+                                    if (!$product_exists && !empty($category) && !empty($product_name)) {
+                                        $chk_b = mysqli_query($conn, "SELECT id FROM products WHERE (serial_no IS NULL OR TRIM(serial_no) = '') AND (huid_code IS NULL OR TRIM(huid_code) = '') AND category = '$category' AND (item_name = '$product_name' OR name = '$product_name') LIMIT 1");
+                                        if ($chk_b && $r = mysqli_fetch_assoc($chk_b)) {
+                                            $product_id = intval($r['id']);
+                                            $product_exists = true;
+                                        }
+                                    }
+                                }
                                 
                                 if ($product_exists) {
-                                    mysqli_query($conn, "UPDATE products SET quantity = quantity + $restore_qty, hsn_code = '$hsn_code' WHERE id = $product_id");
+                                    $wt_sql = $restore_weight > 0 ? ", weight = CAST(weight AS DECIMAL(10,3)) + $restore_weight" : "";
+                                    mysqli_query($conn, "UPDATE products SET quantity = quantity + $restore_qty, status = 'In Stock', hsn_code = '$hsn_code' $wt_sql, updated_at = NOW() WHERE id = $product_id");
                                 } else {
                                     // Re-insert product back to stock
                                     if (empty($category)) {
-                                        if (stripos($product_name, 'gold') !== false) {
+                                        if (stripos($product_name, '18k') !== false) {
+                                            $category = 'Gold 18K';
+                                        } else if (stripos($product_name, '12k') !== false) {
+                                            $category = 'Gold 12K';
+                                        } else if (stripos($product_name, '9k') !== false) {
+                                            $category = 'Gold 9K';
+                                        } else if (stripos($product_name, 'gold') !== false) {
                                             $category = 'Gold 22K';
                                         } else if (stripos($product_name, 'silver') !== false) {
                                             $category = 'Silver';
@@ -117,7 +154,26 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_delete_invoice'
                                     }
                                     
                                     // Insert product
-                                    mysqli_query($conn, "INSERT INTO products (serial_no, name, item_name, category, weight, price, quantity, huid_code, hsn_code, created_at) VALUES ('$serial_no', '$product_name', '$product_name', '$category', '$weight', $price, $restore_qty, '$huid_code', '$hsn_code', NOW())");
+                                    mysqli_query($conn, "INSERT INTO products (serial_no, name, item_name, category, weight, price, quantity, huid_code, hsn_code, status, created_at, updated_at) VALUES ('$serial_no', '$product_name', '$product_name', '$category', '$restore_weight', $price, $restore_qty, '$huid_code', '$hsn_code', 'In Stock', NOW(), NOW())");
+                                    $product_id = mysqli_insert_id($conn);
+                                }
+
+                                if (function_exists('log_product_activity')) {
+                                    $wt_detail = $restore_weight > 0 ? " ({$restore_weight}g)" : "";
+                                    log_product_activity($conn, [
+                                        'activity_type' => 'restocked',
+                                        'product_id' => $product_id,
+                                        'product_name' => $product_name,
+                                        'category' => $category,
+                                        'serial_no' => $serial_no,
+                                        'huid_code' => $huid_code,
+                                        'quantity' => $restore_qty,
+                                        'unit' => $unit ?: 'pcs',
+                                        'weight' => $restore_weight,
+                                        'rate' => $price,
+                                        'details' => "Restored +{$restore_qty} {$unit}{$wt_detail} back to stock from deleted Invoice/Memo #$invoice_no",
+                                        'performed_by' => $_SESSION['user_name'] ?? 'Admin'
+                                    ]);
                                 }
                             }
                         }
@@ -142,8 +198,27 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_delete_invoice'
                                         $huid = mysqli_real_escape_string($conn, $item_detail['huid_code']);
                                         $hsn = mysqli_real_escape_string($conn, $item_detail['hsn_code'] ?? '0');
                                         $price = floatval($item_detail['price']);
-                                        $cat = (stripos($name, 'gold') !== false) ? 'Gold 22K' : ((stripos($name, 'silver') !== false) ? 'Silver' : 'Others');
-                                        mysqli_query($conn, "INSERT INTO products (serial_no, name, item_name, category, weight, price, quantity, huid_code, hsn_code, created_at) VALUES ('$serial', '$name', '$name', '$cat', '', $price, $p_qty, '$huid', '$hsn', NOW())");
+                                        $cat = (stripos($name, '18k') !== false) ? 'Gold 18K' : ((stripos($name, '12k') !== false) ? 'Gold 12K' : ((stripos($name, '9k') !== false) ? 'Gold 9K' : ((stripos($name, 'gold') !== false) ? 'Gold 22K' : ((stripos($name, 'silver') !== false) ? 'Silver' : 'Others'))));
+
+                                        $found_id = 0;
+                                        if (!empty($serial)) {
+                                            $c = mysqli_query($conn, "SELECT id FROM products WHERE serial_no = '$serial' LIMIT 1");
+                                            if ($c && $cr = mysqli_fetch_assoc($c)) $found_id = intval($cr['id']);
+                                        }
+                                        if (!$found_id && !empty($huid)) {
+                                            $c = mysqli_query($conn, "SELECT id FROM products WHERE huid_code = '$huid' LIMIT 1");
+                                            if ($c && $cr = mysqli_fetch_assoc($c)) $found_id = intval($cr['id']);
+                                        }
+                                        if (!$found_id && !empty($cat) && !empty($name)) {
+                                            $c = mysqli_query($conn, "SELECT id FROM products WHERE (serial_no IS NULL OR TRIM(serial_no) = '') AND (huid_code IS NULL OR TRIM(huid_code) = '') AND category = '$cat' AND (item_name = '$name' OR name = '$name') LIMIT 1");
+                                            if ($c && $cr = mysqli_fetch_assoc($c)) $found_id = intval($cr['id']);
+                                        }
+
+                                        if ($found_id > 0) {
+                                            mysqli_query($conn, "UPDATE products SET quantity = quantity + $p_qty, status = 'In Stock', updated_at = NOW() WHERE id = $found_id");
+                                        } else {
+                                            mysqli_query($conn, "INSERT INTO products (serial_no, name, item_name, category, weight, price, quantity, huid_code, hsn_code, status, created_at, updated_at) VALUES ('$serial', '$name', '$name', '$cat', '', $price, $p_qty, '$huid', '$hsn', 'In Stock', NOW(), NOW())");
+                                        }
                                     }
                                 }
                             }
@@ -151,6 +226,10 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_delete_invoice'
                     }
                 }
             }
+            
+            // Delete associated items and adjustments first
+            @mysqli_query($conn, "DELETE FROM advance_adjustments WHERE invoice_no = '$invoice_no'");
+            @mysqli_query($conn, "DELETE FROM invoice_items WHERE invoice_id = $invoice_id");
             
             // Delete invoice
             $q = mysqli_query($conn, "DELETE FROM invoices WHERE id = $invoice_id");
@@ -171,15 +250,84 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_delete_invoice'
         
         if ($success) {
             $redirect_url = 'reports.php?reset_msg=' . urlencode($reset_success);
+            if (!headers_sent()) {
+                header("Location: " . $redirect_url);
+                exit();
+            }
             echo '<!DOCTYPE html><html><head>';
             echo '<meta http-equiv="refresh" content="0;url=' . htmlspecialchars($redirect_url) . '">';
-            echo '<script>window.location.replace(' . json_encode($redirect_url) . ');<\/script>';
+            echo '<script>window.location.replace(' . json_encode($redirect_url) . ');</script>';
             echo '    <link rel="stylesheet" href="mobile.css">
 </head><body style="background:#fffbf4;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;">';
             echo '<p style="color:#7a4e0a;font-weight:600;"> Done! Redirecting...</p>';
             echo '</body></html>';
             exit();
         }
+    }
+}
+
+// Handle advance delete action
+if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_delete_advance'])) {
+    $receipt_no = mysqli_real_escape_string($conn, trim($_POST['receipt_no'] ?? ''));
+    if (empty($receipt_no)) {
+        $reset_error = "Error: Receipt number is missing.";
+    } else {
+        mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 0");
+        $chk = mysqli_query($conn, "SELECT * FROM customer_advances WHERE receipt_no = '$receipt_no' LIMIT 1");
+        if ($chk && mysqli_num_rows($chk) > 0) {
+            $adv = mysqli_fetch_assoc($chk);
+            $adv_id = intval($adv['id']);
+            $adv_amount = floatval($adv['advance_amount']);
+            $cust_name = $adv['customer_name'];
+            $cust_mobile = $adv['customer_mobile'];
+            
+            // Delete any adjustments linked to this advance
+            @mysqli_query($conn, "DELETE FROM advance_adjustments WHERE advance_id = $adv_id");
+            
+            // Delete advance record
+            $del = mysqli_query($conn, "DELETE FROM customer_advances WHERE id = $adv_id");
+            if ($del) {
+                if (function_exists('log_product_activity')) {
+                    log_product_activity($conn, [
+                        'activity_type' => 'advance_deleted',
+                        'product_id' => null,
+                        'product_name' => 'Advance Credit Deleted',
+                        'category' => 'Advance',
+                        'serial_no' => '',
+                        'huid_code' => '',
+                        'quantity' => 1,
+                        'unit' => 'receipt',
+                        'weight' => 0,
+                        'rate' => $adv_amount,
+                        'total_amount' => $adv_amount,
+                        'invoice_no' => $receipt_no,
+                        'customer_name' => $cust_name,
+                        'customer_mobile' => $cust_mobile,
+                        'details' => "Deleted Advance Receipt #$receipt_no (₹" . number_format($adv_amount, 2) . ") for $cust_name",
+                        'performed_by' => $_SESSION['user_name'] ?? 'Admin'
+                    ]);
+                }
+                $reset_success = "Advance Credit Receipt #$receipt_no for $cust_name (₹" . number_format($adv_amount, 2) . ") has been successfully deleted.";
+                
+                $redirect_url = 'reports.php?reset_msg=' . urlencode($reset_success);
+                if (!headers_sent()) {
+                    header("Location: " . $redirect_url);
+                    exit();
+                }
+                echo '<!DOCTYPE html><html><head>';
+                echo '<meta http-equiv="refresh" content="0;url=' . htmlspecialchars($redirect_url) . '">';
+                echo '<script>window.location.replace(' . json_encode($redirect_url) . ');</script>';
+                echo '<link rel="stylesheet" href="mobile.css"></head><body style="background:#fffbf4;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;">';
+                echo '<p style="color:#7a4e0a;font-weight:600;"> Done! Redirecting...</p>';
+                echo '</body></html>';
+                exit();
+            } else {
+                $reset_error = "Error deleting advance receipt: " . mysqli_error($conn);
+            }
+        } else {
+            $reset_error = "Error: Advance receipt #$receipt_no not found.";
+        }
+        mysqli_query($conn, "SET FOREIGN_KEY_CHECKS = 1");
     }
 }
 
@@ -393,18 +541,18 @@ if (isset($_GET['reset_msg'])) {
     $reset_success = $_GET['reset_msg'];
 }
 
-// Get daily sales for last 7 days
+// Get daily sales for last 7 days (GST Only)
 $daily_sales = [];
 for($i = 6; $i >= 0; $i--) {
     $date = date('Y-m-d', strtotime("-$i days"));
-    $sales = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE DATE(created_at) = '$date'"));
+    $sales = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COALESCE(SUM(total_amount), 0) as total FROM invoices WHERE (gst_type LIKE 'gst%' OR gst_amount > 0) AND DATE(created_at) = '$date'"));
     $daily_sales[] = ['date' => date('d M', strtotime($date)), 'total' => $sales['total']];
 }
 
 // Get top products
-$top_products = mysqli_query($conn, "SELECT p.name, SUM(ii.quantity) as sold FROM invoice_items ii JOIN products p ON ii.product_id = p.id GROUP BY ii.product_id ORDER BY sold DESC LIMIT 5");
+$top_products = mysqli_query($conn, "SELECT p.name, SUM(ii.quantity) as sold FROM invoice_items ii JOIN products p ON ii.product_id = p.id JOIN invoices i ON ii.invoice_id = i.id  GROUP BY ii.product_id ORDER BY sold DESC LIMIT 5");
 
-// Payment Status Summary
+// Payment Status Summary (Unified: GST + Non-GST)
 $pay_summary = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT
         COUNT(*) as total,
@@ -431,21 +579,68 @@ $unpaid_customers = mysqli_query($conn, "SELECT invoice_no, customer_name, custo
 $unpaid_rows = [];
 while($r = mysqli_fetch_assoc($unpaid_customers)) $unpaid_rows[] = $r;
 
+// Old Gold Exchanged Summary (GST Invoices)
+$old_gold_summary = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT 
+        COUNT(*) as og_count,
+        COALESCE(SUM(COALESCE(old_gold_amount, old_gold_value, 0)), 0) as og_total
+    FROM invoices 
+    WHERE (old_gold_amount > 0 OR old_gold_value > 0)
+")) ?: ['og_count' => 0, 'og_total' => 0];
+
+$og_cust_res = mysqli_query($conn, "
+    SELECT invoice_no, customer_name, customer_mobile, total_amount, COALESCE(old_gold_amount, old_gold_value, 0) as old_gold_amount, old_gold_type, payment_status, created_at 
+    FROM invoices 
+    WHERE (old_gold_amount > 0 OR old_gold_value > 0) 
+    ORDER BY created_at DESC LIMIT 100
+");
+$og_rows = [];
+if ($og_cust_res) {
+    while($ogr = mysqli_fetch_assoc($og_cust_res)) $og_rows[] = $ogr;
+}
+
+// Advance Credits Summary from customer_advances
+$adv_summary = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT 
+        COUNT(*) as total_adv_count,
+        COALESCE(SUM(advance_amount), 0) as total_adv_amount,
+        COALESCE(SUM(used_amount), 0) as total_adv_used,
+        COALESCE(SUM(available_amount), 0) as total_adv_available,
+        SUM(CASE WHEN available_amount > 0 THEN 1 ELSE 0 END) as active_adv_count
+    FROM customer_advances 
+    WHERE status != 'cancelled'
+")) ?: ['total_adv_count' => 0, 'total_adv_amount' => 0, 'total_adv_used' => 0, 'total_adv_available' => 0, 'active_adv_count' => 0];
+
+$adv_customers_res = mysqli_query($conn, "
+    SELECT id, receipt_no, customer_name, customer_mobile, customer_address, advance_amount, used_amount, available_amount, payment_method, status, created_at 
+    FROM customer_advances 
+    WHERE status != 'cancelled'
+    ORDER BY created_at DESC 
+    LIMIT 100
+");
+$adv_rows = [];
+if ($adv_customers_res) {
+    while ($ar = mysqli_fetch_assoc($adv_customers_res)) $adv_rows[] = $ar;
+}
+
+
 $gst_month = mysqli_real_escape_string($conn, $_GET['gst_month'] ?? date('Y-m'));
-$gst_month_where = $gst_month ? "WHERE DATE_FORMAT(created_at,'%Y-%m') = '$gst_month'" : '';
+$gst_month_where = $gst_month ? "WHERE (gst_type LIKE 'gst%' OR gst_amount > 0) AND DATE_FORMAT(created_at,'%Y-%m') = '$gst_month'" : "WHERE (gst_type LIKE 'gst%' OR gst_amount > 0)";
 $gst_summary = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT
         SUM(CASE WHEN (gst_type LIKE 'gst%' OR gst_amount > 0) THEN 1 ELSE 0 END) as gst_count,
         SUM(CASE WHEN (gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0)) THEN 1 ELSE 0 END) as nongst_count,
-        SUM(CASE WHEN (gst_type LIKE 'gst%' OR gst_amount > 0) THEN (total_amount - COALESCE(gst_amount, 0)) ELSE 0 END) as gst_taxable_total,
+        SUM(CASE WHEN (gst_type LIKE 'gst%' OR gst_amount > 0) THEN COALESCE(NULLIF(subtotal, 0), (total_amount + COALESCE(old_gold_amount, old_gold_value, 0) - COALESCE(gst_amount, 0))) ELSE 0 END) as gst_taxable_total,
         SUM(CASE WHEN (gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0)) THEN total_amount ELSE 0 END) as nongst_amt,
+        SUM(CASE WHEN (gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0)) THEN COALESCE(old_gold_amount, old_gold_value, 0) ELSE 0 END) as nongst_old_gold,
+        SUM(CASE WHEN (gst_type LIKE 'gst%' OR gst_amount > 0) THEN COALESCE(old_gold_amount, old_gold_value, 0) ELSE 0 END) as gst_old_gold,
         SUM(CASE WHEN (gst_type LIKE 'gst%' OR gst_amount > 0) THEN gst_amount ELSE 0 END) as actual_gst_collected,
-        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN 1 ELSE 0 END) as gst_3_count,
-        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN (total_amount - COALESCE(gst_amount, 0)) ELSE 0 END) as gst_3_taxable,
-        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN gst_amount ELSE 0 END) as gst_3_amt,
-        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN 1 ELSE 0 END) as gst_18_count,
-        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN (total_amount - COALESCE(gst_amount, 0)) ELSE 0 END) as gst_18_taxable,
-        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10))) THEN gst_amount ELSE 0 END) as gst_18_amt
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount) > 0 AND (gst_amount / COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount)) > 0.10))) THEN 1 ELSE 0 END) as gst_3_count,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount) > 0 AND (gst_amount / COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount)) > 0.10))) THEN COALESCE(NULLIF(subtotal, 0), (total_amount + COALESCE(old_gold_amount, old_gold_value, 0) - COALESCE(gst_amount, 0))) ELSE 0 END) as gst_3_taxable,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount) > 0 AND (gst_amount / COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount)) > 0.10))) THEN gst_amount ELSE 0 END) as gst_3_amt,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount) > 0 AND (gst_amount / COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount)) > 0.10))) THEN 1 ELSE 0 END) as gst_18_count,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount) > 0 AND (gst_amount / COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount)) > 0.10))) THEN COALESCE(NULLIF(subtotal, 0), (total_amount + COALESCE(old_gold_amount, old_gold_value, 0) - COALESCE(gst_amount, 0))) ELSE 0 END) as gst_18_taxable,
+        SUM(CASE WHEN ((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount) > 0 AND (gst_amount / COALESCE(NULLIF(subtotal, 0), total_amount - gst_amount)) > 0.10))) THEN gst_amount ELSE 0 END) as gst_18_amt
     FROM invoices $gst_month_where
 "));
 
@@ -461,21 +656,102 @@ if($filter_from)   $where_clauses[] = "DATE(created_at) >= '$filter_from'";
 if($filter_to)     $where_clauses[] = "DATE(created_at) <= '$filter_to'";
 if($filter_name)   $where_clauses[] = "(customer_name LIKE '%$filter_name%' OR customer_mobile LIKE '%$filter_name%')";
 if($filter_status) $where_clauses[] = "payment_status = '$filter_status'";
-if($filter_gst === 'gst')       $where_clauses[] = "(gst_type LIKE 'gst%' OR gst_amount > 0)";
-if($filter_gst === 'gst_3')     $where_clauses[] = "((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10)))";
-if($filter_gst === 'gst_18')    $where_clauses[] = "((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (total_amount - gst_amount > 0 AND (gst_amount / (total_amount - gst_amount)) > 0.10)))";
-if($filter_gst === 'non_gst')   $where_clauses[] = "(gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0))";
+
+if($filter_gst === 'gst_3') {
+    $where_clauses[] = "((gst_type LIKE 'gst%' OR gst_amount > 0) AND NOT (gst_type = 'gst_18' OR (COALESCE(NULLIF(subtotal,0), total_amount - gst_amount) > 0 AND (gst_amount / COALESCE(NULLIF(subtotal,0), total_amount - gst_amount)) > 0.10)))";
+} elseif($filter_gst === 'gst_18') {
+    $where_clauses[] = "((gst_type LIKE 'gst%' OR gst_amount > 0) AND (gst_type = 'gst_18' OR (COALESCE(NULLIF(subtotal,0), total_amount - gst_amount) > 0 AND (gst_amount / COALESCE(NULLIF(subtotal,0), total_amount - gst_amount)) > 0.10)))";
+} elseif($filter_gst === 'non_gst') {
+    $where_clauses[] = "(gst_type NOT LIKE 'gst%' AND (gst_amount IS NULL OR gst_amount = 0))";
+} elseif($filter_gst === 'all') {
+    // Show all invoices (GST and Non-GST)
+} else {
+    // Default: GST bills
+    $where_clauses[] = "(gst_type LIKE 'gst%' OR gst_amount > 0)";
+}
 $where_sql = $where_clauses ? 'WHERE ' . implode(' AND ', $where_clauses) : '';
 
-// customer_gstin column exists directly in invoices table
-$bills_result = mysqli_query($conn, "SELECT invoice_no, customer_name, customer_mobile, customer_address, customer_gstin, total_amount, paid_amount, balance_amount, payment_status, gst_type, gst_amount, subtotal, created_at FROM invoices $where_sql ORDER BY created_at DESC LIMIT 500");
+// customer_gstin, old_gold columns queried from invoices table
+$bills_result = mysqli_query($conn, "
+    SELECT id, invoice_no, customer_name, customer_mobile, customer_address, customer_gstin, 
+           total_amount, paid_amount, balance_amount, payment_status, gst_type, gst_amount, subtotal, 
+           COALESCE(old_gold_amount, old_gold_value, 0) AS old_gold_amount,
+           old_gold_type, created_at 
+    FROM invoices 
+    $where_sql 
+    ORDER BY created_at DESC 
+    LIMIT 500
+");
 $bills_rows = [];
-while($r = mysqli_fetch_assoc($bills_result)) $bills_rows[] = $r;
+$invoice_ids = [];
+if($bills_result) {
+    while($r = mysqli_fetch_assoc($bills_result)) {
+        $r['product_names'] = '';
+        $r['item_weights'] = '';
+        $r['total_weight'] = 0.0;
+        $bills_rows[$r['invoice_no']] = $r;
+        if (!empty($r['id'])) {
+            $invoice_ids[] = intval($r['id']);
+        }
+    }
+}
 
-$total_bills_amount = array_sum(array_column($bills_rows, 'total_amount'));
-$total_bills_count  = count($bills_rows);
+if (!empty($invoice_ids)) {
+    $ids_str = implode(',', $invoice_ids);
+    $items_res = mysqli_query($conn, "
+        SELECT ii.invoice_id, ii.product_name, ii.gross_wt, ii.net_wt, ii.pcs, ii.quantity, ii.unit, ii.hallmark_type, i.invoice_no
+        FROM invoice_items ii
+        JOIN invoices i ON ii.invoice_id = i.id
+        WHERE ii.invoice_id IN ($ids_str)
+        ORDER BY ii.id ASC
+    ");
+    if ($items_res) {
+        $inv_items_map = [];
+        $inv_weights_list = [];
+        $inv_weights_map = [];
+        while ($it = mysqli_fetch_assoc($items_res)) {
+            $inv_no = $it['invoice_no'];
+            $pname = trim($it['product_name'] ?: 'Jewellery Item');
+            
+            $hm_t = trim($it['hallmark_type'] ?? '');
+            $kt = '';
+            if (preg_match('/\b(24k|22k|18k|14k|12k|9k)\b/i', $pname, $m_kt)) {
+                $kt = strtoupper($m_kt[1]);
+            } else if (!empty($hm_t) && preg_match('/\b(24k|22k|18k|14k|12k|9k)\b/i', $hm_t, $m_kt2)) {
+                $kt = strtoupper($m_kt2[1]);
+            } else if (preg_match('/\b916\b/', $hm_t)) {
+                $kt = '22K';
+            } else if (preg_match('/\b750\b/', $hm_t)) {
+                $kt = '18K';
+            }
+            $clean_pname = preg_replace('/\s*\(\s*(?:Gold\s*)?(?:24K|22K|18K|14K|12K|9K)\s*\)/i', '', $pname);
+            $clean_pname = preg_replace('/\b(?:Gold\s+)?(?:24K|22K|18K|14K|12K|9K)\b/i', '', $clean_pname);
+            $clean_pname = trim(preg_replace('/\s+/', ' ', $clean_pname));
+            $final_pname = !empty($kt) ? $clean_pname . ' (' . $kt . ')' : $clean_pname;
 
-$logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-preview.png', 'moti-removebg-preview.png', 'logo.png'];
+            $wt = floatval($it['gross_wt'] > 0 ? $it['gross_wt'] : ($it['net_wt'] > 0 ? $it['net_wt'] : ($it['unit'] === 'g' ? $it['quantity'] : 0)));
+
+            $inv_items_map[$inv_no][] = $final_pname;
+            $inv_weights_list[$inv_no][] = $wt > 0 ? number_format($wt, 3) . "g" : "0g";
+            if (!isset($inv_weights_map[$inv_no])) $inv_weights_map[$inv_no] = 0.0;
+            $inv_weights_map[$inv_no] += $wt;
+        }
+        foreach ($inv_items_map as $inv_no => $names) {
+            if (isset($bills_rows[$inv_no])) {
+                $bills_rows[$inv_no]['product_names'] = implode(', ', $names);
+                $bills_rows[$inv_no]['item_weights'] = implode(', ', $inv_weights_list[$inv_no] ?? []);
+                $bills_rows[$inv_no]['total_weight'] = round($inv_weights_map[$inv_no] ?? 0, 3);
+            }
+        }
+    }
+}
+$bills_rows = array_values($bills_rows);
+
+$total_bills_amount   = array_sum(array_column($bills_rows, 'total_amount'));
+$total_bills_count    = count($bills_rows);
+$total_bills_old_gold = array_sum(array_column($bills_rows, 'old_gold_amount'));
+
+$logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-preview.png', 'moti-removebg-preview.png', 'radhey shyam logo.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -794,16 +1070,17 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
         ?>
         <div class="sidebar-logo-text">
             <h2>MOTI JEWELLERS</h2>
-            <p>Premium Since 2026</p>
+            <p>Trusted Tradition</p>
         </div>
     </div>
 
     <nav class="sidebar-nav">
         <div class="sidebar-section-label">Main Menu</div>
-        <a href="index.php"><i class="fas fa-home"></i> HOME</a>
+        <a href="index.php"><i class="fas fa-home"></i> DASHBOARD</a>
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
+        <a href="transfer.php"><i class="fas fa-exchange-alt"></i> TRANSFER</a>
         <a href="sanchari_dashboard.php"><i class="fas fa-piggy-bank"></i> SANCHAY SCHEME</a>
 
         <div class="sidebar-divider"></div>
@@ -814,15 +1091,17 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Tools</div>
+        <a href="product_summary.php"><i class="fas fa-boxes-packing"></i> PRODUCT SUMMARY</a>
         <a href="whatsapp_automation.php"><i class="fab fa-whatsapp"></i> WHATSAPP</a>
+
         <a href="purchase.php">
             <i class="fas fa-book"></i>PURCHASE
         </a>
                 <a href="contacts.php">
             <i class="fas fa-address-book"></i> CONTACTS
         </a>
-<a href="accounts.php">
-            <i class="fas fa-book"></i> ACCOUNT
+        <a href="accounts.php">
+            <i class="fas fa-calculator"></i> ACCOUNTS
         </a>
     </nav>
 
@@ -917,38 +1196,58 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
 
         <!--  PAYMENT STATUS OVERVIEW  -->
         <div class="jewel-card p-5 sm:p-6 mb-6">
-            <h3 class="section-title mb-5"><i class="fas fa-wallet"></i> Payment Status Overview</h3>
+            <h3 class="section-title mb-5"><i class="fas fa-wallet"></i> Payment &amp; Settlement Overview</h3>
 
-            <div class="stats-3col grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
                 <!-- Paid -->
-                <div class="stat-card-paid p-4">
+                <div class="stat-card-paid p-4 rounded-xl border border-green-200">
                     <div class="flex justify-between items-start mb-2">
-                        <span class="font-bold text-sm" style="color:#166534;"> Full Paid</span>
-                        <span class="text-2xl font-black" style="color:#166534;"><?php echo $pay_summary['paid_count']; ?></span>
+                        <span class="font-bold text-xs uppercase text-green-800">Full Paid</span>
+                        <span class="text-xl font-black text-green-800"><?php echo intval($pay_summary['paid_count'] ?? 0); ?></span>
                     </div>
-                    <p class="font-bold text-lg" style="color:#166534;">₹<?php echo number_format($pay_summary['paid_amt'],2); ?></p>
-                    <p class="text-xs mt-1" style="color:#15803d;">Total collected (full payment)</p>
-                    <button onclick="toggleDetail('detailPaid')" class="toggle-detail-btn"> View Customers</button>
+                    <p class="font-bold text-base text-green-900">₹<?php echo number_format($pay_summary['paid_amt'] ?? 0, 2); ?></p>
+                    <p class="text-[11px] mt-1 text-green-700">Settled in full</p>
+                    <button onclick="toggleDetail('detailPaid')" class="toggle-detail-btn mt-2">View Bills</button>
                 </div>
                 <!-- Part -->
-                <div class="stat-card-part p-4">
+                <div class="stat-card-part p-4 rounded-xl border border-amber-200">
                     <div class="flex justify-between items-start mb-2">
-                        <span class="font-bold text-sm" style="color:#9a3412;"> Part Payment</span>
-                        <span class="text-2xl font-black" style="color:#9a3412;"><?php echo $pay_summary['part_count']; ?></span>
+                        <span class="font-bold text-xs uppercase text-amber-800">Part Payment</span>
+                        <span class="text-xl font-black text-amber-800"><?php echo intval($pay_summary['part_count'] ?? 0); ?></span>
                     </div>
-                    <p class="font-bold text-lg" style="color:#9a3412;">₹<?php echo number_format($pay_summary['part_amt'],2); ?></p>
-                    <p class="text-xs mt-1" style="color:#c2410c;"> Balance: ₹<?php echo number_format($pay_summary['part_balance'],2); ?></p>
-                    <button onclick="toggleDetail('detailPart')" class="toggle-detail-btn"> View Customers</button>
+                    <p class="font-bold text-base text-amber-900">₹<?php echo number_format($pay_summary['part_amt'] ?? 0, 2); ?></p>
+                    <p class="text-[11px] mt-1 text-amber-700">Due: ₹<?php echo number_format($pay_summary['part_balance'] ?? 0, 2); ?></p>
+                    <button onclick="toggleDetail('detailPart')" class="toggle-detail-btn mt-2">View Bills</button>
                 </div>
                 <!-- Unpaid -->
-                <div class="stat-card-unpaid p-4">
+                <div class="p-4 rounded-xl border border-red-200" style="background:linear-gradient(135deg,#fff5f5,#fee2e2);">
                     <div class="flex justify-between items-start mb-2">
-                        <span class="font-bold text-sm" style="color:#9f1239;"> Advanced (Credit)</span>
-                        <span class="text-2xl font-black" style="color:#9f1239;"><?php echo $pay_summary['unpaid_count']; ?></span>
+                        <span class="font-bold text-xs uppercase text-red-800">Unpaid (Due)</span>
+                        <span class="text-xl font-black text-red-800"><?php echo intval($pay_summary['unpaid_count'] ?? 0); ?></span>
                     </div>
-                    <p class="font-bold text-lg" style="color:#9f1239;">₹<?php echo number_format($pay_summary['unpaid_amt'],2); ?></p>
-                    <p class="text-xs mt-1" style="color:#be123c;"> Total due: ₹<?php echo number_format($pay_summary['unpaid_balance'],2); ?></p>
-                    <button onclick="toggleDetail('detailUnpaid')" class="toggle-detail-btn"> View Customers</button>
+                    <p class="font-bold text-base text-red-900">₹<?php echo number_format($pay_summary['unpaid_amt'] ?? 0, 2); ?></p>
+                    <p class="text-[11px] mt-1 text-red-700">Due: ₹<?php echo number_format($pay_summary['unpaid_balance'] ?? 0, 2); ?></p>
+                    <button onclick="toggleDetail('detailUnpaidBills')" class="toggle-detail-btn mt-2" style="background:#dc2626;color:#fff;">View Bills</button>
+                </div>
+                <!-- Old Gold Exchanged -->
+                <div class="p-4 rounded-xl border border-purple-200" style="background:linear-gradient(135deg,#faf5ff,#f3e8ff);">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-bold text-xs uppercase text-purple-900"><i class="fas fa-coins text-amber-500 mr-1"></i> Old Gold</span>
+                        <span class="text-xl font-black text-purple-900"><?php echo intval($old_gold_summary['og_count'] ?? 0); ?></span>
+                    </div>
+                    <p class="font-bold text-base text-purple-900">₹<?php echo number_format($old_gold_summary['og_total'] ?? 0, 2); ?></p>
+                    <p class="text-[11px] mt-1 text-purple-700">Exchange Adjusted</p>
+                    <button onclick="toggleDetail('detailOldGold')" class="toggle-detail-btn mt-2" style="background:#7c3aed;color:#fff;">View Exchanges</button>
+                </div>
+                <!-- Advance Credit -->
+                <div class="stat-card-unpaid p-4 rounded-xl border border-amber-300" style="background:linear-gradient(135deg,#fffbeb,#fef3c7);">
+                    <div class="flex justify-between items-start mb-2">
+                        <span class="font-bold text-xs uppercase text-yellow-900">✨ Advances</span>
+                        <span class="text-xl font-black text-yellow-900"><?php echo intval($adv_summary['active_adv_count'] ?? 0); ?></span>
+                    </div>
+                    <p class="font-bold text-base text-yellow-900">₹<?php echo number_format($adv_summary['total_adv_amount'] ?? 0, 2); ?></p>
+                    <p class="text-[11px] mt-1 text-emerald-800 font-semibold">Active: ₹<?php echo number_format($adv_summary['total_adv_available'] ?? 0, 2); ?></p>
+                    <button onclick="toggleDetail('detailAdvance')" class="toggle-detail-btn mt-2" style="background:#d97706;color:#fff;">View Advances</button>
                 </div>
             </div>
 
@@ -1012,26 +1311,29 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                 <?php endif; ?>
             </div>
 
-            <!-- Unpaid detail -->
-            <div id="detailUnpaid" class="detail-collapse">
-                <h4 class="font-bold text-sm mb-3" style="color:#be123c;"> Unpaid - Full Payment Pending</h4>
+            <!-- Unpaid Detail Collapse -->
+            <div id="detailUnpaidBills" class="detail-collapse mb-3">
+                <h4 class="font-bold text-sm mb-3" style="color:#dc2626;"><i class="fas fa-exclamation-circle mr-1"></i> Unpaid Bills (Full Balance Outstanding)</h4>
                 <?php if(empty($unpaid_rows)): ?>
-                    <p class="text-sm" style="color:#16a34a;">No unpaid customers! </p>
+                    <p class="text-sm" style="color:#7a4e0a;">No unpaid bills found.</p>
                 <?php else: ?>
                 <div class="overflow-x-auto">
                     <table class="report-table">
                         <thead><tr>
-                            <th>Customer</th><th>Mobile</th><th class="text-right">Bill Total</th><th class="text-right"> Due</th><th class="text-center">Date</th><th class="text-center">Invoice</th>
+                            <th>Customer</th><th>Mobile</th><th class="text-right">Bill Total</th><th class="text-right">Due Balance</th><th class="text-center">Date</th><th class="text-center">Invoice</th><th class="text-center">Action</th>
                         </tr></thead>
                         <tbody>
                         <?php foreach($unpaid_rows as $r): ?>
                             <tr>
                                 <td><?php echo htmlspecialchars($r['customer_name']); ?></td>
                                 <td><?php echo htmlspecialchars($r['customer_mobile']); ?></td>
-                                <td class="text-right font-bold" style="color:#d97706;">₹<?php echo number_format($r['total_amount'],2); ?></td>
-                                <td class="text-right font-bold" style="color:#dc2626;">₹<?php echo number_format($r['balance_amount'],2); ?></td>
+                                <td class="text-right font-bold" style="color:#dc2626;">₹<?php echo number_format($r['total_amount'],2); ?></td>
+                                <td class="text-right font-extrabold text-red-600">₹<?php echo number_format($r['balance_amount'],2); ?></td>
                                 <td class="text-center"><?php echo date('d M Y', strtotime($r['created_at'])); ?></td>
                                 <td class="text-center font-mono text-xs" style="color:#d68b16;"><?php echo htmlspecialchars($r['invoice_no']); ?></td>
+                                <td class="text-center">
+                                    <button onclick='markAsPaid(<?php echo json_encode($r['invoice_no']); ?>, <?php echo floatval($r['balance_amount']); ?>)' class="btn-jewel" style="background:linear-gradient(135deg,#16a34a,#15803d);padding:5px 8px;font-size:11px;border-radius:16px;"> Mark Paid</button>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
@@ -1039,6 +1341,122 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                 </div>
                 <?php endif; ?>
             </div>
+
+            <!-- Old Gold Detail Collapse -->
+            <div id="detailOldGold" class="detail-collapse mb-3">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-bold text-sm" style="color:#6b21a8;"><i class="fas fa-coins text-amber-500 mr-1"></i> Old Gold Exchange Records</h4>
+                    <span class="text-xs font-bold text-purple-900 bg-purple-100 px-2 py-0.5 rounded-lg">Total Old Gold Exchanged: ₹<?php echo number_format($old_gold_summary['og_total'] ?? 0, 2); ?></span>
+                </div>
+                <?php if(empty($og_rows)): ?>
+                    <p class="text-sm" style="color:#7a4e0a;">No old gold exchange records found in recent GST invoices.</p>
+                <?php else: ?>
+                <div class="overflow-x-auto">
+                    <table class="report-table">
+                        <thead><tr>
+                            <th>Invoice No</th>
+                            <th>Customer Name</th>
+                            <th>Mobile</th>
+                            <th class="text-right">Old Gold Value</th>
+                            <th>Metal / Type</th>
+                            <th class="text-right">Net Bill Amount</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Date</th>
+                            <th class="text-center">Action</th>
+                        </tr></thead>
+                        <tbody>
+                        <?php foreach($og_rows as $r): ?>
+                            <tr>
+                                <td class="font-mono text-xs font-bold" style="color:#d68b16;">
+                                    <?php echo htmlspecialchars($r['invoice_no']); ?>
+                                </td>
+                                <td class="font-bold"><?php echo htmlspecialchars($r['customer_name']); ?></td>
+                                <td><?php echo htmlspecialchars($r['customer_mobile']); ?></td>
+                                <td class="text-right font-black text-purple-700">₹<?php echo number_format($r['old_gold_amount'], 2); ?></td>
+                                <td><span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800"><?php echo htmlspecialchars($r['old_gold_type'] ?: 'Old Gold'); ?></span></td>
+                                <td class="text-right font-bold text-stone-800">₹<?php echo number_format($r['total_amount'], 2); ?></td>
+                                <td class="text-center">
+                                    <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded <?php echo $r['payment_status']==='paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
+                                        <?php echo htmlspecialchars($r['payment_status']); ?>
+                                    </span>
+                                </td>
+                                <td class="text-center text-xs text-stone-500"><?php echo date('d M Y', strtotime($r['created_at'])); ?></td>
+                                <td class="text-center">
+                                    <a href="view_pdf.php?invoice_no=<?php echo urlencode($r['invoice_no']); ?>" target="_blank" class="btn-jewel" style="padding:3px 10px;font-size:10px;border-radius:14px;text-decoration:none;">
+                                        View Bill
+                                    </a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Advance Credit Detail Collapse -->
+            <div id="detailAdvance" class="detail-collapse">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-bold text-sm" style="color:#92400e;">✨ Advance Credit Bookings & Deposits</h4>
+                    <span class="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-lg">Total Active Balance: ₹<?php echo number_format($adv_summary['total_adv_available'] ?? 0, 2); ?></span>
+                </div>
+                <?php if(empty($adv_rows)): ?>
+                    <p class="text-sm" style="color:#7a4e0a;">No advance credit bookings found.</p>
+                <?php else: ?>
+                <div class="overflow-x-auto">
+                    <table class="report-table">
+                        <thead><tr>
+                            <th>Receipt No</th>
+                            <th>Customer Name</th>
+                            <th>Mobile</th>
+                            <th class="text-right">Deposit Amount</th>
+                            <th class="text-right">Used in Bills</th>
+                            <th class="text-right">Available Credit</th>
+                            <th class="text-center">Date</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Action</th>
+                        </tr></thead>
+                        <tbody>
+                        <?php foreach($adv_rows as $r): ?>
+                            <tr>
+                                <td class="font-mono text-xs font-bold" style="color:#800020;">
+                                    <a href="view_pdf.php?advance_no=<?php echo urlencode($r['receipt_no']); ?>" target="_blank" class="hover:underline">
+                                        <?php echo htmlspecialchars($r['receipt_no']); ?>
+                                    </a>
+                                </td>
+                                <td class="font-bold"><?php echo htmlspecialchars($r['customer_name']); ?></td>
+                                <td><?php echo htmlspecialchars($r['customer_mobile']); ?></td>
+                                <td class="text-right font-bold text-stone-900">₹<?php echo number_format($r['advance_amount'],2); ?></td>
+                                <td class="text-right font-semibold text-rose-600">₹<?php echo number_format($r['used_amount'],2); ?></td>
+                                <td class="text-right font-black text-emerald-700">₹<?php echo number_format($r['available_amount'],2); ?></td>
+                                <td class="text-center text-xs text-stone-500"><?php echo date('d M Y', strtotime($r['created_at'])); ?></td>
+                                <td class="text-center">
+                                    <?php if(floatval($r['available_amount']) <= 0.005): ?>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-100 text-gray-700">Fully Used</span>
+                                    <?php elseif(floatval($r['used_amount']) > 0): ?>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800">Partial</span>
+                                    <?php else: ?>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">Active</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-center">
+                                    <div class="flex items-center justify-center gap-1.5">
+                                        <a href="view_pdf.php?advance_no=<?php echo urlencode($r['receipt_no']); ?>" target="_blank" class="btn-jewel" style="padding:4px 10px;font-size:11px;border-radius:14px;text-decoration:none;white-space:nowrap;">
+                                            🖨️ Receipt
+                                        </a>
+                                        <button type="button" onclick="confirmDeleteAdvance('<?php echo htmlspecialchars($r['receipt_no'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars(addslashes($r['customer_name']), ENT_QUOTES); ?>', '<?php echo number_format($r['advance_amount'], 2); ?>', '<?php echo number_format($r['available_amount'], 2); ?>', '<?php echo number_format($r['used_amount'], 2); ?>')" class="btn-jewel" style="background:linear-gradient(135deg,#7f1d1d,#ef4444);padding:4px 10px;font-size:11px;border-radius:14px;white-space:nowrap;cursor:pointer;">
+                                            <i class="fas fa-trash-alt mr-1"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?php endif; ?>
+            </div>
+
         </div>
 
         <!--  GST SUMMARY  -->
@@ -1076,7 +1494,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                 <div class="stat-card-gst p-5">
                     <div class="flex justify-between items-center mb-3">
                         <span class="font-bold text-sm" style="color:#134e4a;"> GST Bills</span>
-                        <span class="text-2xl font-black" style="color:#0f766e;"><?php echo $gst_summary['gst_count']; ?> bills</span>
+                        <span class="text-2xl font-black" style="color:#0f766e;"><?php echo intval($gst_summary['gst_count'] ?? 0); ?> bills</span>
                     </div>
                     <div class="space-y-2 text-sm">
                         <div class="flex justify-between py-1" style="border-bottom:1px solid rgba(20,184,166,0.2);">
@@ -1091,8 +1509,14 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                             <span style="color:#0d9488;"> SGST (1.5%)</span>
                             <strong style="color:#0f766e;">₹<?php echo number_format($sgst,2); ?></strong>
                         </div>
+                        <?php if(!empty($gst_summary['gst_old_gold']) && floatval($gst_summary['gst_old_gold']) > 0): ?>
+                        <div class="flex justify-between py-1" style="border-bottom:1px solid rgba(20,184,166,0.2);">
+                            <span style="color:#7c3aed;"><i class="fas fa-coins text-amber-500 mr-1"></i> Old Gold Adjusted</span>
+                            <strong style="color:#6b21a8;">₹<?php echo number_format(floatval($gst_summary['gst_old_gold']),2); ?></strong>
+                        </div>
+                        <?php endif; ?>
                         <div class="flex justify-between py-2 px-3 rounded-xl mt-1" style="background:rgba(52,211,153,0.15);">
-                            <span class="font-bold" style="color:#134e4a;"> Total GST</span>
+                            <span class="font-bold" style="color:#134e4a;"> Total GST Collected</span>
                             <strong class="text-lg" style="color:#0f766e;">₹<?php echo number_format($actual_gst,2); ?></strong>
                         </div>
                     </div>
@@ -1101,13 +1525,23 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                 <div class="stat-card-nongst p-5">
                     <div class="flex justify-between items-center mb-3">
                         <span class="font-bold text-sm" style="color:#475569;"> Non-GST Bills</span>
-                        <span class="text-2xl font-black" style="color:#334155;"><?php echo $gst_summary['nongst_count']; ?> bills</span>
+                        <span class="text-2xl font-black" style="color:#334155;"><?php echo intval($gst_summary['nongst_count'] ?? 0); ?> bills</span>
                     </div>
                     <div class="space-y-2 text-sm">
                         <div class="flex justify-between py-1" style="border-bottom:1px solid #e2e8f0;">
-                            <span style="color:#64748b;"> Total Sale Amount</span>
-                            <strong style="color:#334155;">₹<?php echo number_format($gst_summary['nongst_amt'],2); ?></strong>
+                            <span style="color:#64748b;"> Net Sale Amount</span>
+                            <strong style="color:#334155;">₹<?php echo number_format(floatval($gst_summary['nongst_amt'] ?? 0), 2); ?></strong>
                         </div>
+                        <?php if(!empty($gst_summary['nongst_old_gold']) && floatval($gst_summary['nongst_old_gold']) > 0): ?>
+                        <div class="flex justify-between py-1" style="border-bottom:1px solid #e2e8f0;">
+                            <span style="color:#7c3aed;"><i class="fas fa-coins text-amber-500 mr-1"></i> Old Gold Adjusted</span>
+                            <strong style="color:#6b21a8;">₹<?php echo number_format(floatval($gst_summary['nongst_old_gold']), 2); ?></strong>
+                        </div>
+                        <div class="flex justify-between py-1" style="border-bottom:1px solid #e2e8f0;">
+                            <span style="color:#64748b;"> Gross Sales Value</span>
+                            <strong style="color:#1e293b;">₹<?php echo number_format(floatval($gst_summary['nongst_amt'] ?? 0) + floatval($gst_summary['nongst_old_gold']), 2); ?></strong>
+                        </div>
+                        <?php endif; ?>
                         <div class="flex justify-between py-1" style="border-bottom:1px solid #e2e8f0;">
                             <span style="color:#64748b;"> Tax Rate</span>
                             <strong style="color:#475569;">0% (No GST)</strong>
@@ -1166,9 +1600,11 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                 <div>
                     <label class="filter-label"> GST Type</label>
                     <select name="filter_gst" class="jewel-input w-full" onchange="this.form.submit()">
-                        <option value="" <?php if(!$filter_gst) echo 'selected'; ?>>All</option>
-                        <option value="gst"     <?php if($filter_gst==='gst')     echo 'selected'; ?>> GST</option>
-                        <option value="non_gst" <?php if($filter_gst==='non_gst') echo 'selected'; ?>> Non-GST</option>
+                        <option value="" <?php if(!$filter_gst || $filter_gst==='gst') echo 'selected'; ?>>All GST Bills</option>
+                        <option value="gst_3" <?php if($filter_gst==='gst_3') echo 'selected'; ?>>GST (3%)</option>
+                        <option value="gst_18" <?php if($filter_gst==='gst_18') echo 'selected'; ?>>GST (18%)</option>
+                        <option value="non_gst" <?php if($filter_gst==='non_gst') echo 'selected'; ?>>Non-GST Memos</option>
+                        <option value="all" <?php if($filter_gst==='all') echo 'selected'; ?>>All (GST + Non-GST)</option>
                     </select>
                 </div>
                 <div class="col-span-2 sm:col-span-3 lg:col-span-5 flex gap-3">
@@ -1180,12 +1616,20 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
             <!-- Summary chips -->
             <div class="flex flex-wrap gap-2 mb-4">
                 <span class="chip chip-yellow">Total Bills: <strong><?php echo $total_bills_count; ?></strong></span>
-                <span class="chip chip-green">Total Amount: <strong>₹<?php echo number_format($total_bills_amount,2); ?></strong></span>
+                <span class="chip chip-green">Net Amount: <strong>₹<?php echo number_format($total_bills_amount,2); ?></strong></span>
+                <?php if($total_bills_old_gold > 0): ?>
+                <span class="chip" style="background:#f3e8ff;color:#6b21a8;border:1px solid #d8b4fe;">
+                    <i class="fas fa-coins text-amber-500 mr-1"></i> Old Gold Exchanged: <strong>₹<?php echo number_format($total_bills_old_gold, 2); ?></strong>
+                </span>
+                <span class="chip" style="background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;">
+                    Gross Total: <strong>₹<?php echo number_format($total_bills_amount + $total_bills_old_gold, 2); ?></strong>
+                </span>
+                <?php endif; ?>
                 <?php
-                $is_gst_b = fn($b) => (isset($b['gst_type']) && (strpos($b['gst_type'], 'gst') === 0 || $b['gst_type'] === 'gst')) || floatval($b['gst_amount'] ?? 0) > 0;
-                $gst_filtered    = count(array_filter($bills_rows, $is_gst_b));
-                $nongst_filtered = count(array_filter($bills_rows, fn($b) => !$is_gst_b($b)));
-                $total_gst_collected = array_sum(array_column(array_filter($bills_rows, $is_gst_b), 'gst_amount'));
+                $is_gst_row_check = fn($b) => (!empty($b['gst_type']) && strpos($b['gst_type'], 'gst') === 0) || floatval($b['gst_amount'] ?? 0) > 0;
+                $gst_filtered    = count(array_filter($bills_rows, $is_gst_row_check));
+                $nongst_filtered = count(array_filter($bills_rows, fn($b) => !$is_gst_row_check($b)));
+                $total_gst_collected = array_sum(array_column(array_filter($bills_rows, $is_gst_row_check), 'gst_amount'));
                 $total_cgst = round($total_gst_collected/2, 2);
                 $total_sgst = round($total_gst_collected/2, 2);
                 ?>
@@ -1207,7 +1651,8 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                             <th>Invoice No</th>
                             <th>Customer</th>
                             <th>Mobile</th>
-                            <th class="text-right">Amount (₹)</th>
+                            <th class="text-right">Net Amount (₹)</th>
+                            <th class="text-right">Old Gold (₹)</th>
                             <th class="text-right">Paid</th>
                             <th class="text-right">Due</th>
                             <th class="text-center">GST</th>
@@ -1218,11 +1663,12 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                     </thead>
                     <tbody>
                     <?php if(empty($bills_rows)): ?>
-                        <tr><td colspan="11" class="text-center py-10" style="color:#7a4e0a;">No bills found.</td></tr>
+                        <tr><td colspan="12" class="text-center py-10" style="color:#7a4e0a;">No bills found.</td></tr>
                     <?php else: foreach($bills_rows as $i => $bill):
                         $balance   = floatval($bill['balance_amount'] ?? 0);
                         $paid_show = floatval($bill['paid_amount'] ?? 0);
                         $gst_amt   = floatval($bill['gst_amount'] ?? 0);
+                        $og_amt    = floatval($bill['old_gold_amount'] ?? 0);
                         $cgst_amt  = round($gst_amt/2, 2);
                         $sgst_amt  = round($gst_amt/2, 2);
                         $gstin     = trim($bill['customer_gstin'] ?? '');
@@ -1236,7 +1682,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                         <td style="color:#7a4e0a;"><?php echo $i+1; ?></td>
                         <td class="font-mono text-xs" style="color:#d68b16;"><?php echo htmlspecialchars($bill['invoice_no']); ?></td>
 
-                        <!--  UPDATED: Customer name + GSTIN tag below -->
+                        <!-- Customer name + GSTIN tag below -->
                         <td>
                             <span class="font-semibold" style="color:#800020;"><?php echo htmlspecialchars($bill['customer_name']); ?></span>
                             <?php if($gstin !== ''): ?>
@@ -1245,7 +1691,20 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                         </td>
 
                         <td style="color:#6b7280;"><?php echo htmlspecialchars($bill['customer_mobile']); ?></td>
-                        <td class="text-right font-bold" style="color:#16a34a;">₹<?php echo number_format($bill['total_amount'],2); ?></td>
+                        <td class="text-right font-bold" style="color:#16a34a;">
+                            ₹<?php echo number_format($bill['total_amount'],2); ?>
+                            <?php if($og_amt > 0): ?>
+                                <div style="font-size:9px;color:#78716c;font-weight:normal;">Gross: ₹<?php echo number_format($bill['total_amount'] + $og_amt, 2); ?></div>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-right font-bold" style="color:#7c3aed;">
+                            <?php if($og_amt > 0): ?>
+                                ₹<?php echo number_format($og_amt, 2); ?>
+                                <div style="font-size:9px;color:#a855f7;font-weight:normal;"><?php echo htmlspecialchars($bill['old_gold_type'] ?: 'Old Gold'); ?></div>
+                            <?php else: ?>
+                                <span style="color:#d1d5db;font-weight:normal;">-</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-right" style="color:#15803d;">₹<?php echo number_format($paid_show,2); ?></td>
                         <td class="text-right font-bold" style="color:<?php echo $balance>0?'#dc2626':'#9ca3af'; ?>">
                             <?php echo $balance>0 ? '₹'.number_format($balance,2) : '-'; ?>
@@ -1253,7 +1712,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                         <td class="text-center">
                             <?php
                             $is_gst_row = (strpos($bill['gst_type'] ?? '', 'gst') === 0 || $gst_amt > 0);
-                            $taxable_row = floatval($bill['total_amount'] ?? 0) - $gst_amt;
+                            $taxable_row = floatval($bill['total_amount'] ?? 0) + $og_amt - $gst_amt;
                             $is_18_row = ($bill['gst_type'] === 'gst_18' || ($taxable_row > 0 && ($gst_amt / $taxable_row) > 0.10));
                             $gst_label_row = $is_18_row ? 'GST (18%)' : 'GST (3%)';
                             ?>
@@ -1424,16 +1883,19 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
             const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
             return `${dy}-${months[parseInt(mo)-1]}-${yr.slice(2)}`;
         };
-        const totalAmt     = billsData.reduce((s,b) => s + parseFloat(b.total_amount||0), 0);
-        const totalPaid    = billsData.reduce((s,b) => s + parseFloat(b.paid_amount||0), 0);
-        const totalBalance = billsData.reduce((s,b) => s + parseFloat(b.balance_amount||0), 0);
-        const totalGST     = billsData.reduce((s,b) => s + parseFloat(b.gst_amount||0), 0);
+        const totalAmt       = billsData.reduce((s,b) => s + parseFloat(b.total_amount||0), 0);
+        const totalOldGold   = billsData.reduce((s,b) => s + parseFloat(b.old_gold_amount||0), 0);
+        const totalPaid      = billsData.reduce((s,b) => s + parseFloat(b.paid_amount||0), 0);
+        const totalBalance   = billsData.reduce((s,b) => s + parseFloat(b.balance_amount||0), 0);
+        const totalGST       = billsData.reduce((s,b) => s + parseFloat(b.gst_amount||0), 0);
+        const totalWeightSum = billsData.reduce((s,b) => s + parseFloat(b.total_weight||0), 0);
         const isGstBill    = b => (b.gst_type && (b.gst_type.startsWith('gst') || b.gst_type === 'gst')) || parseFloat(b.gst_amount||0) > 0;
         const getGstTypeLabel = b => {
             if (!isGstBill(b)) return 'Non-GST';
             const tot = parseFloat(b.total_amount || 0);
+            const og  = parseFloat(b.old_gold_amount || 0);
             const gst = parseFloat(b.gst_amount || 0);
-            const tax = tot - gst;
+            const tax = tot + og - gst;
             if (b.gst_type === 'gst_18' || (tax > 0 && (gst / tax) > 0.10)) {
                 return 'GST (18%)';
             }
@@ -1449,23 +1911,28 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
 
         // Sheet 1 - All Bills
         const aoa1 = [];
-        aoa1.push([' MOTI JEWELLERS', '', '', '', '', '', '', '', '', '', '', '']);
-        aoa1.push(['All Bills Report - Generated: ' + today, '', '', '', '', '', '', '', '', '', '', '']);
+        aoa1.push([' MOTI JEWELLERS', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
+        aoa1.push(['All Bills & Tax Report - Generated: ' + today, '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']);
         aoa1.push([]);
-        aoa1.push(['Total Bills', billsData.length, '', 'Total Amount', inrFmt(totalAmt), '', 'Total GST Collected', inrFmt(totalGST), '', 'Balance Due', inrFmt(totalBalance), '']);
-        aoa1.push(['Full Paid', paidBills, '', 'Part Payment', partBills, '', 'Unpaid', unpaidBills, '', 'GST Bills', gstBills, '']);
+        aoa1.push(['Total Bills', billsData.length, '', 'Net Payable', inrFmt(totalAmt), '', 'Old Gold Exchanged', inrFmt(totalOldGold), '', 'Gross Value', inrFmt(totalAmt + totalOldGold), '', 'Total GST Collected', inrFmt(totalGST), '', 'Balance Due', inrFmt(totalBalance)]);
+        aoa1.push(['Full Paid', paidBills, '', 'Part Payment', partBills, '', 'Unpaid', unpaidBills, '', 'Total Weight', totalWeightSum.toFixed(3) + 'g', '', 'GST Bills', gstBills, '', 'Non-GST', nonGstBills]);
         aoa1.push([]);
-        //  UPDATED: Added GSTIN column header
-        aoa1.push(['#', 'Invoice No', 'Customer Name', 'GSTIN', 'Mobile', 'Address', 'Total Amount (₹)', 'Paid Amount (₹)', 'Balance Due (₹)', 'GST Type', 'GST Amount (₹)', 'Payment Status', 'Date']);
+        aoa1.push(['#', 'Invoice No', 'Customer Name', 'GSTIN', 'Mobile', 'Address', 'Products / Items', 'Weight (g)', 'Gross Bill (₹)', 'Old Gold (₹)', 'Net Payable (₹)', 'Paid Amount (₹)', 'Balance Due (₹)', 'GST Type', 'GST Amount (₹)', 'Payment Status', 'Date']);
         billsData.forEach((b, i) => {
+            const ogVal = parseFloat(b.old_gold_amount || 0);
+            const totVal = parseFloat(b.total_amount || 0);
             aoa1.push([
                 i + 1,
                 b.invoice_no,
                 b.customer_name,
-                b.customer_gstin || '',   //  GSTIN column
+                b.customer_gstin || '',
                 b.customer_mobile,
                 b.customer_address || '',
-                parseFloat(b.total_amount||0),
+                b.product_names || '',
+                b.item_weights || (parseFloat(b.total_weight||0) > 0 ? parseFloat(b.total_weight).toFixed(3) + 'g' : '0.000g'),
+                ogVal > 0 ? (totVal + ogVal) : totVal,
+                ogVal,
+                totVal,
                 parseFloat(b.paid_amount||0),
                 parseFloat(b.balance_amount||0),
                 getGstTypeLabel(b),
@@ -1474,47 +1941,53 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                 fmtDate(b.created_at)
             ]);
         });
-        aoa1.push(['', 'TOTAL', '', '', '', '', billsData.reduce((s,b)=>s+parseFloat(b.total_amount||0),0), billsData.reduce((s,b)=>s+parseFloat(b.paid_amount||0),0), totalBalance, '', totalGST, '', '']);
+        aoa1.push(['', 'TOTAL', '', '', '', '', '', totalWeightSum, (totalAmt + totalOldGold), totalOldGold, totalAmt, totalPaid, totalBalance, '', totalGST, '', '']);
 
         const ws1 = XLSX.utils.aoa_to_sheet(aoa1);
-        ws1['!cols'] = [{wch:5},{wch:20},{wch:22},{wch:20},{wch:14},{wch:28},{wch:18},{wch:18},{wch:18},{wch:12},{wch:16},{wch:14},{wch:14}];
-        ws1['!merges'] = [{s:{r:0,c:0},e:{r:0,c:12}},{s:{r:1,c:0},e:{r:1,c:12}}];
+        ws1['!cols'] = [{wch:5},{wch:18},{wch:22},{wch:18},{wch:14},{wch:28},{wch:34},{wch:18},{wch:16},{wch:16},{wch:16},{wch:16},{wch:16},{wch:12},{wch:16},{wch:14},{wch:14}];
+        ws1['!merges'] = [{s:{r:0,c:0},e:{r:0,c:16}},{s:{r:1,c:0},e:{r:1,c:16}}];
         XLSX.utils.book_append_sheet(wb, ws1, 'All Bills');
 
         // Sheet 2 - Payment Summary
         const aoa2 = [];
-        aoa2.push([' MOTI JEWELLERS - Payment Summary']);
+        aoa2.push([' MOTI JEWELLERS - Payment & Settlement Summary']);
         aoa2.push(['Generated: ' + today]);
         aoa2.push([]);
         aoa2.push(['Category', 'Count', 'Amount (₹)']);
         aoa2.push(['Full Paid', paidBills, totalPaid]);
         aoa2.push(['Part Payment', partBills, billsData.filter(b=>b.payment_status==='part').reduce((s,b)=>s+parseFloat(b.total_amount||0),0)]);
         aoa2.push(['Unpaid (Credit)', unpaidBills, billsData.filter(b=>b.payment_status==='unpaid').reduce((s,b)=>s+parseFloat(b.total_amount||0),0)]);
-        aoa2.push(['TOTAL', billsData.length, totalAmt]);
+        aoa2.push(['Old Gold Adjusted', billsData.filter(b=>parseFloat(b.old_gold_amount||0)>0).length, totalOldGold]);
+        aoa2.push(['TOTAL NET PAYABLE', billsData.length, totalAmt]);
+        aoa2.push(['GROSS BUSINESS VALUE (with Old Gold)', billsData.length, (totalAmt + totalOldGold)]);
         aoa2.push([]);
+        aoa2.push(['Total Items Weight', '', totalWeightSum.toFixed(3) + 'g']);
+        aoa2.push(['Old Gold Exchanged', '', totalOldGold]);
         aoa2.push(['Balance Due', '', totalBalance]);
         aoa2.push(['Total GST Collected', '', totalGST]);
         aoa2.push(['CGST (1.5%)', '', totalGST/2]);
         aoa2.push(['SGST (1.5%)', '', totalGST/2]);
         const ws2 = XLSX.utils.aoa_to_sheet(aoa2);
-        ws2['!cols'] = [{wch:28},{wch:12},{wch:20}];
+        ws2['!cols'] = [{wch:35},{wch:12},{wch:20}];
         XLSX.utils.book_append_sheet(wb, ws2, 'Payment Summary');
 
         // Sheet 3 - Pending
         const pendingData = billsData.filter(b => b.payment_status !== 'paid' && parseFloat(b.balance_amount||0) > 0);
-        //  UPDATED: Added GSTIN column in pending sheet too
-        const aoa3 = [['#','Invoice No','Customer','GSTIN','Mobile','Bill Total (₹)','Paid (₹)','Balance Due (₹)','Status','Date']];
+        const aoa3 = [['#','Invoice No','Customer','GSTIN','Mobile','Products / Items','Weight (g)','Old Gold (₹)','Bill Net (₹)','Paid (₹)','Balance Due (₹)','Status','Date']];
         pendingData.forEach((b,i) => aoa3.push([
             i+1, b.invoice_no, b.customer_name, b.customer_gstin||'', b.customer_mobile,
+            b.product_names || '',
+            b.item_weights || (parseFloat(b.total_weight || 0) > 0 ? parseFloat(b.total_weight).toFixed(3) + 'g' : '0.000g'),
+            parseFloat(b.old_gold_amount||0),
             parseFloat(b.total_amount||0), parseFloat(b.paid_amount||0), parseFloat(b.balance_amount||0),
             b.payment_status==='part'?'Part Payment':'Unpaid', fmtDate(b.created_at)
         ]));
-        if(!pendingData.length) aoa3.push(['','No pending payments! ','','','','','','','','']);
+        if(!pendingData.length) aoa3.push(['','No pending payments! ','','','','','','','','','','','']);
         const ws3 = XLSX.utils.aoa_to_sheet(aoa3);
-        ws3['!cols'] = [{wch:5},{wch:20},{wch:22},{wch:20},{wch:14},{wch:18},{wch:16},{wch:18},{wch:14},{wch:14}];
+        ws3['!cols'] = [{wch:5},{wch:18},{wch:22},{wch:18},{wch:14},{wch:32},{wch:14},{wch:16},{wch:16},{wch:16},{wch:16},{wch:14},{wch:14}];
         XLSX.utils.book_append_sheet(wb, ws3, 'Pending Payments');
 
-        XLSX.writeFile(wb, `MOTIJewellers_Report_${todayFile}.xlsx`);
+        XLSX.writeFile(wb, `MOTI_Jewellers_Report_${todayFile}.xlsx`);
     }
 
     let currentDeleteInvoiceNo = '';
@@ -1555,20 +2028,31 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                 
                 data.forEach((item, index) => {
                     const itemDiv = document.createElement('div');
-                    itemDiv.className = 'p-3 bg-yellow-50 bg-opacity-50 rounded-xl border border-yellow-100 flex flex-col gap-2 mb-2';
+                    itemDiv.className = 'p-3 bg-yellow-50 bg-opacity-60 rounded-xl border border-yellow-200 flex flex-col gap-2 mb-2';
+                    
+                    let soldLabel = '';
+                    if (item.gross_wt > 0) {
+                        soldLabel = `Sold: ${item.pcs || 1} pcs (${parseFloat(item.gross_wt).toFixed(3)}g)`;
+                    } else {
+                        soldLabel = `Sold: ${item.pcs || item.quantity} ${item.unit || 'pcs'}`;
+                    }
+
+                    const defaultQty = item.pcs || 1;
+                    const defaultWeight = item.gross_wt || item.weight || item.net_wt || 0;
+
                     itemDiv.innerHTML = `
                         <div class="flex justify-between items-start">
-                            <span class="text-xs font-semibold text-gray-800">${item.product_name}</span>
-                            <span class="text-[10px] text-gray-500 font-mono">Sold: ${item.quantity} ${item.unit || 'pcs'}</span>
+                            <span class="text-xs font-bold text-gray-800">${item.product_name}</span>
+                            <span class="text-[10px] text-amber-900 bg-amber-100/90 px-2 py-0.5 rounded font-mono font-bold">${soldLabel}</span>
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="block text-[10px] font-semibold text-gray-600 mb-1">Qty to Restore</label>
-                                <input type="number" id="restoreQty_${index}" value="${item.quantity}" step="0.001" min="0" max="${item.quantity}" class="jewel-input w-full rounded-lg px-2 py-1 text-xs" style="background:#fff;">
+                                <label class="block text-[10px] font-bold text-gray-700 mb-1">Qty to Restore (Pcs)</label>
+                                <input type="number" id="restoreQty_${index}" value="${defaultQty}" step="1" min="0" class="jewel-input w-full rounded-lg px-2 py-1.5 text-xs font-bold" style="background:#fff;">
                             </div>
                             <div>
-                                <label class="block text-[10px] font-semibold text-gray-600 mb-1">HSN Code</label>
-                                <input type="text" id="restoreHsn_${index}" value="0" class="jewel-input w-full rounded-lg px-2 py-1 text-xs" style="background:#fff;">
+                                <label class="block text-[10px] font-bold text-gray-700 mb-1">Weight to Restore (g)</label>
+                                <input type="number" id="restoreWeight_${index}" value="${defaultWeight}" step="0.001" min="0" class="jewel-input w-full rounded-lg px-2 py-1.5 text-xs font-bold" style="background:#fff;">
                             </div>
                         </div>
                     `;
@@ -1609,16 +2093,17 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
     }
 
     function submitDeleteInvoiceAction() {
-        if (!currentDeleteMode) return;
-        
-        let confirmMsg = '';
-        if (currentDeleteMode === 'permanent') {
-            confirmMsg = " FINAL WARNING: This action is permanent and CANNOT be undone.\nAre you sure you want to delete Invoice #" + currentDeleteInvoiceNo + " permanently (without restoring stock)?";
-        } else {
-            confirmMsg = "Are you sure you want to delete Invoice #" + currentDeleteInvoiceNo + " and move the specified quantities back to stock?";
+        if (!currentDeleteMode) {
+            alert('Please select either "Delete Permanently" or "Move to Stock" first.');
+            return;
         }
         
-        if (!confirm(confirmMsg)) return;
+        const btnSubmit = document.getElementById('btnConfirmDeleteSubmit');
+        if (btnSubmit) {
+            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Deleting...';
+            btnSubmit.style.pointerEvents = 'none';
+            btnSubmit.style.opacity = '0.75';
+        }
         
         const form = document.createElement('form');
         form.method = 'POST';
@@ -1643,9 +2128,10 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
         form.appendChild(modeInput);
         
         if (currentDeleteMode === 'restore_stock') {
-            const restoreData = invoiceItemsCache.map((item, index) => {
+            const itemsArr = Array.isArray(invoiceItemsCache) ? invoiceItemsCache : [];
+            const restoreData = itemsArr.map((item, index) => {
                 const qtyInput = document.getElementById('restoreQty_' + index);
-                const hsnInput = document.getElementById('restoreHsn_' + index);
+                const weightInput = document.getElementById('restoreWeight_' + index);
                 
                 return {
                     product_id: item.product_id,
@@ -1653,11 +2139,11 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
                     serial_no: item.serial_no || '',
                     huid_code: item.huid_code || '',
                     price: item.price || 0,
-                    unit: item.unit || '',
+                    unit: item.unit || 'pcs',
                     category: item.category || '',
-                    weight: item.weight || '',
-                    restore_qty: parseFloat(qtyInput ? qtyInput.value : item.quantity) || 0,
-                    hsn_code: hsnInput ? hsnInput.value.trim() : '0'
+                    restore_qty: parseFloat(qtyInput ? qtyInput.value : (item.pcs || 1)) || 0,
+                    restore_weight: parseFloat(weightInput ? weightInput.value : (item.gross_wt || 0)) || 0,
+                    hsn_code: (item.hsn_code && item.hsn_code !== '0') ? item.hsn_code : '7113'
                 };
             });
             
@@ -1671,7 +2157,118 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
         document.body.appendChild(form);
         form.submit();
     }
+
+    let currentDeleteAdvanceNo = '';
+
+    function confirmDeleteAdvance(receiptNo, customerName, totalAmount, availAmount, usedAmount) {
+        currentDeleteAdvanceNo = receiptNo;
+        document.getElementById('deleteAdvReceiptNoText').textContent = receiptNo;
+        document.getElementById('deleteAdvCustNameText').textContent = customerName;
+        document.getElementById('deleteAdvAmountText').textContent = '₹' + totalAmount;
+        document.getElementById('deleteAdvAvailText').textContent = '₹' + availAmount;
+        
+        const usedWarning = document.getElementById('deleteAdvUsedWarning');
+        const usedFloat = parseFloat(usedAmount.replace(/,/g, '')) || 0;
+        if (usedFloat > 0) {
+            usedWarning.innerHTML = `⚠️ <strong>Note:</strong> ₹${usedAmount} of this advance has already been adjusted into bills. Deleting will permanently remove this record and its adjustment history.`;
+            usedWarning.classList.remove('hidden');
+        } else {
+            usedWarning.classList.add('hidden');
+        }
+
+        const modal = document.getElementById('deleteAdvanceModal');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeDeleteAdvanceModal() {
+        const modal = document.getElementById('deleteAdvanceModal');
+        modal.classList.remove('flex');
+        modal.classList.add('hidden');
+    }
+
+    function submitDeleteAdvanceAction() {
+        if (!currentDeleteAdvanceNo) return;
+        
+        const btn = document.getElementById('btnConfirmDeleteAdvSubmit');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Deleting...';
+            btn.style.pointerEvents = 'none';
+            btn.style.opacity = '0.75';
+        }
+        
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'reports.php';
+        
+        const actionInput = document.createElement('input');
+        actionInput.type = 'hidden';
+        actionInput.name = 'action_delete_advance';
+        actionInput.value = '1';
+        form.appendChild(actionInput);
+        
+        const receiptInput = document.createElement('input');
+        receiptInput.type = 'hidden';
+        receiptInput.name = 'receipt_no';
+        receiptInput.value = currentDeleteAdvanceNo;
+        form.appendChild(receiptInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+    }
 </script>
+
+<!-- Custom Delete Advance Modal -->
+<div id="deleteAdvanceModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black bg-opacity-60 backdrop-filter backdrop-blur-sm p-4">
+    <div class="bg-white rounded-2xl border border-yellow-200 shadow-2xl w-full max-w-md overflow-hidden flex flex-col transform transition-transform duration-300">
+        <!-- Modal Header -->
+        <div class="px-5 py-4 bg-gradient-to-r from-red-800 to-red-600 flex justify-between items-center text-white">
+            <h3 class="text-sm font-bold flex items-center gap-2">
+                <i class="fas fa-trash-alt"></i> Delete Advance Receipt #<span id="deleteAdvReceiptNoText"></span>
+            </h3>
+            <button onclick="closeDeleteAdvanceModal()" class="text-white hover:text-gray-200 text-xl font-bold">&times;</button>
+        </div>
+        
+        <!-- Modal Body -->
+        <div class="p-5 space-y-4">
+            <p class="text-xs text-gray-700 font-medium">
+                Are you sure you want to permanently delete this advance credit deposit?
+            </p>
+            
+            <div class="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs space-y-1.5">
+                <div class="flex justify-between">
+                    <span class="text-gray-600 font-semibold">Customer:</span>
+                    <strong class="text-gray-900" id="deleteAdvCustNameText"></strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600 font-semibold">Total Deposit:</span>
+                    <strong class="text-amber-900" id="deleteAdvAmountText"></strong>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600 font-semibold">Remaining Available:</span>
+                    <strong class="text-emerald-700" id="deleteAdvAvailText"></strong>
+                </div>
+            </div>
+
+            <div id="deleteAdvUsedWarning" class="hidden p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs">
+            </div>
+
+            <p class="text-[11px] text-red-600 font-semibold">
+                ⚠️ This action cannot be undone.
+            </p>
+        </div>
+        
+        <!-- Modal Footer -->
+        <div class="px-5 py-3 bg-gray-50 flex justify-end gap-2.5 border-t border-gray-100">
+            <button type="button" onclick="closeDeleteAdvanceModal()" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 text-xs font-semibold rounded-lg transition cursor-pointer">
+                Cancel
+            </button>
+            <button type="button" id="btnConfirmDeleteAdvSubmit" onclick="submitDeleteAdvanceAction()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer">
+                Confirm Delete
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- Custom Delete Invoice Modal -->
 <div id="deleteInvoiceModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black bg-opacity-60 backdrop-filter backdrop-blur-sm p-4">
@@ -1692,16 +2289,16 @@ $logo_paths = ['assets/images/moti-removebg-preview.png', 'images/moti-removebg-
             
             <div class="flex gap-3">
                 <button type="button" onclick="selectDeleteMode('permanent')" id="btnDeletePerm" class="flex-1 py-3 px-4 rounded-xl border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 font-semibold text-xs transition duration-200 text-center cursor-pointer">
-                     Delete Permanently<br><span class="text-[9px] font-normal text-red-500">(Stock is NOT updated)</span>
+                    🗑️ Delete Permanently<br><span class="text-[9px] font-normal text-red-500">(Stock is NOT updated)</span>
                 </button>
                 <button type="button" onclick="selectDeleteMode('restore_stock')" id="btnDeleteRestore" class="flex-1 py-3 px-4 rounded-xl border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 font-semibold text-xs transition duration-200 text-center cursor-pointer">
-                     Move to Stock<br><span class="text-[9px] font-normal text-green-500">(Add items to inventory)</span>
+                    📦 Move to Stock<br><span class="text-[9px] font-normal text-green-500">(Add items to inventory)</span>
                 </button>
             </div>
             
             <!-- Items Form (Visible only when 'restore_stock' is selected) -->
             <div id="restoreStockForm" class="hidden space-y-3 pt-3 border-t border-dashed border-gray-200">
-                <h4 class="text-xs font-bold text-yellow-800 uppercase tracking-wider">Quantities & HSN to move back:</h4>
+                <h4 class="text-xs font-bold text-yellow-800 uppercase tracking-wider">Quantities &amp; Weight to move back:</h4>
                 <div class="space-y-1" id="restoreItemsList">
                     <!-- Dynamic Items list populated by JS -->
                 </div>

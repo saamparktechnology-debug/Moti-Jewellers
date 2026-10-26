@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once 'config/database.php';
 require_once 'config/company_config.php';
@@ -201,7 +201,7 @@ h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
         ?>
         <div class="sidebar-logo-text">
             <h2>MOTI JEWELLERS</h2>
-            <p>Premium Since 2026</p>
+            <p>Trusted Tradition</p>
         </div>
     </div>
 
@@ -211,6 +211,8 @@ h1, h2, h3, .gold-font { font-family: 'Poppins', sans-serif; font-weight: 700; }
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
+        <a href="transfer.php"><i class="fas fa-exchange-alt"></i> TRANSFER</a>
+        <a href="product_summary.php"><i class="fas fa-clipboard-list"></i> PRODUCT SUMMARY</a>
         <a href="sanchari_dashboard.php"><i class="fas fa-piggy-bank"></i> SANCHAY SCHEME</a>
 
         <div class="sidebar-divider"></div>

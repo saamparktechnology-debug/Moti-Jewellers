@@ -905,15 +905,15 @@ if($side_logo): ?>
         $logo_found = false;
         foreach($logo_paths as $path) {
             if(file_exists($path)) {
-                echo '<img src="'.$path.'" alt="MAA GOURI JEWELLERS Logo" style="height:38px;width:auto;max-width:44px;object-fit:contain;display:inline-block;margin-right:8px;">';
+                echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo" style="height:38px;width:auto;max-width:44px;object-fit:contain;display:inline-block;margin-right:8px;">';
                 $logo_found = true; break;
             }
         }
         if(!$logo_found) echo '<i class="fas fa-gem" style="color:#fff;font-size:30px;flex-shrink:0;"></i>';
         ?>
         <div class="sidebar-logo-text">
-            <h2><?php echo htmlspecialchars($COMPANY['name'] ?? 'JEWELLERS'); ?></h2>
-            <p>Premium Since 2026</p>
+            <h2><?php echo htmlspecialchars($COMPANY['name'] ?? 'MOTI JEWELLERS'); ?></h2>
+            <p>Trusted Tradition</p>
         </div>
     </div>
 
@@ -933,7 +933,15 @@ if($side_logo): ?>
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
         </a>
-        
+        <a href="transfer.php">
+            <i class="fas fa-exchange-alt"></i> TRANSFER
+        </a>
+        <a href="product_summary.php">
+            <i class="fas fa-clipboard-list"></i> PRODUCT SUMMARY
+        </a>
+        <a href="sanchari_dashboard.php">
+            <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME
+        </a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>

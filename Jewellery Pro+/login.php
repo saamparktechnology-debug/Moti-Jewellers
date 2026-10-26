@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 session_start();
 require_once 'config/database.php';
 require_once 'config/company_config.php';
@@ -702,7 +702,7 @@ window.addEventListener('load', function() {
                      onerror="this.style.display='none'">
                 <div class="brand-top-text">
                     <h2>MOTI JEWELLERS</h2>
-                    <p>Premium Since 2026</p>
+                    <p>Trusted Tradition</p>
                 </div>
             </div>
 
@@ -767,7 +767,7 @@ window.addEventListener('load', function() {
                     <label class="input-label">Email Address</label>
                     <div class="input-wrap">
                         <i class="fas fa-envelope input-icon"></i>
-                        <input type="email" name="email" required placeholder="your@email.com" class="jewel-field" style="padding-left:38px !important;">
+                        <input type="email" name="email" required placeholder="motijewellers9635985848@gmail.com" class="jewel-field" style="padding-left:38px !important;">
                     </div>
                 </div>
 

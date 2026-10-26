@@ -350,7 +350,7 @@ nav.nav-gold span{color:#fff!important;}
         foreach($logo_paths as $p){if(file_exists($p)){echo '<img src="'.$p.'" alt="Logo">';$found=true;break;}}
         if(!$found) echo '<i class="fas fa-gem" style="color:#fff;font-size:30px;"></i>';
         ?>
-        <div class="sidebar-logo-text"><h2>MOTI JEWELLERS</h2><p>Sabang, Paschim Medinipur, West Bengal, India</p></div>
+        <div class="sidebar-logo-text"><h2>MOTI JEWELLERS</h2><p>Hamirpur, Balichak Station Road, Paschim Medinipur</p></div>
     </div>
     <nav class="sidebar-nav">
         <div class="sidebar-section-label">Main Menu</div>
@@ -358,6 +358,8 @@ nav.nav-gold span{color:#fff!important;}
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
+        <a href="transfer.php"><i class="fas fa-exchange-alt"></i> TRANSFER</a>
+        <a href="product_summary.php"><i class="fas fa-clipboard-list"></i> PRODUCT SUMMARY</a>
         <a href="sanchari_dashboard.php"><i class="fas fa-piggy-bank"></i> SANCHAY SCHEME</a>
         
         <div class="sidebar-divider"></div>
@@ -512,15 +514,15 @@ nav.nav-gold span{color:#fff!important;}
         </div>
         <div>
             <label class="field-label">GSTIN</label>
-            <input name="buyer_gstin" class="form-input" placeholder="Buyer GSTIN" style="text-transform:uppercase;">
+            <input name="buyer_gstin" class="form-input" value="19AEPPM9851A1Z4" placeholder="Buyer GSTIN" style="text-transform:uppercase;">
         </div>
         <div class="md:col-span-2">
             <label class="field-label">Address</label>
-            <input name="buyer_addr" class="form-input" placeholder="Address">
+            <input name="buyer_addr" class="form-input" value="Hamirpur, Balichak Station Road, Paschim Medinipur, West Bengal - 721148" placeholder="Address">
         </div>
         <div>
             <label class="field-label">PAN</label>
-            <input name="buyer_pan" class="form-input" placeholder="Buyer PAN" style="text-transform:uppercase;">
+            <input name="buyer_pan" class="form-input" value="AEPPM9851A" placeholder="Buyer PAN" style="text-transform:uppercase;">
         </div>
     </div>
 </div>

@@ -729,7 +729,7 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         ?>
         <div class="sidebar-logo-text">
             <h2>MOTI JEWELLERS</h2>
-            <p>Premium Since 2026</p>
+            <p>Trusted Tradition</p>
         </div>
     </div>
 
@@ -747,6 +747,12 @@ $logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-p
         </a>
         <a href="customers.php">
             <i class="fas fa-users"></i> CUSTOMERS
+        </a>
+        <a href="transfer.php">
+            <i class="fas fa-exchange-alt"></i> TRANSFER
+        </a>
+        <a href="product_summary.php">
+            <i class="fas fa-clipboard-list"></i> PRODUCT SUMMARY
         </a>
         <a href="sanchari_dashboard.php">
             <i class="fas fa-piggy-bank"></i> SANCHAY SCHEME

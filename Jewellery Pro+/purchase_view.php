@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 session_start();
 require_once 'config/database.php';
 if(file_exists('config/company_config.php')) {
@@ -6,15 +6,17 @@ if(file_exists('config/company_config.php')) {
 } else {
     $COMPANY = [
         'name'          => 'MOTI JEWELLERS',
-        'name_short'    => 'Gouri Jewellers',
-        'address_line1' => 'Sabang',
+        'name_short'    => 'Moti Jewellers',
+        'address_line1' => 'Hamirpur, Balichak Station Road',
         'address_line2' => 'Paschim Medinipur',
+        'address_line3' => 'West Bengal - 721148',
         'state'         => 'West Bengal',
         'state_code'    => '19',
         'mobile'        => '9635985848',
         'email'         => 'motijewellers9635985848@gmail.com',
-        'gstin'         => '',
-        'logo_path'     => 'assets/images/moti-removebg-preview.png',
+        'gstin'         => '19AEPPM9851A1Z4',
+        'pan'           => 'AEPPM9851A',
+        'logo_path'     => 'logo.png',
     ];
 }
 
@@ -181,15 +183,18 @@ table.invoice-table td.money { font-weight: 600; }
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
+        <a href="transfer.php"><i class="fas fa-exchange-alt"></i> TRANSFER</a>
+        <a href="product_summary.php"><i class="fas fa-clipboard-list"></i> PRODUCT SUMMARY</a>
+        <a href="sanchari_dashboard.php"><i class="fas fa-piggy-bank"></i> SANCHAY SCHEME</a>
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
         <a href="reports.php"><i class="fas fa-chart-bar"></i> REPORTS</a>
+        <a href="due_list.php"><i class="fas fa-hourglass-half"></i> DUE LIST</a>
         <a href="income_expenses.php"><i class="fas fa-chart-line"></i> INCOME & EXP</a>
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Tools</div>
         <a href="whatsapp_automation.php"><i class="fab fa-whatsapp"></i> WHATSAPP</a>
         <a href="purchase.php"><i class="fas fa-book"></i> PURCHASE</a>
-        <a href="purchase_history.php" class="active"><i class="fas fa-history"></i> PURCHASE HISTORY</a>
         <a href="contacts.php"><i class="fas fa-address-book"></i> CONTACTS</a>
         <a href="accounts.php"><i class="fas fa-calculator"></i> ACCOUNTS</a>
     </nav>

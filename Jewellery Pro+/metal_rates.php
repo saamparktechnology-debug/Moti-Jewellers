@@ -1,5 +1,5 @@
 <?php
-// MAA GOURI-jewellers/metal_rates.php
+// MOTI JEWELLERS - metal_rates.php
 // Live Indian Metal Rates - Multi-source with fast cURL & robust backup APIs
 
 header('Content-Type: application/json');

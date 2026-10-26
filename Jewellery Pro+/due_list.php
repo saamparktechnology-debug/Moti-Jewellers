@@ -1,6 +1,8 @@
-<?php
+﻿<?php
 session_start();
+
 require_once 'config/database.php';
+
 require_once 'config/company_config.php';
 require_once 'config/mail_config.php';
 
@@ -114,12 +116,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ajax_
         exit();
     }
 
-    $subject = 'Payment Reminder from ' . ($COMPANY['name'] ?? 'Jewellers');
+    $subject = 'Payment Reminder from MOTI JEWELLERS';
     $body    = '<p>Dear ' . htmlspecialchars($customer_name) . ',</p>'
              . '<p>This is a reminder that an amount of <strong>&#8377;' . number_format($balance_amount, 2) . '</strong> is still due.'
              . ($invoice_no ? ' (Invoice: ' . htmlspecialchars($invoice_no) . ')' : '') . '</p>'
              . '<p>Please make the remaining payment at your earliest convenience.</p>'
-             . '<p>Thank you,<br>' . htmlspecialchars($COMPANY['name'] ?? 'Jewellers') . '</p>';
+             . '<p>Thank you,<br>MOTI JEWELLERS</p>';
 
     error_log('[due_list] Reminder attempt -> to: ' . $customer_email . ' | invoice: ' . $invoice_no . ' | balance: ' . $balance_amount);
     $res = sendSMTPMail($customer_email, $subject, $body);
@@ -209,6 +211,7 @@ if (($_GET['action'] ?? '') === 'export_due_history') {
                  FROM invoices i
                  LEFT JOIN customers c ON c.mobile = i.customer_mobile
                  WHERE COALESCE(i.balance_amount, 0) > 0
+                   
                  ORDER BY i.customer_name, i.invoice_no";
     $dueRes = mysqli_query($conn, $dueQuery);
     if ($dueRes) {
@@ -329,9 +332,9 @@ function sendDueStatementEmail($conn, $id, $new_balance, $due_date) {
 
     $due_date_display = ($due_date !== '') ? date('d-m-Y', strtotime($due_date)) : 'Not set';
 
-    $subject = 'Account Statement - Invoice ' . $inv['invoice_no'] . ' | MAA GOURI JEWELLERS';
+    $subject = 'Account Statement - Invoice ' . $inv['invoice_no'] . ' | MOTI JEWELLERS';
     $body = '<p>Dear ' . htmlspecialchars($inv['customer_name']) . ',</p>'
-         . '<p>Thank you for doing business with <strong>MAA GOURI JEWELLERS</strong>. Below is your updated statement of account for Invoice <strong>' . htmlspecialchars($inv['invoice_no']) . '</strong>:</p>'
+         . '<p>Thank you for doing business with <strong>MOTI JEWELLERS</strong>. Below is your updated statement of account for Invoice <strong>' . htmlspecialchars($inv['invoice_no']) . '</strong>:</p>'
          . '<table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px;">'
          . '<tr style="background:#f9fafb;"><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Invoice Total Amount</strong></td><td style="padding:8px;border:1px solid #e5e7eb;">&#8377;' . number_format(floatval($inv['total_amount']), 2) . '</td></tr>'
          . '<tr><td style="padding:8px;border:1px solid #e5e7eb;"><strong>Current Due Balance</strong></td><td style="padding:8px;border:1px solid #e5e7eb;color:#dc2626;font-weight:bold;">&#8377;' . number_format(floatval($new_balance), 2) . '</td></tr>'
@@ -339,8 +342,8 @@ function sendDueStatementEmail($conn, $id, $new_balance, $due_date) {
          . '</table>'
          . '<h4 style="margin:16px 0 6px;color:#374151;">Payment History</h4>'
          . $historyHtml
-         . '<p style="margin-top:16px;">If you have any questions regarding this statement, please contact us at +91-8617536679.</p>'
-         . '<p>Best regards,<br><strong>MAA GOURI JEWELLERS</strong></p>';
+         . '<p style="margin-top:16px;">If you have any questions regarding this statement, please contact us at +91-9635985848.</p>'
+         . '<p>Best regards,<br><strong>MOTI JEWELLERS</strong></p>';
 
     error_log('[due_list] Statement attempt -> to: ' . $email . ' | invoice: ' . $inv['invoice_no'] . ' | new balance: ' . $new_balance);
     $send = sendSMTPMail($email, $subject, $body);
@@ -424,7 +427,7 @@ $q = "SELECT i.id, i.invoice_no, i.customer_name, i.customer_mobile,
       FROM invoices i
       LEFT JOIN invoice_items ii ON ii.invoice_id = i.id
       LEFT JOIN customers c      ON c.mobile = i.customer_mobile
-      WHERE i.balance_amount > 0 $search_where
+      WHERE i.balance_amount > 0  $search_where
       GROUP BY i.id
       ORDER BY i.due_date IS NULL, i.due_date ASC, i.created_at DESC";
 
@@ -434,21 +437,14 @@ if ($res) {
     while ($r = mysqli_fetch_assoc($res)) $rows[] = $r;
 }
 
-$logo_paths = array_unique(array_filter([
-    $COMPANY['logo_path'] ?? null,
-    ...($COMPANY_LOGO_PATHS ?? []),
-    'logo.png',
-    'assets/images/logo.png',
-    'assets/images/radhey_shyam_logo.png',
-    'assets/images/moti-removebg-preview.png'
-]));
+$logo_paths = ['assets/images/moti-removebg-preview.png','images/moti-removebg-preview.png','moti-removebg-preview.png','radhey shyam logo.png'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
-<title>Due List - <?php echo htmlspecialchars($COMPANY['name'] ?? 'Jewellers'); ?></title>
+<title>Due List  MOTI JEWELLERS</title>
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="stylesheet" href="assets/css/theme.css">
@@ -764,14 +760,7 @@ nav.nav-gold { background: linear-gradient(135deg, #011921, #03373b) !important;
             
             
             <div style="width:120px;height:120px;background:transparent;animation:gemGlowPulse 1.5s ease-in-out infinite;">
-                <?php
-$side_logo = '';
-foreach($logo_paths as $lp) { if(file_exists($lp)) { $side_logo = $lp; break; } }
-if($side_logo): ?>
-    <img src="<?php echo htmlspecialchars($side_logo); ?>" alt="<?php echo htmlspecialchars($COMPANY['name'] ?? 'Logo'); ?>" style="width:100%;height:100%;object-fit:contain;display:block;">
-<?php else: ?>
-    <i class="fas fa-gem" style="color:#fff;font-size:30px;flex-shrink:0;"></i>
-<?php endif; ?>
+                <img src="assets/images/moti-removebg-preview.png" alt="MOTI JEWELLERS Logo" style="width:100%;height:100%;object-fit:contain;display:block;">
             </div>
         </div>
 
@@ -874,15 +863,15 @@ function filterDueTable(query) {
         $logo_found = false;
         foreach($logo_paths as $path) {
             if(file_exists($path)) {
-                echo '<img src="'.$path.'" alt="MAA GOURI JEWELLERS Logo" style="height:38px;width:auto;max-width:44px;object-fit:contain;display:inline-block;margin-right:8px;">';
+                echo '<img src="'.$path.'" alt="MOTI JEWELLERS Logo" style="height:38px;width:auto;max-width:44px;object-fit:contain;display:inline-block;margin-right:8px;">';
                 $logo_found = true; break;
             }
         }
         if(!$logo_found) echo '<i class="fas fa-gem" style="color:#fff;font-size:30px;flex-shrink:0;"></i>';
         ?>
         <div class="sidebar-logo-text">
-            <h2><?php echo htmlspecialchars($COMPANY['name'] ?? 'JEWELLERS'); ?></h2>
-            <p>Premium Since 2026</p>
+            <h2>MOTI JEWELLERS</h2>
+            <p>Trusted Tradition</p>
         </div>
     </div>
 
@@ -892,7 +881,8 @@ function filterDueTable(query) {
         <a href="billing.php"><i class="fas fa-receipt"></i> BILLING</a>
         <a href="stock.php"><i class="fas fa-boxes"></i> STOCK</a>
         <a href="customers.php"><i class="fas fa-users"></i> CUSTOMERS</a>
-        
+        <a href="transfer.php"><i class="fas fa-exchange-alt"></i> TRANSFER</a>
+        <a href="sanchari_dashboard.php"><i class="fas fa-piggy-bank"></i> SANCHAY SCHEME</a>
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Analytics</div>
@@ -902,7 +892,9 @@ function filterDueTable(query) {
 
         <div class="sidebar-divider"></div>
         <div class="sidebar-section-label">Tools</div>
+        <a href="product_summary.php"><i class="fas fa-boxes-packing"></i> PRODUCT SUMMARY</a>
         <a href="whatsapp_automation.php"><i class="fab fa-whatsapp"></i> WHATSAPP</a>
+
         <a href="purchase.php"><i class="fas fa-book"></i> PURCHASE</a>
         <a href="contacts.php"><i class="fas fa-address-book"></i> CONTACTS</a>
         <a href="accounts.php"><i class="fas fa-calculator"></i> ACCOUNTS</a>
@@ -1132,7 +1124,7 @@ function filterDueTable(query) {
 </div><!-- /container -->
     <footer style="background:linear-gradient(0deg,#f5e6c8,#fdf6e3);border-top:2px solid #d68b16;padding:20px;margin-top:40px;text-align:center;">
         <p class="text-xs" style="color:#7a4e0a;">
-            &copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars($COMPANY['name'] ?? 'JEWELLERS'); ?> &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
+            &copy; 2026 MOTI JEWELLERS &nbsp;|&nbsp; CRAFTED WITH ELEGANCE &nbsp;|&nbsp;
             Design & Developed by <a href="https://saamparktechnology.com/" target="_blank" style="text-decoration:underline;color:#800020;font-weight:700;">Saampark Technology & Research Private Limited</a>
         </p>
     </footer>
@@ -1165,7 +1157,7 @@ function sendWhatsAppReminder(name, mobile, invoiceNo, due, total) {
         msg += '\n\nThank you for your *complete payment* for Invoice *' + invoiceNo + '*.';
         msg += '\n Total Paid: ₹' + total.toFixed(2);
         msg += '\n Your account is fully cleared.';
-        msg += '\n\nThank you for trusting *' + <?php echo json_encode($COMPANY['name'] ?? 'Jewellers'); ?> + '*! \n ' + <?php echo json_encode($COMPANY['mobile'] ?? ''); ?>;
+        msg += '\n\nThank you for trusting *MOTI JEWELLERS*! \n +91-9635985848';
     } else {
         // Part paid / still due
         var paid = total - due;
@@ -1175,7 +1167,7 @@ function sendWhatsAppReminder(name, mobile, invoiceNo, due, total) {
         msg += '\n Amount Paid: ₹' + paid.toFixed(2);
         msg += '\n *Remaining Due: ₹' + due.toFixed(2) + '*';
         msg += '\n\nKindly clear the pending amount at your earliest convenience.';
-        msg += '\n\nThank you,\n*' + <?php echo json_encode($COMPANY['name'] ?? 'Jewellers'); ?> + '*\n ' + <?php echo json_encode($COMPANY['mobile'] ?? ''); ?>;
+        msg += '\n\nThank you,\n*MOTI JEWELLERS*\n +91-9635985848';
     }
 
     var url = 'https://wa.me/' + cleaned + '?text=' + encodeURIComponent(msg);
