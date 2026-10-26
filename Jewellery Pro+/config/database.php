@@ -602,6 +602,11 @@ $create_otp_logins = "CREATE TABLE IF NOT EXISTS otp_logins (
 )";
 mysqli_query($conn, $create_otp_logins);
 
+$chk_rt = @mysqli_query($conn, "SHOW COLUMNS FROM otp_logins LIKE 'reset_token'");
+if ($chk_rt && mysqli_num_rows($chk_rt) == 0) {
+    @mysqli_query($conn, "ALTER TABLE otp_logins ADD COLUMN reset_token VARCHAR(100) NULL DEFAULT NULL, ADD COLUMN reset_token_expiry DATETIME NULL DEFAULT NULL");
+}
+
 $create_password_resets = "CREATE TABLE IF NOT EXISTS password_resets (
     id INT AUTO_INCREMENT PRIMARY KEY,
     email VARCHAR(100) NOT NULL,

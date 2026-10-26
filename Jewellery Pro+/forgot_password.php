@@ -1,5 +1,21 @@
 <?php
-session_start();
+// Ensure session settings allow robust cookie persistence on domains (HTTPS & HTTP)
+if (session_status() === PHP_SESSION_NONE) {
+    $is_https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || 
+                (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    @ini_set('session.cookie_httponly', 1);
+    @ini_set('session.use_only_cookies', 1);
+    @ini_set('session.gc_maxlifetime', 86400); // 24 hours
+    @session_set_cookie_params([
+        'lifetime' => 86400,
+        'path'     => '/',
+        'secure'   => $is_https,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    session_start();
+}
+
 require_once 'config/database.php';
 require_once 'config/company_config.php';
 
@@ -12,36 +28,53 @@ require 'vendor/phpmailer/phpmailer/src/SMTP.php';
 $error   = '';
 $success = '';
 
-$step = $_SESSION['fp_step'] ?? 'email';
+$step        = $_SESSION['fp_step'] ?? 'email';
+$email       = trim($_POST['email'] ?? $_SESSION['fp_email'] ?? $_GET['email'] ?? '');
+$user_id     = intval($_POST['user_id'] ?? $_SESSION['fp_user_id'] ?? $_GET['user_id'] ?? 0);
+$reset_token = trim($_POST['reset_token'] ?? $_SESSION['fp_reset_token'] ?? $_GET['token'] ?? '');
 
-//  ACTION: Restart/Start Over 
-if (isset($_GET['action']) && $_GET['action'] === 'restart') {
-    unset($_SESSION['fp_step'], $_SESSION['fp_email'], $_SESSION['fp_user_id'],
-          $_SESSION['fp_name'], $_SESSION['fp_otp_verified']);
-    $step = 'email';
+// Auto-check if valid reset token passed in URL or state
+if (!empty($reset_token)) {
+    $token_esc = mysqli_real_escape_string($conn, $reset_token);
+    $tok_res   = mysqli_query($conn, "SELECT email FROM otp_logins WHERE reset_token='$token_esc' AND reset_token_expiry > NOW() LIMIT 1");
+    if ($tok_res && mysqli_num_rows($tok_res) > 0) {
+        $tok_data = mysqli_fetch_assoc($tok_res);
+        $email = $tok_data['email'];
+        $step  = 'reset';
+        $_SESSION['fp_step']         = 'reset';
+        $_SESSION['fp_email']        = $email;
+        $_SESSION['fp_reset_token']  = $reset_token;
+        $_SESSION['fp_otp_verified'] = true;
+    }
 }
 
-//  ACTION: Resend OTP 
-if (isset($_GET['action']) && $_GET['action'] === 'resend') {
-    $email   = $_SESSION['fp_email'] ?? '';
-    $user_id = $_SESSION['fp_user_id'] ?? 0;
+// ── ACTION: Restart/Start Over ──
+if (isset($_GET['action']) && $_GET['action'] === 'restart') {
+    unset($_SESSION['fp_step'], $_SESSION['fp_email'], $_SESSION['fp_user_id'],
+          $_SESSION['fp_name'], $_SESSION['fp_otp_verified'], $_SESSION['fp_reset_token']);
+    $step        = 'email';
+    $email       = '';
+    $user_id     = 0;
+    $reset_token = '';
+}
 
+// ── ACTION: Resend OTP ──
+if (isset($_GET['action']) && $_GET['action'] === 'resend') {
     if (!empty($email)) {
         $name = $_SESSION['fp_name'] ?? 'User';
         if ($user_id > 0) {
             $u_query = mysqli_query($conn, "SELECT name, email FROM users WHERE id = '$user_id'");
             if ($u_query && mysqli_num_rows($u_query) > 0) {
                 $u_data = mysqli_fetch_assoc($u_query);
-                if (!empty($u_data['name']))  $name = $u_data['name'];
+                if (!empty($u_data['name']))  $name  = $u_data['name'];
                 if (!empty($u_data['email'])) $email = $u_data['email'];
             }
         }
 
         $otp        = sprintf("%06d", mt_rand(100000, 999999));
-        $expires_at = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+        $expires_at = date('Y-m-d H:i:s', strtotime('+15 minutes'));
 
         $email_esc = mysqli_real_escape_string($conn, $email);
-        // mysqli_query($conn, "DELETE FROM otp_logins WHERE email = '$email_esc' AND is_used = 0");
         $ins = "INSERT INTO otp_logins (email, otp, expires_at) VALUES ('$email_esc', '$otp', '$expires_at')";
 
         if (mysqli_query($conn, $ins)) {
@@ -58,7 +91,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend') {
                 <p style="color:#374151;">Dear <strong>' . htmlspecialchars($name) . '</strong>,</p>
                 <p style="color:#374151;">Use this OTP to reset your password:</p>
                 <div style="font-size:36px;font-weight:800;letter-spacing:10px;color:#800020;margin:16px 0;">' . $otp . '</div>
-                <p style="color:#6b7280;font-size:13px;">Valid for <strong>10 minutes</strong>. Do not share with anyone.</p>
+                <p style="color:#6b7280;font-size:13px;">Valid for <strong>15 minutes</strong>. Do not share with anyone.</p>
               </div>
               <div style="background:#f9fafb;padding:12px;text-align:center;font-size:11px;color:#9ca3af;">
                 MOTI JEWELLERS &mdash; Contact: +91 8617536679
@@ -88,21 +121,20 @@ if (isset($_GET['action']) && $_GET['action'] === 'resend') {
     }
 }
 
-//  STEP 1: Send OTP 
+// ── STEP 1: Send OTP ──
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
     $search = mysqli_real_escape_string($conn, trim($_POST['email']));
 
     // Match by Email or Mobile Number (case-insensitive)
     $check = mysqli_query($conn, "SELECT id, name, email, mobile FROM users WHERE email = '$search' OR mobile = '$search' OR LOWER(email) = LOWER('$search')");
-    if (mysqli_num_rows($check) > 0) {
+    if ($check && mysqli_num_rows($check) > 0) {
         $user  = mysqli_fetch_assoc($check);
         $email = !empty($user['email']) ? $user['email'] : $search;
 
         $otp        = sprintf("%06d", mt_rand(100000, 999999));
-        $expires_at = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+        $expires_at = date('Y-m-d H:i:s', strtotime('+15 minutes'));
 
         $email_esc = mysqli_real_escape_string($conn, $email);
-        // mysqli_query($conn, "DELETE FROM otp_logins WHERE email = '$email_esc' AND is_used = 0");
         $ins = "INSERT INTO otp_logins (email, otp, expires_at) VALUES ('$email_esc', '$otp', '$expires_at')";
 
         if (mysqli_query($conn, $ins)) {
@@ -119,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
                 <p style="color:#374151;">Dear <strong>' . htmlspecialchars($user['name']) . '</strong>,</p>
                 <p style="color:#374151;">Use this OTP to reset your password:</p>
                 <div style="font-size:36px;font-weight:800;letter-spacing:10px;color:#800020;margin:16px 0;">' . $otp . '</div>
-                <p style="color:#6b7280;font-size:13px;">Valid for <strong>10 minutes</strong>. Do not share with anyone.</p>
+                <p style="color:#6b7280;font-size:13px;">Valid for <strong>15 minutes</strong>. Do not share with anyone.</p>
               </div>
               <div style="background:#f9fafb;padding:12px;text-align:center;font-size:11px;color:#9ca3af;">
                 MOTI JEWELLERS &mdash; Contact: +91 8617536679
@@ -132,6 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
             $_SESSION['fp_email']   = $email;
             $_SESSION['fp_name']    = $user['name'];
             $_SESSION['fp_user_id'] = $user['id'];
+            $user_id = $user['id'];
             $step = 'otp';
 
             if ($mailRes['success']) {
@@ -149,40 +182,82 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['send_otp'])) {
     }
 }
 
-//  STEP 2: Verify OTP 
+// ── STEP 2: Verify OTP ──
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['verify_otp'])) {
-    $otp   = mysqli_real_escape_string($conn, trim($_POST['otp']));
-    $email = $_SESSION['fp_email'] ?? '';
+    $otp     = mysqli_real_escape_string($conn, trim($_POST['otp']));
+    $email   = trim($_POST['email'] ?? $_SESSION['fp_email'] ?? '');
+    $user_id = intval($_POST['user_id'] ?? $_SESSION['fp_user_id'] ?? 0);
+
+    // Smart fallback: if session dropped on live domain, find matching unused OTP record directly
+    if (empty($email)) {
+        $chk_any = mysqli_query($conn, "SELECT email FROM otp_logins WHERE otp='$otp' AND is_used=0 AND expires_at > NOW() ORDER BY id DESC LIMIT 1");
+        if ($chk_any && mysqli_num_rows($chk_any) > 0) {
+            $row_any = mysqli_fetch_assoc($chk_any);
+            $email = $row_any['email'];
+        }
+    }
 
     if (empty($email)) {
-        $error = "Session expired. Please start again.";
+        $error = "Session expired or invalid request. Please start again.";
         $_SESSION['fp_step'] = 'email';
         $step = 'email';
     } else {
         $email_esc = mysqli_real_escape_string($conn, $email);
         $chk = mysqli_query($conn,
-            "SELECT * FROM otp_logins WHERE email='$email_esc' AND otp='$otp' AND is_used=0 AND expires_at > NOW()");
-        if (mysqli_num_rows($chk) > 0) {
+            "SELECT * FROM otp_logins WHERE email='$email_esc' AND otp='$otp' AND is_used=0 AND expires_at > NOW() ORDER BY id DESC LIMIT 1");
+        if ($chk && mysqli_num_rows($chk) > 0) {
             $rec = mysqli_fetch_assoc($chk);
-            mysqli_query($conn, "UPDATE otp_logins SET is_used=1 WHERE id={$rec['id']}");
+
+            // Generate robust cryptographically secure reset token
+            $reset_token  = bin2hex(random_bytes(32));
+            $reset_expiry = date('Y-m-d H:i:s', strtotime('+30 minutes'));
+
+            @mysqli_query($conn, "UPDATE otp_logins SET is_used=1, reset_token='$reset_token', reset_token_expiry='$reset_expiry' WHERE id={$rec['id']}");
+
+            if ($user_id <= 0) {
+                $u_get = mysqli_query($conn, "SELECT id, name FROM users WHERE email='$email_esc' OR mobile='$email_esc' LIMIT 1");
+                if ($u_get && $u_row = mysqli_fetch_assoc($u_get)) {
+                    $user_id = intval($u_row['id']);
+                    $_SESSION['fp_name'] = $u_row['name'];
+                }
+            }
+
             $_SESSION['fp_step']         = 'reset';
             $_SESSION['fp_otp_verified'] = true;
+            $_SESSION['fp_email']        = $email;
+            $_SESSION['fp_user_id']      = $user_id;
+            $_SESSION['fp_reset_token']  = $reset_token;
             $step    = 'reset';
             $success = "OTP verified! Please set your new password.";
         } else {
-            $error = "Invalid or expired OTP. Please try again.";
+            $error = "Invalid or expired OTP. Please check and try again.";
             $step  = 'otp';
         }
     }
 }
 
-//  STEP 3: Reset Password 
+// ── STEP 3: Reset Password ──
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['reset_password'])) {
-    $email   = $_SESSION['fp_email'] ?? '';
-    $user_id = $_SESSION['fp_user_id'] ?? 0;
+    $email       = trim($_POST['email'] ?? $_SESSION['fp_email'] ?? '');
+    $user_id     = intval($_POST['user_id'] ?? $_SESSION['fp_user_id'] ?? 0);
+    $reset_token = trim($_POST['reset_token'] ?? $_SESSION['fp_reset_token'] ?? $_GET['token'] ?? '');
 
-    if (empty($email) || empty($_SESSION['fp_otp_verified'])) {
-        $error = "Session expired. Please start again.";
+    // Authorization check: either verified in session, OR verified reset_token exists in database
+    $is_authorized = false;
+    if (!empty($_SESSION['fp_otp_verified']) && !empty($email)) {
+        $is_authorized = true;
+    } elseif (!empty($reset_token)) {
+        $rt_esc = mysqli_real_escape_string($conn, $reset_token);
+        $chk_token = mysqli_query($conn, "SELECT email FROM otp_logins WHERE reset_token='$rt_esc' AND reset_token_expiry > NOW() LIMIT 1");
+        if ($chk_token && mysqli_num_rows($chk_token) > 0) {
+            $t_row = mysqli_fetch_assoc($chk_token);
+            $email = $t_row['email'];
+            $is_authorized = true;
+        }
+    }
+
+    if (!$is_authorized || empty($email)) {
+        $error = "Session expired or verification timed out. Please enter your email to receive a new OTP.";
         $_SESSION['fp_step'] = 'email';
         $step = 'email';
     } else {
@@ -206,8 +281,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['reset_password'])) {
             }
 
             if ($upd) {
+                // Invalidate reset token in DB
+                if (!empty($reset_token)) {
+                    $rt_esc = mysqli_real_escape_string($conn, $reset_token);
+                    @mysqli_query($conn, "UPDATE otp_logins SET reset_token=NULL WHERE reset_token='$rt_esc'");
+                }
                 unset($_SESSION['fp_step'], $_SESSION['fp_email'], $_SESSION['fp_user_id'],
-                      $_SESSION['fp_name'], $_SESSION['fp_otp_verified']);
+                      $_SESSION['fp_name'], $_SESSION['fp_otp_verified'], $_SESSION['fp_reset_token']);
                 $step    = 'done';
                 $success = "Password reset successful! You can now login with your new password.";
             } else {
@@ -233,7 +313,7 @@ $step = $_SESSION['fp_step'] ?? $step;
     <link rel="stylesheet" href="assets/css/theme.css">
     <style>
         .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #800020 0%, #d68b16 100%);
         }
         .step-dot {
             width: 32px;
@@ -246,7 +326,7 @@ $step = $_SESSION['fp_step'] ?? $step;
             font-weight: 700;
         }
         .step-active {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, #800020, #d68b16);
             color: white;
         }
         .step-done {
@@ -267,21 +347,21 @@ $step = $_SESSION['fp_step'] ?? $step;
 
         <!-- Header -->
         <div class="gradient-bg p-6 text-center">
-    <img src="./assets/images/moti-removebg-preview.png" 
-         class="w-20 h-20 object-contain mx-auto mb-2" alt="">
-    <h2 class="text-2xl font-bold text-white">MOTI JEWELLERS</h2>
-    <p class="text-white opacity-90 text-sm">Forgot Password</p>
-</div>
+            <img src="./assets/images/moti-removebg-preview.png" 
+                 class="w-20 h-20 object-contain mx-auto mb-2" alt="Moti Logo">
+            <h2 class="text-2xl font-bold text-white">MOTI JEWELLERS</h2>
+            <p class="text-white opacity-90 text-sm">Password Recovery</p>
+        </div>
 
         <!-- Step Indicator -->
         <?php if ($step !== 'done'): ?>
         <div class="flex items-center justify-center gap-2 px-6 pt-5 pb-2">
             <div class="step-dot <?php echo in_array($step,['otp','reset']) ? 'step-done' : ($step==='email' ? 'step-active' : 'step-idle'); ?>">
-                <?php echo in_array($step,['otp','reset']) ? '' : '1'; ?>
+                <?php echo in_array($step,['otp','reset']) ? '<i class="fas fa-check text-xs"></i>' : '1'; ?>
             </div>
             <div class="h-0.5 w-10 <?php echo in_array($step,['otp','reset','done']) ? 'bg-green-500' : 'bg-gray-200'; ?>"></div>
             <div class="step-dot <?php echo $step==='reset' ? 'step-done' : ($step==='otp' ? 'step-active' : 'step-idle'); ?>">
-                <?php echo $step==='reset' ? '' : '2'; ?>
+                <?php echo $step==='reset' ? '<i class="fas fa-check text-xs"></i>' : '2'; ?>
             </div>
             <div class="h-0.5 w-10 <?php echo $step==='reset' ? 'bg-green-500' : 'bg-gray-200'; ?>"></div>
             <div class="step-dot <?php echo $step==='reset' ? 'step-active' : 'step-idle'; ?>">3</div>
@@ -309,7 +389,7 @@ $step = $_SESSION['fp_step'] ?? $step;
             <?php if ($step === 'email'): ?>
             <!-- STEP 1 -->
             <h3 class="text-lg font-bold text-gray-800 mb-4">
-                <i class="fas fa-user-shield mr-2 text-purple-500"></i>Enter Email or Mobile Number
+                <i class="fas fa-user-shield mr-2 text-yellow-600"></i>Enter Email or Mobile Number
             </h3>
             <form method="POST">
                 <div class="mb-4">
@@ -317,8 +397,9 @@ $step = $_SESSION['fp_step'] ?? $step;
                     <div class="relative">
                         <i class="fas fa-envelope absolute left-3 top-3 text-gray-400"></i>
                         <input type="text" name="email" required autofocus
-                               class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
-                               placeholder="your@email.com or 10-digit mobile">
+                               class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600 text-sm"
+                               placeholder="your@email.com or 10-digit mobile"
+                               value="<?php echo htmlspecialchars($email); ?>">
                     </div>
                     <p class="text-xs text-gray-400 mt-1">We'll verify your account and send a 6-digit OTP.</p>
                 </div>
@@ -331,22 +412,26 @@ $step = $_SESSION['fp_step'] ?? $step;
             <?php elseif ($step === 'otp'): ?>
             <!-- STEP 2 -->
             <h3 class="text-lg font-bold text-gray-800 mb-1">
-                <i class="fas fa-shield-alt mr-2 text-purple-500"></i>Verify OTP
+                <i class="fas fa-shield-alt mr-2 text-yellow-600"></i>Verify OTP
             </h3>
             <p class="text-xs text-gray-400 mb-4">
-                OTP sent to <strong><?php echo htmlspecialchars($_SESSION['fp_email'] ?? ''); ?></strong>
+                OTP sent to <strong><?php echo htmlspecialchars($email); ?></strong>
             </p>
             <form method="POST">
+                <!-- Fallback Hidden Inputs to prevent session drop on live domain -->
+                <input type="hidden" name="email" value="<?php echo htmlspecialchars($email); ?>">
+                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user_id); ?>">
+
                 <div class="mb-4">
                     <label class="block text-gray-700 mb-1 text-sm font-semibold">Enter 6-digit OTP</label>
                     <div class="relative">
                         <i class="fas fa-key absolute left-3 top-3 text-gray-400"></i>
                         <input type="text" name="otp" required pattern="[0-9]{6}" maxlength="6"
                                autocomplete="off" autofocus inputmode="numeric"
-                               class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-center text-2xl tracking-widest font-bold"
+                               class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600 text-center text-2xl tracking-widest font-bold"
                                placeholder="000000">
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">OTP is valid for 10 minutes.</p>
+                    <p class="text-xs text-gray-400 mt-1">OTP is valid for 15 minutes.</p>
                 </div>
                 <button type="submit" name="verify_otp"
                         class="w-full gradient-bg text-white py-2.5 rounded-lg font-semibold hover:opacity-90 transition text-sm">
@@ -354,10 +439,10 @@ $step = $_SESSION['fp_step'] ?? $step;
                 </button>
             </form>
             <div class="flex justify-between items-center mt-4 text-xs">
-                <a href="forgot_password.php?action=restart" class="text-gray-400 hover:text-purple-600">
+                <a href="forgot_password.php?action=restart" class="text-gray-400 hover:text-yellow-700">
                     <i class="fas fa-arrow-left mr-1"></i>Change Email/Mobile
                 </a>
-                <a href="forgot_password.php?action=resend" class="text-purple-600 font-semibold hover:underline">
+                <a href="forgot_password.php?action=resend&email=<?php echo urlencode($email); ?>&user_id=<?php echo urlencode($user_id); ?>" class="text-yellow-700 font-semibold hover:underline">
                     <i class="fas fa-redo-alt mr-1"></i>Resend OTP
                 </a>
             </div>
@@ -365,18 +450,23 @@ $step = $_SESSION['fp_step'] ?? $step;
             <?php elseif ($step === 'reset'): ?>
             <!-- STEP 3 -->
             <h3 class="text-lg font-bold text-gray-800 mb-1">
-                <i class="fas fa-lock mr-2 text-purple-500"></i>Set New Password
+                <i class="fas fa-lock mr-2 text-yellow-600"></i>Set New Password
             </h3>
             <p class="text-xs text-gray-400 mb-4">
-                For account: <strong><?php echo htmlspecialchars($_SESSION['fp_email'] ?? ''); ?></strong>
+                For account: <strong><?php echo htmlspecialchars($email); ?></strong>
             </p>
             <form method="POST">
+                <!-- Fallback Hidden Inputs to prevent session drop on live domain -->
+                <input type="hidden" name="email" value="<?php echo htmlspecialchars($email); ?>">
+                <input type="hidden" name="user_id" value="<?php echo htmlspecialchars($user_id); ?>">
+                <input type="hidden" name="reset_token" value="<?php echo htmlspecialchars($reset_token); ?>">
+
                 <div class="mb-4">
                     <label class="block text-gray-700 mb-1 text-sm font-semibold">New Password</label>
                     <div class="relative">
                         <i class="fas fa-lock absolute left-3 top-3 text-gray-400"></i>
                         <input type="password" name="new_password" id="newPass" required minlength="6" autofocus
-                               class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                               class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600 text-sm"
                                placeholder="Minimum 6 characters">
                         <span class="toggle-eye absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
                               onclick="togglePass('newPass','eye1')">
@@ -389,7 +479,7 @@ $step = $_SESSION['fp_step'] ?? $step;
                     <div class="relative">
                         <i class="fas fa-lock absolute left-3 top-3 text-gray-400"></i>
                         <input type="password" name="confirm_password" id="confPass" required minlength="6"
-                               class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 text-sm"
+                               class="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-yellow-600 text-sm"
                                placeholder="Re-enter new password">
                         <span class="toggle-eye absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
                               onclick="togglePass('confPass','eye2')">
@@ -423,7 +513,7 @@ $step = $_SESSION['fp_step'] ?? $step;
 
             <?php if ($step !== 'done'): ?>
             <div class="text-center mt-5 pt-4 border-t border-gray-100">
-                <a href="login.php" class="text-gray-400 text-xs hover:text-purple-600">
+                <a href="login.php" class="text-gray-400 text-xs hover:text-yellow-700">
                     <i class="fas fa-arrow-left mr-1"></i>Back to Login
                 </a>
             </div>
@@ -469,8 +559,3 @@ function checkMatch() {
 </script>
 </body>
 </html>
-
-
-
-
-
